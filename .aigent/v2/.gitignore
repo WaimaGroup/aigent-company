@@ -1,0 +1,6 @@
+# El engine no usa secrets aquí — los secrets viven en .context/.secrets.json.
+# Este .gitignore queda como red de seguridad por si alguien crea ficheros locales.
+
+node_modules/
+package-lock.json
+*.local.json

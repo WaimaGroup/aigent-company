@@ -1,0 +1,511 @@
+# Convenciones del repo `.aigent/`
+
+> Documento de referencia rápida. Aplica a cualquier archivo dentro de `.aigent/`.
+
+---
+
+## 1. Estructura de carpetas
+
+```
+.aigent/
+├── README.md · BOSS.md
+├── departments/
+│   ├── _shared/
+│   │   ├── conventions.md · output-rules.md · orchestrator-template.md
+│   │   ├── agents/{shared-prd-agent.md, shared-skill-builder.md}
+│   │   └── skills/skill-scaffold/
+│   └── <department>/
+│       ├── <department>-orchestrator.md
+│       ├── agents/<department>-<role>.md
+│       └── skills/<skill-name>/SKILL.md
+├── v2/
+│   └── engine/                       ← engine genérico (transversal)
+└── IDE/
+    ├── install.sh · install.ps1 · README.md
+    └── .mcp.json · opencode.json
+```
+
+## 2. `_shared/` no es namespace runtime
+
+`_shared/` solo agrupa archivos transversales en el repo. En runtime los agentes viven en un único directorio plano del cliente y se referencian por su nombre con prefijo. **Todo agente lleva en su nombre el grupo al que pertenece.**
+
+```
+✅ Delegar a `shared-prd-agent`
+❌ Delegar a `_shared/prd-agent`  ← `_shared/` es solo carpeta
+❌ Delegar a `prd-agent`          ← falta prefijo de pertenencia
+```
+
+## 3. Idioma
+
+- **Frontmatter (`name`, `description`):** inglés.
+- **Body (rol, principios, proceso, tablas, ejemplos):** español.
+- **Nombres de archivo y carpeta:** inglés, kebab-case.
+
+## 4. Naming
+
+| Elemento | Regla | Ejemplo |
+|---|---|---|
+| Carpeta de departamento | inglés, una palabra cuando posible | `marketing`, `sales`, `legal` |
+| Orquestador | `<dept>-orchestrator.md` | `marketing-orchestrator.md` |
+| Agente especialista | `<dept>-<role>.md` kebab-case | `marketing-social.md` |
+| Agente compartido | `shared-<role>.md` | `shared-prd-agent.md`, `shared-skill-builder.md` |
+| Skill (carpeta y archivo) | kebab-case + `SKILL.md` | `editorial-calendar/SKILL.md` |
+| Frontmatter `name` orq. | `[Department] Orchestrator` | `[Marketing] Orchestrator` |
+| Frontmatter `name` agente | `[Department] <Role>` | `[Marketing] Social Media`, `[Shared] Skill Builder` |
+| Capitalización `[Dept]` | título correcto | `[HR]`, `[DevOps]` (no `[Hr]`, `[Devops]`) |
+
+## 5. Estructura mínima de un agente
+
+Secciones obligatorias en este orden:
+
+```markdown
+---
+name: "[Department] Role"
+description: > ...
+---
+
+## Rol
+## Principios fundamentales
+## Proceso de trabajo
+## Skills disponibles      ← tabla de skills que este agente puede invocar
+## Restricciones
+## Output esperado          ← debe contener: "Aplican las reglas de output de _shared/output-rules.md"
+```
+
+## 6. Estructura mínima de un orquestador
+
+Sigue `_shared/orchestrator-template.md`. Secciones obligatorias: frontmatter, Rol, Paso 0 (proyecto activo), Paso 0.5 (primera vez en proyecto: confirmar `paths` + `mcps`), Ficheros a leer, Gestión de tareas, Agentes disponibles, Proceso de delegación (simple/compuesto/ambiguo), Tabla de decisión rápida, Comportamiento en tareas compuestas, **Manejo de skills v2 — readiness** (precheck proactivo con `doctor` antes de `run` + red de seguridad reactiva tras `CONFIG_ERROR`/`SECRETS_ERROR` → delegar en `shared-skill-builder configure` → reintentar; secrets nunca por chat), Cuándo NO delegar, Restricciones, Reglas de output (referencia a `_shared/output-rules.md` + carpetas del dept), Principio de cierre.
+
+## 7. Estructura mínima de una skill v1
+
+```markdown
+---
+name: "skill-name"
+description: > ...
+---
+
+# Skill: <Nombre>
+**Entregable:** ...
+
+## Cuándo usar esta skill
+## Información a recopilar
+## Plantilla de entregable
+## Proceso
+```
+
+**La skill no declara qué agentes la usan.** El agente conoce sus skills, no al revés. La asociación vive en la sección `## Skills disponibles` del agente.
+
+> Para skills v2 (ejecutables por engine), ver §12.
+
+## 8. MCPs
+
+- Lista canónica de recomendados por dept: `.aigent/README.md` (sección MCPs).
+- Inventario vigente del proyecto: `.context/<proyecto>/config.json` → `mcps`.
+- Lo rellena el orquestador del dept en su Paso 0.5 (primera vez en el proyecto).
+- **No se mencionan MCPs en system prompts de agentes.** Buena `description` en el IDE = uso correcto.
+- `.aigent/IDE/.mcp.json` y `opencode.json` son plantillas técnicas, no recomendaciones.
+
+## 9. Departamentos implementados vs TODO
+
+- **Implementado:** orquestador con system prompt completo y al menos un agente con system prompt completo.
+- **TODO:** orquestador y agentes con frontmatter, pero body que indica explícitamente que no están implementados y no deben delegar/ejecutar.
+
+Nunca dejar un orquestador o agente con `description` afirmando capacidad y body vacío.
+
+## 10. Configuración — dos ficheros, dos niveles
+
+La configuración se divide en dos ficheros con scope distinto. BOSS siempre carga ambos al arrancar (el proyecto sobreescribe o amplía el global).
+
+### `.context/config.json` — global (empresa + entorno)
+
+```json
+{
+  "company": { "name": "", "industry": "", "tone": "", "audience": "", "value_proposition": "" },
+  "active_project": "",
+  "mcps": [],
+  "tools": {},
+  "decisions": [
+    { "date": "YYYY-MM-DD", "area": "<dept|global>", "decision": "", "reason": "" }
+  ]
+}
+```
+
+Contiene lo que es estable y compartido entre todos los proyectos: identidad de empresa, MCPs y herramientas disponibles globalmente, el puntero al proyecto activo, y decisiones operativas que aplican a **todos los proyectos** (ej. idioma de publicación, restricciones de marca, herramientas obligatorias).
+
+### `.context/<proyecto>/config.json` — por proyecto
+
+```json
+{
+  "description": "",
+  "tone_override": "",
+  "mcps": [],
+  "tools": {},
+  "paths": { "<dept>": { "<carpeta>": "ruta-relativa/" } },
+  "decisions": [
+    { "date": "YYYY-MM-DD", "area": "<dept|global>", "decision": "", "reason": "" }
+  ]
+}
+```
+
+Contiene lo específico del proyecto: paths de output por dept, MCPs/tools adicionales, y las decisiones operativas tomadas durante el proyecto.
+
+### Quién escribe qué
+
+| Campo | Fichero | Quién | Cuándo |
+|---|---|---|---|
+| `company.*` | global | usuario (vía BOSS) | bootstrap o cuando lo pida |
+| `active_project` | global | BOSS | al confirmar proyecto activo |
+| `mcps` (global) | global | BOSS / orquestador | cuando se confirma un MCP transversal |
+| `tools` (global) | global | BOSS / usuario | bootstrap o ad hoc |
+| `decisions[]` (global) | global | BOSS o cualquier orquestador | decisión que aplica a todos los proyectos |
+| `description` | proyecto | BOSS | al crear el proyecto |
+| `paths.<dept>` | proyecto | orquestador del dept | Paso 0.5, primera vez en el proyecto |
+| `mcps` (proyecto) | proyecto | orquestador del dept | Paso 0.5 |
+| `tools` (proyecto) | proyecto | orquestador del dept | Paso 0.5 o ad hoc |
+| `decisions[]` (proyecto) | proyecto | cualquier orquestador o BOSS | decisión operativa de este proyecto |
+
+### Reglas
+
+- **Decisión final = del usuario.** Los orquestadores proponen defaults; el usuario aprueba o modifica.
+- **Config = expectativa, no garantía.** El IDE manda en runtime.
+- **Divergencia disco vs `paths`:** el orquestador avisa al detectar inconsistencia y propone actualizar el config o ajustar el disco. Nunca silenciar.
+- **No duplicar el config.** Si una decisión vive aquí, no se repite en system prompts.
+- **Dos niveles de decisions operativas:** las que aplican a todos los proyectos van en el `decisions[]` del config global; las específicas de un proyecto van en el `decisions[]` del config de ese proyecto. BOSS fusiona ambas al delegar a un orquestador.
+- **Decisiones arquitectónicas no van al config.** Si una decisión cambia cómo funciona el sistema (naming, estructura de agentes, idioma de system prompts…), va a `_shared/conventions.md` — no a `decisions[]`. El campo `decisions[]` es exclusivamente para decisiones operativas.
+
+## 11. La referencia son las plantillas, no los departamentos
+
+Ningún departamento implementado es la "referencia de oro" del repo, por completo o pionero que sea. La referencia para construir un nuevo agente, orquestador o skill son los archivos de `_shared/`:
+
+- `_shared/conventions.md` (este archivo) — naming, frontmatter, estructura mínima, `config.json`, contrato de skills v1 y v2.
+- `_shared/orchestrator-template.md` — plantilla canónica del orquestador.
+- `_shared/output-rules.md` — regla universal de outputs.
+
+Si una decisión nueva cambia cómo se construye algo, va aquí o en la plantilla — no se infiere mirando al primer dept que pasó por ahí. Conflictos entre un dept implementado y estos archivos: ganan los archivos.
+
+---
+
+## 12. Skills ejecutables (runtime: engine-v2)
+
+Existen dos clases de skills en el repo. Ambas viven en la misma jerarquía y comparten el formato `SKILL.md`, pero el contrato es distinto.
+
+| Clase | Marca | Quién la lee | Qué hace |
+|---|---|---|---|
+| **v1 — prosa** | (sin `runtime`) | El LLM | Instrucciones que el agente sigue para producir un entregable |
+| **v2 — ejecutable** | `runtime: engine-v2` | El engine + el LLM | Frontmatter declarativo + bloques anotados que el engine ejecuta de forma determinista |
+
+### 12.1 Cuándo elegir una u otra
+
+- **v1** cuando el valor está en el razonamiento: redactar, decidir tono, priorizar, estructurar entregables (posts, briefs, planes…). El output es contenido humano.
+- **v2** cuando la operación es determinista: leer/escribir contra una API, consultar un sistema, devolver datos estructurados. El output es JSON.
+- Si ya existe un MCP fiable para la herramienta → **MCP, no v2**. v2 cubre lo que no tiene MCP, o casos donde se quiere ejecución también vía CLI.
+- Si la skill v1 cubre el caso sin coste excesivo de tokens → no migrar por migrar.
+
+### 12.2 Una sola fuente de verdad
+
+`SKILL.md` es la fuente. Si el frontmatter (manifiesto) y la prosa se contradicen, **gana el frontmatter** — es lo que el engine ejecuta. La prosa describe lo declarado, no añade comportamiento.
+
+### 12.3 Frontmatter — contrato declarativo v2
+
+```yaml
+---
+name: "skill-name"                          # kebab-case, único en el repo
+version: "0.1.0"                            # semver
+description: >                              # una frase, qué hace la skill
+  ...
+runtime: engine-v2                          # marca: skill ejecutable v2
+
+config:                                     # qué necesita de .context/config.json
+  base_url:
+    type: string
+    required: true
+    path: tools.<skill>.base_url            # ruta en config.json (notación de puntos)
+    description: "..."
+
+secrets:                                    # qué env vars necesita
+  - name: SKILL_API_KEY
+    required: true
+    description: "..."
+
+actions:
+  <action-name>:
+    description: "..."
+    impl: { type: http, ref: "<action-name>" }
+    inputs:
+      <input-name>:
+        type: string | integer | number | boolean | array
+        required: true | false
+        default: <valor>                    # opcional
+        enum: [...]                         # opcional
+        description: "..."
+    output:
+      type: json | text
+      description: "forma esperada del output"
+---
+```
+
+**Reglas:**
+- `runtime: engine-v2` es obligatorio para que el engine cargue la skill.
+- `config.<key>.path` apunta a la ruta dentro de `.context/config.json` con prefijo `tools.<skill>.<...>` (§10).
+- `secrets[].name` es el nombre del env var. Nunca poner valores aquí.
+- `actions.<name>.impl.ref` debe coincidir con el atributo `name=` de un bloque de código en el body.
+- Inputs con `required: true` y sin `default` hacen fallar la ejecución si no se aportan.
+
+### 12.4 Body — prosa + bloques ejecutables
+
+**Parte 1 — prosa para el LLM** (corta, ~10-30 líneas): cuándo usar, cuándo no, qué hace cada acción en una línea.
+
+**Parte 2 — un bloque ejecutable por acción.** El atributo `name=` debe coincidir con `actions.<name>.impl.ref`.
+
+#### Bloque HTTP
+
+````
+```http name="list-issues"
+GET {{config.base_url}}/issues.json?project_id={{inputs.project_id?}}&limit={{inputs.limit}}
+X-API-Key: {{secrets.API_KEY}}
+Accept: application/json
+```
+````
+
+Primera línea: `<METODO> <URL>`. Líneas siguientes: headers. Línea en blanco separa headers del body.
+
+#### Bloque HTTP con body JSON
+
+````
+```http name="create-issue"
+POST {{config.base_url}}/issues.json
+X-API-Key: {{secrets.API_KEY}}
+Content-Type: application/json
+
+{
+  "issue": {
+    "project_id": "{{inputs.project_id}}",
+    "subject": "{{inputs.subject}}",
+    "description": "{{inputs.description?}}"
+  }
+}
+```
+````
+
+#### Bloque bash 🚧 pendiente
+
+Declarado en el contrato pero aún no implementado en el engine. Cuando una skill entrante lo pida, se añadirá el runner en `engine/bash.js`. Inputs como `INPUT_<NAME>`, secrets como `SECRET_<NAME>`, config como `CONFIG_<KEY>`.
+
+### 12.5 Templating
+
+Tres scopes: `config`, `inputs`, `secrets`.
+
+| Patrón | Significado |
+|---|---|
+| `{{config.<key>}}` | valor de config (resuelto vía `path` del frontmatter) |
+| `{{inputs.<name>}}` | valor del input. Si tiene `default`, se aplica antes |
+| `{{inputs.<name>?}}` | input opcional. Si no se aporta, el parámetro entero se omite |
+| `{{secrets.<NAME>}}` | valor de env var (o `.context/.secrets.json` como fallback) |
+
+**Reglas de omisión:**
+- Sin `?`: si el input está vacío, se sustituye por string vacío.
+- Con `?` en query string: el parámetro completo desaparece (no genera `&key=`).
+- Con `?` en body JSON: la línea se elimina del objeto y se limpian las comas trailing.
+
+### 12.6 Convención de tipos en body JSON
+
+El render hace **substitución textual**: lo que escribas alrededor del token determina el tipo en el JSON final.
+
+| Input declarado como | Cómo escribirlo en el body | Resultado |
+|---|---|---|
+| `string` | `"key": "{{inputs.x}}"` | `"key": "valor"` |
+| `integer` / `number` / `boolean` | `"key": {{inputs.x}}` (sin comillas) | `"key": 42` |
+| Cualquier tipo, opcional | misma sintaxis con `?` — la línea se elimina si ausente | `"key"` no aparece |
+
+### 12.7 Output del engine — contrato fijo
+
+Toda ejecución devuelve **JSON a stdout**:
+
+```json
+{ "ok": true, "data": { ... }, "meta": { "status": 200, "duration_ms": 142 } }
+```
+
+En error:
+
+```json
+{ "ok": false, "error": { "code": "HTTP_404", "message": "...", "details": {} }, "meta": {} }
+```
+
+- Exit code `0` solo si `ok: true`.
+- Errores también van a stderr en texto humano.
+- Sin prompts interactivos. Sin TTY.
+- El engine **nunca** escribe valores de `secrets.*` en stdout/stderr.
+
+Códigos de error: `BAD_ARGS`, `BAD_CMD`, `SKILL_NOT_FOUND`, `ACTION_NOT_FOUND`, `PARSE_ERROR`, `INVALID_INPUTS`, `CONFIG_ERROR`, `SECRETS_ERROR`, `INVALID_BODY_JSON`, `HTTP_<status>`, `TIMEOUT`, `NETWORK_ERROR`, `UNSUPPORTED_IMPL`, `VALIDATION_FAILED`, `INTERNAL`.
+
+**Errores de readiness enriquecidos.** `CONFIG_ERROR` y `SECRETS_ERROR` (devueltos por `run`) traen `details` estructurado para que el agente caller no tenga que parsear el `message`:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "CONFIG_ERROR",
+    "message": "...",
+    "details": {
+      "skill": "redmine",
+      "missing_config": [{ "key": "base_url", "path": "tools.redmine.base_url", "type": "string", "description": "..." }],
+      "missing_secrets": [{ "name": "REDMINE_API_KEY", "description": "..." }],
+      "secrets_file": "/path/to/.context/.secrets.json",
+      "next": ["...comandos exactos a ejecutar..."],
+      "rule": "Los secretos NUNCA se aceptan por chat. Solo se le indica al usuario donde ponerlos."
+    }
+  }
+}
+```
+
+El agente lee `details.next` y sigue los comandos en orden. Para los secretos pendientes, el agente **nunca** pide el valor por chat — sólo indica al usuario qué fichero/env var rellenar.
+
+### 12.8 CLI del engine
+
+```
+node .aigent/v2/engine/engine.js list
+  → lista skills cargables (todos los departments con runtime: engine-v2)
+
+node .aigent/v2/engine/engine.js describe <skill>
+  → manifiesto en JSON (acciones, inputs, outputs), sin prosa
+
+node .aigent/v2/engine/engine.js validate <skill>
+  → parsea, valida y reporta errores SIN ejecutar nada (uso: CI, skill-builder)
+
+node .aigent/v2/engine/engine.js doctor [<skill>]
+  → reporta estado de configuración: qué config + secrets faltan por rellenar
+  → sin <skill> = reporta todas las skills v2
+
+node .aigent/v2/engine/engine.js configure <skill> --set <path>=<valor> [--scope global|project]
+  → escribe valores en .context/config.json (global) o .context/<active_project>/config.json
+  → valida que <path> está declarado en manifest.config y aplica el type del manifest
+  → admite múltiples --set en la misma llamada (atómico: todos o ninguno)
+
+node .aigent/v2/engine/engine.js prepare-secrets <skill>
+  → garantiza que .context/.secrets.json existe (lo crea como {} si falta)
+  → garantiza que .context/.gitignore existe con .secrets.json dentro
+  → añade placeholders para secrets declarados que no estén set
+  → devuelve la lista de secrets pendientes; el usuario los rellena a mano
+  → NUNCA acepta valores de secret por CLI (los secrets no pasan por la conversación)
+
+node .aigent/v2/engine/engine.js dry-run <skill> <action> [--inputs '{...}']
+  → renderiza la request HTTP sin llamarla. Devuelve { method, url, headers, body }
+  → secrets cargados se enmascaran como ***SECRET:NAME***
+  → secrets/config no configurados aparecen como ***SECRET:NAME:UNSET***
+
+node .aigent/v2/engine/engine.js run <skill> <action> [--inputs '{...}']
+  → ejecuta la acción y devuelve { ok, data, meta }
+```
+
+Discovery barato: el LLM puede llamar a `describe` para saber qué acciones existen sin leer el `SKILL.md` entero.
+
+**Onboarding automático:** la forma recomendada de configurar una skill recién creada es delegar en `shared-skill-builder` modo `configure`. El agente llama a `doctor` → pregunta al usuario los valores de config faltantes → ejecuta `configure --set ...` → ejecuta `prepare-secrets` → instruye al usuario sobre qué rellenar en el fichero de secrets. Si un orquestador recibe `CONFIG_ERROR` o `SECRETS_ERROR` al ejecutar `run`, debe delegar en este modo y reintentar.
+
+**Precheck proactivo (regla de oro):** un agente o orquestador que va a invocar `run` por primera vez en una sesión sobre una skill v2 **debe** ejecutar antes `doctor <skill>`. Si `data.skills[0].ready === false`, **no llamar a `run`**: iniciar el flujo de configuración (delegando en `shared-skill-builder configure` o ejecutando `configure` + `prepare-secrets` directamente) y reintentar el `run` solo cuando `ready: true`. Llamar a `run` "a ciegas" y esperar al error es una regresión: aunque desde 0.2 del engine los errores `CONFIG_ERROR` / `SECRETS_ERROR` traen `details.missing_config`, `details.missing_secrets` y `details.next` con los comandos exactos, el coste del round-trip y la confusión del usuario lo hace siempre peor que el precheck.
+
+**Secrets nunca por chat (regla de seguridad):** los valores de los secretos (API keys, tokens, contraseñas) **NUNCA** se piden al usuario en la conversación. El flujo correcto siempre es:
+- Llamar a `prepare-secrets <skill>` para garantizar que `.context/.secrets.json` existe con placeholders.
+- Decir al usuario, en lenguaje natural, qué secretos rellenar y dónde: *"Abre `.context/.secrets.json` y reemplaza el placeholder `<replace_me_FOO>`. Cómo obtenerlo: <descripción/link>. Alternativa: define la variable de entorno `FOO`."*
+- Esperar la confirmación del usuario antes de reintentar.
+
+Si el usuario intenta dictar un secreto por chat, rechazarlo: *"Por seguridad, los secretos no pasan por la conversación — déjalos en `.context/.secrets.json` o como variable de entorno."* Esta regla aplica a todo el repo: orquestadores, especialistas, `shared-skill-builder`, e incluso al engine (que no acepta valores de secretos por CLI).
+
+### 12.9 Config y secretos
+
+**Config** vive en `.context/config.json` bajo `tools.<skill>.<...>` (§10). Dos niveles, mergeados al ejecutar: global + proyecto activo.
+
+**Secretos** viven en `.context/.secrets.json` (mismo directorio que el config, pero gitignored vía `.context/.gitignore` — ese fichero excluye `.secrets.json` específicamente, el resto de `.context/` se commitea normal). Dos niveles de precedencia:
+1. Variable de entorno (preferido en producción y CI).
+2. `.context/.secrets.json` (gitignored, desarrollo local).
+3. Si `required: true` y no aparece → el engine falla con error claro.
+
+El engine crea automáticamente `.context/`, `.context/.gitignore` y `.context/.secrets.json` si no existen cuando se llama a `prepare-secrets`. No hay que hacer setup manual.
+
+### 12.10 Discovery por los IDEs y stubs
+
+Cuando `install.sh` / `install.ps1` detecta `runtime: engine-v2` en una skill, en vez de copiar la fuente al IDE genera un **stub ligero** (~1.3 KB vs ~6.7 KB de la fuente):
+
+```
+.aigent/departments/<dept>/skills/<skill>/SKILL.md   (fuente)
+↓ install.sh
+.claude/skills/<dept>-<skill>/SKILL.md               (stub regenerable)
+.opencode/skills/<dept>-<skill>/SKILL.md             (idem)
+```
+
+El stub contiene `description` copiada y el comando exacto para que el LLM consulte el contrato real vía `engine.js describe`. Reducción típica de contexto en el IDE: ~80%.
+
+**Multi-IDE:** la fuente es única. Cada IDE recibe su stub vía el adaptador correspondiente en `install.sh`. Añadir un IDE nuevo (VS Code, Cursor, etc.) = añadir un destino en el installer, no tocar las skills.
+
+**Regenerar stubs:** correr `install.sh --sync` cuando cambie la fuente. El comentario `<!-- AUTOGENERATED -->` evita que alguien edite el stub a mano.
+
+### 12.11 Crear skills nuevas
+
+La forma recomendada de crear (o auditar) skills es delegar en el agente transversal **`shared-skill-builder`** (en `_shared/agents/`). Recoge requisitos, decide v1 o v2, lee la skill **`skill-scaffold`** (que tiene secciones para ambos modos), genera el SKILL.md y valida el resultado contra el engine antes de cerrar.
+
+Los modos del agente: `create-v1`, `create-v2`, `audit` (revisar skill existente), `add-action` (añadir acción a skill v2 existente).
+
+---
+
+## 13. Skills complejas
+
+Las skills v2 pueden ir más allá de "un manifest + un bloque HTTP". Patrones soportados (✓) y planificados (🚧).
+
+### 13.1 Multi-acción ✓
+
+Una skill = N acciones lógicas en el mismo `SKILL.md`. Redmine es la referencia: 9 acciones (`list-issues`, `get-issue`, `create-issue`, `update-issue`, `add-note`, `list-projects`, `log-time`, `list-activities`, `list-time-entries`). Cada acción tiene su propio bloque ` ```http name="..." ` y su entrada en `actions.<name>` del frontmatter.
+
+**Regla de oro:** una acción = una llamada lógica. Si una operación necesita orquestar 3 llamadas en orden, son 3 acciones + un agente que las componga (no una mega-acción).
+
+### 13.2 Ficheros auxiliares dentro de la carpeta de la skill 🚧
+
+Hoy: solo `<skill>/SKILL.md`. Roadmap: permitir `<skill>/scripts/*.sh`, `<skill>/templates/*.json` que los bloques referencian con `@scripts/foo.sh`. Útil para bash blocks largos o templates JSON que no caben cómodos en el SKILL.md.
+
+### 13.3 Pipelines (acciones compuestas) 🚧
+
+Roadmap: `impl.type: pipeline` que encadena pasos definidos en un bloque YAML, donde el output del paso N alimenta al N+1. Mantiene "una acción = una llamada lógica" pero permite la lógica determinista que hoy obliga a pasar por el agente.
+
+### 13.4 Paginación automática 🚧
+
+Roadmap: flag `paginate: { kind: offset|cursor, page_size: 100, max_pages: 5 }` en una acción HTTP, que recorre y concatena resultados. Hoy: paginar es cosa del agente.
+
+### 13.5 Selectores de output 🚧
+
+Roadmap: `output.select: "$.issues[*].{id, subject, status}"` para que el engine recorte el JSON de respuesta antes de devolverlo. Reduce ruido cuando el agente solo necesita parte del payload.
+
+> **Importante para skills entrantes:** lo marcado 🚧 no está en el engine todavía. Si una skill nueva lo necesita, se añade primero la capacidad al engine y se documenta aquí. No declarar features inexistentes en el frontmatter.
+
+---
+
+## 14. Subset YAML soportado en el frontmatter v2
+
+El engine v2 incluye un parser YAML propio (`engine/yaml.js`, sin dependencias). Cubre solo el subset que necesitan los manifiestos:
+
+| Construcción | Soportado | Ejemplo |
+|---|---|---|
+| Mappings con indentación | ✓ | `config:\n  base_url:\n    type: string` |
+| Scalars: string, integer, float, boolean, null | ✓ | `default: 25`, `required: true` |
+| Strings con/sin comillas | ✓ | `name: redmine` o `name: "redmine"` |
+| Arrays con `- item` | ✓ | `secrets:\n  - name: ...` |
+| Arrays de mappings | ✓ | `- name: X\n    required: true` |
+| Folded scalar `>` | ✓ | `description: >\n  texto multilínea` |
+| Literal scalar `\|` | ✓ | (preserva saltos de línea) |
+| Flow mapping `{ k: v }` | ✓ | `impl: { type: http, ref: "..." }` |
+| Flow array `[a, b]` | ✓ | `enum: [open, closed, "*"]` |
+| Comentarios `#` | ✓ | tanto líneas enteras como al final |
+| Anchors/aliases `&` `*` | ✗ | usar repetición explícita |
+| Tags `!!str` | ✗ | el tipo se infiere del literal |
+| Múltiples documentos `---` | ✗ | solo un documento por frontmatter |
+
+Si un SKILL.md necesita una construcción no soportada, ampliar `engine/yaml.js` antes que añadir una dependencia externa.
+
+---
+
+## 15. Riesgos y normas para skills v2
+
+- **Drift entre prosa y manifiesto.** El frontmatter manda. La prosa describe lo declarado, no añade comportamiento. Para detectarlo: `engine.js validate <skill>` en CI o `shared-skill-builder` en modo audit.
+- **Acciones hinchadas.** Una acción = una llamada lógica. Si una operación necesita orquestar N llamadas en orden, son N acciones + un agente que las componga, no una mega-acción.
+- **Secretos en logs.** El engine nunca escribe valores de `secrets.*` en stdout/stderr. No incluirlos tampoco en `description` o ejemplos.
+- **Inputs sin schema.** Cada input declara `type` y `required`. Sin esto, el engine rechaza la skill al cargarla.
+- **MCP existente.** Si ya existe un MCP fiable para la herramienta, preferir el MCP. v2 cubre lo que no tiene MCP, o casos donde se quiere ejecución también vía CLI.
+- **Stubs editados a mano.** El comentario `<!-- AUTOGENERATED -->` advierte; cualquier edición se pierde al re-ejecutar `install.sh`. Editar la fuente, no el stub.
+- **Features 🚧 no implementadas.** No declarar pipelines, paginación o bash blocks en una skill si el engine aún no los soporta. Se rechaza al validar.

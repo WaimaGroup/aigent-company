@@ -1,0 +1,17 @@
+{
+  "mcp": {
+    "servers": {
+      "brave-search": {
+        "type": "local",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env": {
+          "BRAVE_API_KEY": "your-brave-api-key-here"
+        }
+      }
+    }
+  },
+  "model": {
+    "default": "claude-sonnet-4-6"
+  }
+}
