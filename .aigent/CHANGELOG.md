@@ -5,6 +5,35 @@ Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
 
+## 1.6.3 — 2026-05-11
+
+### Fix `--dept all` / `-Dept all` en los instaladores
+
+El flag CLI para instalar todos los departamentos no funcionaba: pasaba el literal `"all"` como nombre de departamento, e `install_dept` buscaba `departments/all/`, no encontraba nada e imprimía silenciosamente `📁 all` con `0 archivo(s)` sin instalar nada. El modo interactivo (botón "Todos") sí funcionaba porque ya expandía internamente a la lista real.
+
+**Cambios concretos:**
+
+- `.aigent/IDE/install.sh` (línea 693): tras resolver `$DEPT`, si vale `"all"` se expande a la lista real de departamentos vía `list_departments` antes de iterar. Los otros casos (single, csv, interactivo) siguen split por coma/espacio como antes.
+- `.aigent/IDE/install.ps1` (línea 759): mismo fix en PowerShell usando `Get-Departments`.
+
+Verificado: los 4 caminos funcionan — `--dept all` (expande), `--dept marketing` (single), `--dept marketing,sales` (csv) y modo interactivo (que nunca pasa "all" literal, sólo nombres reales).
+
+Bump PATCH.
+
+## 1.6.2 — 2026-05-11
+
+### Migración GitLab → GitHub
+
+El repositorio se ha movido de GitLab (`gitlab.com/cloudappi/i-y-d/aigent-company`) a GitHub (`github.com/WaimaGroup/aigent-company`). Se actualizan las referencias textuales en el README de la raíz y en los instaladores; no cambia el comportamiento del motor ni el contrato de skills.
+
+**Cambios concretos:**
+
+- `README.md` (raíz): sección "Repositorio" ahora apunta a GitHub.
+- `.aigent/IDE/install.sh`: mensajes de `--update` y error de fetch ahora dicen GitHub (líneas 112, 131, 571, 591).
+- `.aigent/IDE/install.ps1`: mismas correcciones para PowerShell (líneas 417, 444, 672, 691).
+
+Cambio puramente textual sin tocar contrato de engine/skills. Bump PATCH.
+
 ## 1.6.1 — 2026-05-11
 
 ### Skill `linkedin-audit` — copy plain-text listo para pegar en LinkedIn
