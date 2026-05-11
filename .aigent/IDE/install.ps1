@@ -414,7 +414,7 @@ function Install-Boss($ideName) {
   }
 }
 
-# ── Actualización desde GitLab ────────────────────────────────────────────────
+# ── Actualización desde GitHub ────────────────────────────────────────────────
 function Invoke-Update {
   Write-Host ""
   Write-Host "  ⟳  Comprobando actualizaciones..." -ForegroundColor White
@@ -441,7 +441,7 @@ function Invoke-Update {
   git -C $RepoRoot fetch --quiet 2>$null
   if ($LASTEXITCODE -ne 0) {
     Log-Error "No se pudo conectar con el repositorio remoto."
-    Log-Info  "Verifica tu clave SSH y que tienes acceso al repo en GitLab."
+    Log-Info  "Verifica tu clave SSH y que tienes acceso al repo en GitHub."
     exit 1
   }
 
@@ -669,7 +669,7 @@ function Print-Usage {
   Write-Host "    -Sync        Solo skills (regenera stubs v2 + copia v1). Omite agentes,"
   Write-Host "                 MCP templates y BOSS bootstrap. Útil tras editar un SKILL.md"
   Write-Host "                 sin reinstalar todo el sistema."
-  Write-Host "    -Update      Descarga cambios del repo GitLab (git pull) y luego instala."
+  Write-Host "    -Update      Descarga cambios del repo GitHub (git pull) y luego instala."
   Write-Host "                 Muestra versión y changelog antes de aplicar."
   Write-Host ""
   Write-Host "  Flags:" -ForegroundColor White
@@ -688,7 +688,7 @@ function Print-Usage {
   Write-Host "    .\install.ps1 -Sync -Ide claude -Dept all                  # refresca todos los stubs"
   Write-Host "    .\install.ps1 -Sync -Ide all -Dept operations              # refresca solo redmine"
   Write-Host "    .\install.ps1 -Sync -Dept marketing -DryRun                # ver qué tocaría"
-  Write-Host "    .\install.ps1 -Update                                      # actualizar desde GitLab + reinstalar"
+  Write-Host "    .\install.ps1 -Update                                      # actualizar desde GitHub + reinstalar"
   Write-Host "    .\install.ps1 -Update -Sync -Ide claude -Dept all          # actualizar y sync rápido"
   Write-Host ""
   Write-Host "  Modo interactivo:" -ForegroundColor White
@@ -756,7 +756,17 @@ if ($Mode -eq "global") {
   $ocAgents     = $OcProjectAgents;     $ocSkills     = $OcProjectSkills;     $ocConfig     = $OcProjectConfig
 }
 
-$selectedDepts = @($Dept -split '[,\s]+' | Where-Object { $_ })
+# Expandir "all" → lista real de departamentos disponibles.
+# Sin esto, -Dept all dejaba $selectedDepts = @("all") e Install-Dept buscaba un dept inexistente.
+if ($Dept -eq "all") {
+  $selectedDepts = @(Get-Departments)
+  if ($selectedDepts.Count -eq 0) {
+    Log-Error "No se encontraron departamentos en $DepartmentsDir"
+    exit 1
+  }
+} else {
+  $selectedDepts = @($Dept -split '[,\s]+' | Where-Object { $_ })
+}
 
 # Instalar agentes y skills (en -Sync, Install-Dept salta agentes internamente)
 if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-ForIde "Claude Code" $claudeAgents $claudeSkills $selectedDepts }

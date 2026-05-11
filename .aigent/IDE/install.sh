@@ -109,7 +109,7 @@ print_usage() {
   echo "    --sync        Solo skills (regenera stubs v2 + copia v1). Omite agentes,"
   echo "                  MCP templates y BOSS bootstrap. Útil tras editar un SKILL.md"
   echo "                  sin reinstalar todo el sistema."
-  echo "    --update      Descarga cambios del repo GitLab (git pull) y luego instala."
+  echo "    --update      Descarga cambios del repo GitHub (git pull) y luego instala."
   echo "                  Muestra versión y changelog antes de aplicar."
   echo ""
   echo -e "  ${BOLD}Flags:${NC}"
@@ -128,7 +128,7 @@ print_usage() {
   echo "    ./install.sh --sync --ide claude --dept all               # refresca todos los stubs"
   echo "    ./install.sh --sync --ide all --dept operations           # refresca solo redmine"
   echo "    ./install.sh --sync --dept marketing --dry-run            # ver qué tocaría"
-  echo "    ./install.sh --update                                     # actualizar desde GitLab + reinstalar"
+  echo "    ./install.sh --update                                     # actualizar desde GitHub + reinstalar"
   echo "    ./install.sh --update --sync --ide claude --dept all      # actualizar y sync rápido"
   echo ""
   echo -e "  ${BOLD}Modo interactivo:${NC}"
@@ -568,7 +568,7 @@ ask_interactive() {
   fi
 }
 
-# ── Actualización desde GitLab ────────────────────────────────────────────────
+# ── Actualización desde GitHub ────────────────────────────────────────────────
 run_update() {
   echo ""; echo -e "  ${BOLD}⟳  Comprobando actualizaciones...${NC}"; divider
 
@@ -588,7 +588,7 @@ run_update() {
   log_info "Conectando con el repositorio remoto..."
   if ! git -C "$REPO_ROOT" fetch --quiet 2>/dev/null; then
     log_error "No se pudo conectar con el repositorio remoto."
-    log_info  "Verifica tu clave SSH y que tienes acceso al repo en GitLab."
+    log_info  "Verifica tu clave SSH y que tienes acceso al repo en GitHub."
     exit 1
   fi
 
@@ -690,7 +690,18 @@ else
   OC_SKILLS="$OPENCODE_PROJECT_SKILLS"
 fi
 
-IFS=', ' read -r -a SELECTED_DEPTS <<< "$DEPT"
+# Expandir "all" → lista real de departamentos disponibles.
+# Sin esto, --dept all dejaba SELECTED_DEPTS=("all") y install_dept buscaba un dept inexistente.
+if [ "$DEPT" == "all" ]; then
+  SELECTED_DEPTS=()
+  while IFS= read -r d; do SELECTED_DEPTS+=("$d"); done < <(list_departments)
+  if [ ${#SELECTED_DEPTS[@]} -eq 0 ]; then
+    log_error "No se encontraron departamentos en $DEPARTMENTS_DIR"
+    exit 1
+  fi
+else
+  IFS=', ' read -r -a SELECTED_DEPTS <<< "$DEPT"
+fi
 
 # 1. Agentes + skills (en --sync solo skills)
 if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_for_ide "Claude Code" "$CLAUDE_AGENTS" "$CLAUDE_SKILLS" "${SELECTED_DEPTS[@]}"; fi

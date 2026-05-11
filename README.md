@@ -45,4 +45,4 @@ Detalle del bootstrap, routing y reglas de oro en [`.aigent/BOSS.md`](./.aigent/
 
 ## Repositorio
 
-GitLab: `https://gitlab.com/cloudappi/i-y-d/aigent-company`
+GitHub: `https://github.com/WaimaGroup/aigent-company`
