@@ -2,7 +2,7 @@
 
 > Fuente de verdad del proyecto. Actualizar cuando se tome una decisión relevante.
 
-Sistema de **departamentos de trabajo basados en agentes IA** para automatizar cada área de la empresa con Claude (y otros LLMs vía MCP). Plataforma principal: Claude Code / Cowork. Secundaria: OpenCode. Racional del stack en `../.docs/decision-stack.docx`.
+Sistema de **departamentos de trabajo basados en agentes IA** para automatizar cada área de la empresa con Claude (y otros LLMs vía MCP). Plataforma principal: Claude Code / Cowork. Secundaria: OpenCode.
 
 ---
 
