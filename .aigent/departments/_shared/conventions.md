@@ -97,6 +97,59 @@ description: > ...
 
 > Para skills v2 (ejecutables por engine), ver §12.
 
+## 7.1 Skills compartidas en `_shared/skills/`
+
+Una skill puede vivir en dos sitios: en un dept (`.aigent/departments/<dept>/skills/<name>/`) o en `_shared/skills/<name>/`. La segunda ubicación está reservada para skills que **varios agentes de departments distintos consumen con la misma estructura de entregable**.
+
+### Cuándo vive en `_shared/skills/`
+
+Todos los criterios deben cumplirse:
+
+1. **≥2 departments la usan o la usarán razonablemente.** Si solo un dept la necesita, vive en ese dept.
+2. **El entregable es genuinamente idéntico.** No solo el nombre coincide: la plantilla, la información a recopilar y el proceso son los mismos. Si cada dept la quiere de forma distinta, son dos skills distintas.
+3. **No hay matices fuertes por dept** que justifiquen una plantilla propia. La skill compartida puede tener placeholders genéricos que el agente caller adapta al contexto, pero la estructura del entregable no cambia.
+
+**Si en algún momento una skill compartida empieza a recibir "variantes por dept"**, es señal de que debe duplicarse y vivir en cada dept con su matiz. **No se fuerza** lo compartido; se mantiene compartido solo mientras siga siendo el mismo entregable.
+
+### Naming
+
+- **Sin prefijo.** Las skills compartidas siguen el mismo naming que cualquier skill: kebab-case directo (ej. `competitive-analysis`, `case-study`, `kpi-dashboard`). No llevan `common-` ni `shared-` — la carpeta `_shared/skills/` ya identifica la ubicación, el nombre identifica el entregable. Coherente con `skill-scaffold` y `agent-scaffold` que tampoco llevan prefijo.
+- La regla §7 sigue aplicando: la skill no declara qué agentes la usan.
+
+### Coexistencia con las meta-skills
+
+`_shared/skills/` aloja dos tipos de skills, conviviendo en la misma carpeta sin subcarpetas:
+
+- **Meta-skills**: `skill-scaffold`, `agent-scaffold` — para construir el sistema.
+- **Business-skills compartidas**: `competitive-analysis`, `case-study`, `kpi-dashboard`, etc. — para producir entregables de cliente.
+
+Ambas categorías siguen las mismas convenciones (frontmatter, body, idioma). Se distinguen por el dominio del entregable, no por la ubicación.
+
+### Cómo las invocan los agentes
+
+Igual que cualquier otra skill. El agente lista la skill compartida en su sección `## Skills disponibles` por su nombre canónico:
+
+```markdown
+| Skill | Cuándo usarla |
+|---|---|
+| `competitive-analysis` | Matriz comparativa estructurada de competidores |
+| `case-study` | Caso de éxito con problema → solución → resultados medibles |
+```
+
+No se referencia la ubicación física en la tabla del agente; el repo sabe dónde encontrarla.
+
+### Distribución (installer)
+
+`install.sh` y `install.ps1` propagan **siempre** `_shared/` a cualquier IDE configurado, independientemente de qué departments el usuario haya seleccionado. Esto significa que toda skill compartida está disponible en cualquier instalación.
+
+**No hay que tocar el installer cada vez que se añade una skill compartida** — basta con dejarla en `_shared/skills/<name>/SKILL.md` y la propagación es automática (regenerable con `bash .aigent/IDE/install.sh --sync`).
+
+### Cuándo NO usar `_shared/skills/`
+
+- Si la skill solo la consume un agente: vive en el dept de ese agente.
+- Si el entregable es altamente específico del dominio (ej. `landing-page` cambia mucho entre marketing y product → vive en cada dept).
+- Si la skill depende de tooling o terminología muy particular de un dept (ej. `prospecting-list` es de Sales; no se generaliza).
+
 ## 8. MCPs
 
 - Lista canónica de recomendados por dept: `.aigent/README.md` (sección MCPs).

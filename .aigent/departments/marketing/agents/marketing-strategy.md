@@ -110,6 +110,9 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 |---|---|
 | `marketing-plan` | Construir un plan de marketing anual o trimestral con objetivos, canales, presupuesto y calendario |
 | `campaign-brief` | Crear el briefing completo de una campaña a partir de un objetivo o idea |
+| `competitive-analysis` | Matriz comparativa estructurada de competidores, whitespace, threat assessment. Compartida — vive en `_shared/skills/` |
+| `stakeholder-map` | Mapa de stakeholders para lanzamientos y campañas con múltiples decisores. Compartida — vive en `_shared/skills/` |
+| `okr-set` | OKRs de marketing por ciclo (campaña, trimestre, año) con Os + KRs cuantitativos. Compartida — vive en `_shared/skills/` |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

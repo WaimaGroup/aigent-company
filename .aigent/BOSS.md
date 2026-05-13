@@ -97,7 +97,13 @@ Detalle: `_shared/output-rules.md` + `_shared/conventions.md` §10.
 |---|---|---|
 | Marketing | ✅ | contenido, copy, SEO, redes, web, campañas |
 | Sales | ✅ | prospección, outreach, propuestas, pitch decks, playbooks, pipeline, CRM |
-| HR, Legal, Finance, Product, Design, Software, Operations, DevOps | 🚧 TODO | no delegar todavía — registra y avisa |
+| Software | ✅ | arquitectura, ADRs, implementación, code review, QA y testing |
+| HR | ✅ | recruitment, onboarding, evaluación, políticas internas y handbook |
+| Product | ✅ | discovery, estrategia y roadmap, OKRs y métricas |
+| Finance | ✅ | budgeting, reporting (con AR/AP/invoicing), treasury |
+| Legal | ✅ | contratos, políticas externas (T&C/ToS/AUP), privacidad, riesgo y compliance |
+| Design | ✅ | UI y handoff, UX research (usability), design system, accesibilidad WCAG |
+| Operations, DevOps | 🚧 TODO | no delegar todavía — registra y avisa |
 
 **Transversales:**
 - `shared-prd-agent` — PRDs para cualquier dept. Activo. PRD se guarda en `.context/<proyecto>/<dept>/prd.md`.

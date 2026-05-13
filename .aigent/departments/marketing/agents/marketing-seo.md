@@ -128,6 +128,7 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 |---|---|
 | `keyword-research` | Investigación de palabras clave: identificar, clasificar y priorizar términos de búsqueda |
 | `seo-on-page` | Optimización SEO on-page de contenido existente o nuevo (titles, estructura, meta tags, internal links) |
+| `kpi-dashboard` | Dashboard estructurado de KPIs SEO (tráfico orgánico, posiciones, CTR, conversiones) con tendencia y variance. Compartida — vive en `_shared/skills/` |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

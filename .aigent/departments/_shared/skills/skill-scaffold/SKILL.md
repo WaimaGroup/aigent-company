@@ -42,12 +42,36 @@ Una sola pregunta al usuario si no está claro:
 | Campo | Descripción |
 |---|---|
 | `name` | Kebab-case, único en el repo. Ej: `blog-post`, `slack`, `github-issues`. |
-| `dept` | Departamento. Ej: `marketing` (v1 típico), `operations` (v2 transversal típico), `_shared`. |
+| `location` | Dónde vive la skill. Ver "Decidir ubicación" más abajo. Tres opciones: `<dept>` (vive en un departamento), `_shared` (compartida entre depts; ver `conventions.md` §7.1) u `operations` típico para v2 transversal. |
 | `description` | Una frase. Va al frontmatter. |
 | `cuando-usar` | 2-4 viñetas de cuándo aplicar la skill. |
 | `cuando-no-usar` | 1-2 viñetas de casos fuera de alcance. |
 
-Una vez decidido el modo, saltar a la sección correspondiente de abajo.
+Una vez decidido el modo y la ubicación, saltar a la sección correspondiente de abajo.
+
+## Decidir ubicación: dept o `_shared/`
+
+Antes de escribir, evaluar si la skill es candidata a **compartida** (vive en `_shared/skills/`) o **de departamento** (vive en `<dept>/skills/`). La regla canónica está en `conventions.md` §7.1.
+
+**Vive en `_shared/skills/` si todos los criterios se cumplen:**
+
+1. **≥2 departments la usan o la usarán razonablemente.** Si solo uno la consume, va al dept de ese agente.
+2. **El entregable es genuinamente idéntico.** No solo el nombre coincide: la plantilla, la información a recopilar y el proceso son los mismos.
+3. **No hay matices fuertes por dept** que justifiquen una plantilla propia. Los placeholders genéricos los adapta el agente caller al contexto, pero la estructura del entregable no cambia.
+
+**Vive en un dept si:**
+
+- Solo un agente la consume.
+- El entregable cambia significativamente según contexto (ej. `landing-page` no es lo mismo en marketing que en sales).
+- Tiene tooling, vocabulario o normativa muy específicos de un dominio.
+
+**Cuando dudes**, preguntar al usuario con criterios explícitos:
+
+> *"Esta skill `<name>` ¿la consumirán agentes de varios departments con la misma estructura, o es específica de `<dept>`? Si es lo primero, vive en `_shared/skills/`. Si dudamos pero veo solapamiento, propongo `_shared/`; siempre podemos moverla si emerge drift."*
+
+**Anti-drift:** una skill compartida que empieza a recibir variantes por dept es señal de que debe duplicarse y vivir en cada dept con su matiz. No forzar lo compartido.
+
+**Naming**: la skill compartida sigue las mismas reglas que cualquier otra — kebab-case sin prefijo. La carpeta `_shared/skills/` identifica la ubicación; el nombre identifica el entregable.
 
 ---
 
@@ -364,19 +388,24 @@ Accept: application/json
 ## Proceso (común a ambos modos)
 
 1. **Recopilar** los campos comunes (sección "Información común"). Si dudas entre v1 y v2, preguntar.
-2. **Decidir el modo** según los criterios de arriba.
-3. **Recopilar** los campos adicionales del modo elegido.
-4. **Crear la carpeta** `.aigent/departments/<dept>/skills/<name>/` (si no existe).
-5. **Escribir** `<name>/SKILL.md` con la plantilla del modo elegido, sustituyendo todos los `<...>`.
-6. **Verificar:**
+2. **Decidir ubicación** según la sección "Decidir ubicación" — dept específico o `_shared/`. Si hay duda y existe solapamiento real entre depts, proponer `_shared/`.
+3. **Decidir el modo** según los criterios de arriba (v1 vs v2).
+4. **Recopilar** los campos adicionales del modo elegido.
+5. **Crear la carpeta** según ubicación:
+   - Si la skill es de departamento: `.aigent/departments/<dept>/skills/<name>/`
+   - Si la skill es compartida: `.aigent/departments/_shared/skills/<name>/`
+6. **Escribir** `<name>/SKILL.md` con la plantilla del modo elegido, sustituyendo todos los `<...>`.
+7. **Verificar:**
    - v1 → checklist estructural.
    - v2 → bucle `engine.js validate` + `dry-run`.
-7. **Reportar** al usuario:
-   - Ruta del archivo creado.
+8. **Si es compartida**, identificar los agentes consumidores conocidos y avisar al usuario para que la añada a su sección `## Skills disponibles`. La skill no se documenta a sí misma con la lista de consumidores (regla §7); el agente conoce a la skill, no al revés.
+9. **Reportar** al usuario:
+   - Ruta del archivo creado (con la indicación clara de si vive en un dept o en `_shared/`).
    - (v2) Acciones disponibles.
    - (v2) Resultado de `engine.js validate`.
-   - Comando de propagación al IDE: `bash .aigent/IDE/install.sh --sync --ide all --dept <dept>`.
+   - Comando de propagación al IDE: `bash .aigent/IDE/install.sh --sync --ide all --dept <dept>` (si es compartida, basta con `--ide all` porque `_shared/` se propaga siempre).
    - (v2) Próximo paso: configurar `.context/config.json` y env var del secret.
+   - (compartida) Lista de agentes consumidores que conviene actualizar para que la listen en `## Skills disponibles`.
 
 ## Restricciones
 
@@ -385,4 +414,5 @@ Accept: application/json
 - Nunca poner valores de secrets en el SKILL.md, ni en `description`, ni en ejemplos. Sólo el `name` del env var.
 - Nunca escribir fuera de `.aigent/departments/<dept>/skills/<name>/`. La fuente de verdad vive ahí; la distribución a IDEs (claude, opencode, vscode, …) es problema de `install.sh`.
 - Nunca declarar qué agentes usan la skill dentro del SKILL.md. El agente conoce sus skills, no al revés.
+- **No forzar el camino compartido.** Si los criterios de `conventions.md` §7.1 no se cumplen claramente, la skill vive en el dept correspondiente. Mejor empezar específico y promover a compartido si emerge reuso real, que arrancar compartido y descubrir drift entre depts.
 - Aplican las reglas de output de `_shared/output-rules.md` con la siguiente excepción: el entregable de esta skill (el SKILL.md generado) sí vive dentro de `.aigent/`, porque el motor es lo que se está construyendo.
