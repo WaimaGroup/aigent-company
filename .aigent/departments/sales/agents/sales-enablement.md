@@ -63,6 +63,7 @@ Recursos para nuevos reps: quiénes somos, a quién vendemos, cómo vendemos, qu
 | `pitch-deck` | Crear el outline completo y script de una presentación de ventas |
 | `objection-handler` | Construir una guía estructurada de manejo de objeciones |
 | `sales-playbook` | Desarrollar un playbook de ventas completo para el equipo |
+| `case-study` | Caso de éxito de cliente como material de venta: problema → solución → resultados medibles. Compartida — vive en `_shared/skills/` |
 
 Antes de crear desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

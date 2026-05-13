@@ -40,19 +40,27 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
 ### Modo create-v1
 
 1. Confirmar que el caso es realmente v1 (no determinista). Si dudas: *"¿Esta skill va a hacer llamadas HTTP a una API, o es para que un agente redacte/decida algo?"*
-2. Recopilar campos en una sola tanda (ver `skill-scaffold/SKILL.md` → "Información común a recopilar" + "Modo v1 — Información adicional").
-3. Crear `.aigent/departments/<dept>/skills/<name>/` y escribir `SKILL.md` siguiendo la **plantilla v1** de `skill-scaffold`.
-4. Verificar checklist estructural:
+2. **Decidir ubicación: dept o `_shared/`.** Aplicar los criterios de `conventions.md` §7.1: la skill vive en `_shared/skills/` solo si ≥2 departments la consumirán con la **misma estructura de entregable** y sin matices fuertes por dept. En caso de duda con solapamiento real, proponer `_shared/` al usuario explícitamente y dejar que decida. **Por defecto, vive en el dept** — promovemos a compartida solo cuando el reuso es evidente.
+3. Recopilar campos en una sola tanda (ver `skill-scaffold/SKILL.md` → "Información común a recopilar" + "Modo v1 — Información adicional").
+4. Crear la carpeta según la ubicación decidida y escribir `SKILL.md` siguiendo la **plantilla v1** de `skill-scaffold`:
+   - Si vive en un dept: `.aigent/departments/<dept>/skills/<name>/SKILL.md`
+   - Si es compartida: `.aigent/departments/_shared/skills/<name>/SKILL.md`
+5. Verificar checklist estructural:
    - Frontmatter parseable, `name` y `description` presentes, **sin `runtime: engine-v2`**.
    - Body contiene secciones obligatorias: `# Skill: ...`, `**Entregable:** ...`, `## Cuándo usar esta skill`, `## Información a recopilar`, `## Plantilla de entregable`, `## Proceso`.
    - `name` del frontmatter = nombre de carpeta.
    - Frontmatter en inglés, body en español.
-5. Reportar al usuario: ruta del archivo, comando `bash .aigent/IDE/install.sh --sync --ide all --dept <dept>`.
+6. **Si es compartida**, identificar los agentes consumidores conocidos y avisar al usuario para que los actualice (la skill no documenta su lista de consumidores; los agentes la listan en su `## Skills disponibles` — regla §7).
+7. Reportar al usuario: ruta del archivo (indicando claramente si es de dept o compartida), comando `bash .aigent/IDE/install.sh --sync --ide all --dept <dept>` (si es compartida, `--sync --ide all` basta porque `_shared/` se propaga siempre), y lista de agentes consumidores a actualizar si aplica.
 
 ### Modo create-v2
 
 1. Confirmar que es v2 (HTTP determinista). Si dudas: ver pregunta de v1.
-2. **Recopilar datos de la API** (no se puede saltar este paso):
+2. **Decidir ubicación: dept o `_shared/`.** Las skills v2 ejecutables suelen ser más transversales que las v1 (un MCP/API a menudo es útil en varios depts: GitHub para Software y Operations, Slack para todos los depts, etc.). Aplicar los criterios de `conventions.md` §7.1 explícitamente:
+   - Vive en `_shared/skills/` si ≥2 departments necesitan las mismas acciones contra el mismo API.
+   - Vive en un dept si las acciones son específicas del dominio (ej. una API de pricing engine vive en sales/, no en _shared/).
+   - Operations es a menudo el "hogar natural" de skills v2 transversales orientadas a infraestructura/gestión (Redmine, Linear, Jira, GitHub Issues genéricos); `_shared/` cuando las consumen ≥2 depts con la misma estructura de inputs/outputs.
+3. **Recopilar datos de la API** (no se puede saltar este paso):
    - URL base, esquema de auth (Bearer / API-Key / Basic), nombre del env var del token.
    - Para cada acción: nombre, método+path, inputs (con type, required, default, enum), si tiene body JSON, forma del output.
    - Si el usuario tiene la documentación de la API a mano, leerla. Si no, preguntar lo mínimo y dejar TODOs explícitos en el SKILL.md.
@@ -154,6 +162,7 @@ Vive en `.aigent/departments/_shared/skills/skill-scaffold/`. Su SKILL.md es la 
 - **Nunca** cerrar una skill v2 sin pasar `engine.js validate` con `ok: true`.
 - Si una operación no encaja en v1 ni en v2 (necesita bash, pipeline, paginación) → registrar como TODO en `tasks.md` del dept y avisar al usuario que primero hay que extender el engine.
 - **Decisión arquitectónica final del usuario.** Si propones convenciones nuevas (un patrón de naming, una estructura de carpeta), confírmalas con el usuario y déjalas reflejadas en `_shared/conventions.md` antes de aplicarlas.
+- **No forzar el camino compartido.** Si los criterios de `conventions.md` §7.1 no se cumplen claramente, la skill vive en el dept correspondiente. Mejor empezar específico y promover a compartido si emerge reuso real, que arrancar compartido y descubrir drift entre depts. Si una skill compartida empieza a recibir variantes por dept, proponer al usuario duplicarla y dejarla específica en cada dept.
 
 ## Output esperado
 

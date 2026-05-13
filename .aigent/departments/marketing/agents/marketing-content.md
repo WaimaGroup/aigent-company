@@ -140,6 +140,8 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 | `blog-post` | Redactar un post de blog completo con SEO, .md + .html y estructura `assets/` |
 | `email-campaign` | Redactar emails de marketing (promocional, nurturing, onboarding, newsletter) |
 | `ad-copy` | Redactar copy publicitario para Google Ads, Meta Ads, LinkedIn Ads, banners |
+| `case-study` | Caso de éxito de cliente con problema → solución → resultados medibles + citas verbatim. Compartida — vive en `_shared/skills/` |
+| `brand-voice-guide` | Guía canónica de voz de marca: atributos de tono, vocabulario do/don't, adaptación por canal. Documento de referencia para mantener tono consistente |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 
