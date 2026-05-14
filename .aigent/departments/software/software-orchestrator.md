@@ -116,7 +116,7 @@ Para decisiones de arquitectura puntuales (no PRD completo), proponer un **ADR**
 
 Conoces en profundidad las capacidades de cada agente de tu equipo:
 
-### `software-architecture` — Architecture & Technical Design
+### `software-architecture` — Architecture, Technical Design & Documentation
 
 **Cuándo delegarle:**
 - Diseño de sistemas y servicios (alto nivel, no implementación)
@@ -124,20 +124,27 @@ Conoces en profundidad las capacidades de cada agente de tu equipo:
 - Modelado de dominio, definición de bounded contexts
 - ADRs (Architecture Decision Records) y trade-offs documentados
 - Discusión de no-funcionales: performance, escalabilidad, seguridad, observabilidad
+- Review y scoring de un spec ya redactado (PRD, ADR, tech-spec, api-spec) antes de implementación
+- **Documentación técnica del proyecto:** README, dev guide, guía de docs inline, migration guides, deploy checklists
 
-**Señales en la petición:** "arquitectura", "diseño", "ADR", "trade-off", "decisión técnica", "qué stack", "cómo estructurar", "modelo de datos", "microservicios vs monolito", "patrón", "diagrama"
+**Señales en la petición:** "arquitectura", "diseño", "ADR", "trade-off", "decisión técnica", "qué stack", "cómo estructurar", "modelo de datos", "microservicios vs monolito", "patrón", "diagrama", "revisa este PRD/ADR/spec", "scoring del spec", "spec review", "está bien este PRD", "README", "documenta el proyecto/módulo", "guía de desarrollo", "dev guide", "guía de migración", "migration guide", "guía de docs", "estilo de docstrings", "deploy checklist", "checklist de release"
 
 ---
 
 ### `software-coding` — Implementation
 
 **Cuándo delegarle:**
-- Implementación de features, fixes o migraciones a partir de specs (PRD, ADR, ticket)
-- Refactor de código existente con objetivo claro
+- Implementación de features con workflow estructurado (pre-flight + ejecución + post-flight)
+- Bugfixes siguiendo reproduce → diagnose → fix → regression test
+- Refactors planificados (scope IN/OUT, safety nets, rollback)
+- Dependency bumps con assessment + plan de migración
 - Scripts utilitarios, automatizaciones, parches
-- Migraciones de versión (de un framework, de una librería, de runtime)
+- Mensaje de commit a partir del diff (Conventional Commits o convención del repo)
+- Descripción de PR / MR cruzando spec + diff + commits
+- Entrada de changelog (`## [X.Y.Z]` Keep a Changelog) a partir de los PRs merged del release
+- Deploy checklist del release (skill compartida — la coordinación operativa pertenecerá a devops cuando se active)
 
-**Señales en la petición:** "implementa", "escribe el código", "haz un script", "fix el bug en", "refactoriza", "migra a", "código para"
+**Señales en la petición:** "implementa", "escribe el código", "haz un script", "fix el bug en", "refactoriza", "migra a", "código para", "feature-implementation", "bugfix", "subir dependencia", "dep bump", "actualiza la versión de", "mensaje de commit", "commit message", "descripción del PR", "PR description", "changelog", "release notes técnicas", "deploy checklist", "preparar release"
 
 > El agente `software-coding` es agnóstico de stack: adapta lenguaje, estilo idiomático y patrones al stack del proyecto activo (lo lee de las `decisions` y del repo). Cuando exista un ADR o PRD que indique decisiones técnicas, las respeta.
 
@@ -226,8 +233,13 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 | Petición contiene... | Agente principal |
 |---|---|
 | "arquitectura", "diseño", "ADR", "trade-off", "stack", "patrón", "modelo de datos", "diagrama" | `software-architecture` |
+| "revisa este PRD/ADR/spec", "scoring del spec", "spec review", "está bien este PRD" | `software-architecture` (skill `spec-review`) |
+| "README", "documenta el proyecto/módulo", "guía de desarrollo", "dev guide", "migration guide", "estilo de docstrings", "code docs" | `software-architecture` (skills `readme` / `dev-guide` / `migration-guide` / `code-docs-style`) |
+| "deploy checklist", "preparar release", "checklist de release" | `software-architecture` o `software-coding` (skill compartida `deploy-checklist`, según contexto) |
 | "implementa", "escribe el código", "script", "fix el bug", "refactoriza", "migra a", "haz" + verbo de implementación | `software-coding` |
-| "review", "revisa", "audita", "qué huele mal", "code smell", "está bien hecho" | `software-code-review` |
+| "subir dependencia", "dep bump", "actualiza la versión de", "bump de" | `software-coding` (skill `dependency-bump`) |
+| "mensaje de commit", "commit message", "descripción de PR", "PR description", "changelog" | `software-coding` (skills `commit-message` / `pr-description` / `changelog-entry`) |
+| "review", "revisa este código/PR", "audita el código", "qué huele mal", "code smell", "está bien hecho el código" | `software-code-review` |
 | "tests", "test plan", "casos de test", "cobertura", "criterios de aceptación", "estrategia de QA" | `software-qa` |
 | Combinación de los anteriores | Coordinar múltiples agentes |
 

@@ -34,7 +34,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 |---|---|---|---|---|
 | Marketing | ✅ implementado | completo | 5 / 5 | 13 (v1 prosa) |
 | Sales | ✅ implementado | completo | 4 / 4 | 11 (v1 prosa) |
-| Software | ✅ implementado | completo | 4 / 4 | 7 (v1 prosa) |
+| Software | ✅ implementado | completo | 4 / 4 | 19 (v1 prosa) |
 | HR | ✅ implementado | completo | 4 / 4 | 7 (v1 prosa) |
 | Product | ✅ implementado | completo | 3 / 3 | 6 (v1 prosa) |
 | Finance | ✅ implementado | completo | 3 / 3 | 7 (v1 prosa) |
@@ -42,7 +42,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | Design | ✅ implementado | completo | 4 / 4 | 6 (v1 prosa) |
 | Operations | 🚧 parcial | stub honesto | 0 / 4 implementados | 1 (`redmine` v2 ejecutable) |
 | DevOps | 🚧 TODO | stub honesto | 0 / 4 stub | 0 |
-| _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`skill-scaffold`, `agent-scaffold`) + 7 business compartidas (v1 prosa) |
+| _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`skill-scaffold`, `agent-scaffold`) + 8 business compartidas (v1 prosa) |
 
 **Stub honesto:** orquestador y agentes existen pero su body indica explícitamente que no deben delegar ni ejecutar. Evita que un cliente seleccione un agente vacío. Cuando el dept se active, se sustituye usando `_shared/orchestrator-template.md` y la skill `agent-scaffold`.
 
@@ -81,6 +81,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | `risk-matrix` | Matriz de riesgos por dimensión con probabilidad × impacto y mitigación | `legal-risk`, `software-architecture`, `finance-budgeting`, `product-strategy-roadmap` |
 | `okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo | `product-metrics`, `hr-evaluation`, `marketing-strategy` |
 | `journey-map` | Journey map con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | `design-ux-research`, `product-discovery` |
+| `deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia (instant/canary/blue-green/progressive) | `software-architecture`, `software-coding` (devops cuando se active) |
 
 > **Criterios para `_shared/skills/`:** ver `conventions.md` §7.1. Resumen: ≥2 depts la usan + entregable genuinamente idéntico + sin matices fuertes por dept. Si una compartida empieza a divergir entre depts, se duplica en los depts (no se fuerza lo compartido).
 
@@ -159,12 +160,12 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 | Agente | Cuándo delegarle | Skills propias |
 |---|---|---|
-| `software-architecture` | Diseño de sistemas, ADRs, evaluación de stacks, modelado de dominio, runbooks operacionales, API specs, tech specs intermedias entre PRD e implementación | `adr`, `runbook`, `api-spec`, `tech-spec` + `risk-matrix` (shared) |
-| `software-coding` | Implementación de features/fixes/migraciones a partir de specs (PRD/ADR/ticket), refactor, scripts utilitarios | (sin skills propias; trabaja sobre el repo del proyecto) |
+| `software-architecture` | Diseño de sistemas, ADRs, evaluación de stacks, modelado de dominio, runbooks operacionales, API specs, tech specs, spec-review, **documentación técnica del proyecto** (README, dev guide, code docs style, migration guides) | `adr`, `runbook`, `api-spec`, `tech-spec`, `spec-review`, `readme`, `code-docs-style`, `dev-guide`, `migration-guide` + `risk-matrix`, `deploy-checklist` (shared) |
+| `software-coding` | Implementación con workflows estructurados (feature/bugfix/refactor/dependency-bump), scripts utilitarios, mensajes de commit, descripciones de PR, entradas de changelog | `feature-implementation`, `bugfix-workflow`, `refactor-plan`, `dependency-bump`, `commit-message`, `pr-description`, `changelog-entry` + `deploy-checklist` (shared) |
 | `software-code-review` | Review estructurado de PRs/diffs con severidades (🔴/🟠/🟡/🔵), 8 ejes, security básico (OWASP) | `code-review-checklist` |
 | `software-qa` | Estrategia de testing, planes por nivel (unit/integration/e2e/perf/security), casos, criterios de aceptación, bug reports estructurados | `test-plan`, `bug-report` |
 
-**Skills (7, todas v1 prosa):**
+**Skills (19, todas v1 prosa — más 1 compartida `deploy-checklist`):**
 
 | Skill | Entregable |
 |---|---|
@@ -175,6 +176,18 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | `api-spec` | Especificación de API con endpoints, schemas, errores, pagination, versioning, deprecation |
 | `tech-spec` | Spec técnica intermedia entre PRD/ADR e implementación: data model, API changes, edge cases, performance, security, rollout |
 | `bug-report` | Bug report estructurado con reproducción, expected vs actual, severidad, scope, entorno, regresión, evidencia |
+| `spec-review` | Review y scoring (0-30 por rubric de 6 dimensiones) de un spec existente (PRD/ADR/tech-spec/api-spec) con hallazgos por severidad y veredicto |
+| `commit-message` | Mensaje de commit (Conventional Commits por defecto) a partir del diff: subject + body + footer con refs y breaking changes |
+| `pr-description` | Descripción de PR/MR cruzando spec asociado + diff + commits: problema, cambio, testing, impacto, checklist |
+| `changelog-entry` | Entrada `## [X.Y.Z] — YYYY-MM-DD` Keep a Changelog a partir de los PRs merged del release, agrupada por categoría con BREAKING marcados |
+| `feature-implementation` | Workflow estructurado para implementar una feature: pre-flight (scope, tests previstos) → ejecución → reporte (archivos tocados, AC cubiertos, TODOs, siguiente paso) |
+| `bugfix-workflow` | Workflow estructurado para arreglar un bug: reproduce → diagnose (root cause) → fix → regression test → validación + reporte con comunicación al reporter |
+| `refactor-plan` | Plan de refactor con motivación, scope IN/OUT, approach, safety nets (tests, characterization, feature flag), validación, rollback. Ejecución guiada por el plan |
+| `dependency-bump` | Workflow para subir dependencia: assessment (changelog, breaking, blast radius), plan de migración, validación, rollback. Cubre majors con cuidado |
+| `readme` | README.md del proyecto: qué resuelve, quick start, uso, configuración, structure, links. Adapta al tipo (library/CLI/web/API) |
+| `code-docs-style` | Guía canónica de documentación inline del proyecto: qué se comenta, formato de docstrings por lenguaje, política TODO/FIXME, ejemplos |
+| `dev-guide` | Guía de desarrollo del proyecto: setup del entorno, estructura del repo, common tasks, troubleshooting, workflow. Living document |
+| `migration-guide` | Guía pública de migración de versión X a Y para consumidores: breaking changes con antes/después, codemods, plan paso a paso, validación, rollback |
 
 > Stack agnóstico: todos los agentes y skills se adaptan al lenguaje/framework del proyecto activo. No mencionan herramientas concretas en system prompts (regla §8 de conventions).
 
@@ -396,7 +409,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `sales-enablement` | Crear pitch decks, playbooks, battle cards, guías de objeciones y case studies para el equipo comercial |
 | `sales-crm` | Producir pipeline reviews operativos, forecasts formales y dashboards de KPIs comerciales |
 
-**Software (4 agentes activos + 1 implementador sin skill)**
+**Software (4)**
 
 | Agente | Para qué |
 |---|---|
@@ -448,7 +461,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `design-design-system` | Mantener el Design System: tokens, foundations, documentación canónica de componentes y versionado |
 | `design-accessibility` | Auditar WCAG 2.2 AA, producir remediation plans y patrones accesibles (keyboard, ARIA, screen readers) |
 
-### Skills compartidas (9 = 2 meta + 7 business) — `_shared/skills/`
+### Skills compartidas (10 = 2 meta + 8 business) — `_shared/skills/`
 
 | Skill | Para qué | Tipo |
 |---|---|---|
@@ -461,8 +474,9 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `risk-matrix` | Matriz de riesgos por dimensión con probabilidad × impacto × mitigación × owner | business |
 | `okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo con scoring | business |
 | `journey-map` | Journey con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | business |
+| `deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia | business |
 
-### Skills dept-específicas (63)
+### Skills dept-específicas (75)
 
 **Marketing (13)**
 
@@ -498,7 +512,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `renewal-playbook` | Playbook de renovación con health signals, timing, scripts por situación y concessions ladder |
 | `forecasting-report` | Forecast formal del periodo con commit/best/worst, metodología, segmentación y riesgos |
 
-**Software (7)**
+**Software (19)**
 
 | Skill | Para qué |
 |---|---|
@@ -509,6 +523,18 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `api-spec` | Especificación de API con endpoints, schemas, errores, pagination, versioning y deprecation |
 | `tech-spec` | Spec técnica intermedia entre PRD/ADR e implementación con data model, API changes y rollout |
 | `bug-report` | Bug report estructurado con reproducción, expected/actual, severidad, scope, entorno y evidencia |
+| `spec-review` | Review y scoring de spec (PRD/ADR/tech-spec/api-spec) con rubric de 6 dimensiones, hallazgos por severidad y veredicto |
+| `commit-message` | Mensaje de commit (Conventional Commits por defecto) a partir del diff con subject, body y footer |
+| `pr-description` | Descripción de PR/MR cruzando spec + diff + commits con problema, cambio, testing, impacto y checklist |
+| `changelog-entry` | Entrada de CHANGELOG.md (Keep a Changelog) a partir de PRs merged del release con categorías y BREAKING marcados |
+| `feature-implementation` | Workflow para implementar feature: pre-flight (scope, tests) → ejecución → reporte de cambios con AC, TODOs y siguiente paso |
+| `bugfix-workflow` | Workflow para arreglar bug: reproduce → diagnose → fix → regression test + reporte con root cause y comunicación al reporter |
+| `refactor-plan` | Plan de refactor con scope IN/OUT, approach, safety nets, validación y rollback. Ejecución guiada por el plan |
+| `dependency-bump` | Workflow para subir dependencia con assessment del changelog, plan de migración, validación y rollback |
+| `readme` | README.md del proyecto con qué resuelve, quick start, uso, configuración y structure adaptado al tipo (library/CLI/web/API) |
+| `code-docs-style` | Guía canónica de documentación inline: qué se comenta, formato de docstrings por lenguaje, política TODO/FIXME |
+| `dev-guide` | Guía de desarrollo del proyecto: setup, estructura del repo, common tasks, troubleshooting, workflow |
+| `migration-guide` | Guía pública de migración de versión X a Y para consumidores con antes/después, codemods, plan paso a paso y rollback |
 
 **HR (7)**
 
@@ -710,6 +736,30 @@ A medida que cada dept se activa se rellena (nombre · para qué · doc oficial)
 **DevOps:** 🚧 al activar el dept.
 
 `.aigent/IDE/.mcp.json` y `opencode.json` son plantillas técnicas, no recomendaciones. Ver `.aigent/IDE/README.md`.
+
+---
+
+## Casos de uso por departamento
+
+Cada dept implementado tiene su propio `README.md` con ejemplos detallados de cada agente y cada skill: prompt de entrada, output esperado (estructura completa) y ruta donde se guarda. Útil para:
+
+- Onboarding de usuarios nuevos al sistema.
+- Referencia rápida de qué pedir y qué esperar.
+- Inspiración cuando dudas si una skill encaja con tu caso.
+
+| Departamento | README de casos de uso |
+|---|---|
+| `_shared/` (transversal) | [`departments/_shared/README.md`](./departments/_shared/README.md) |
+| Marketing | [`departments/marketing/README.md`](./departments/marketing/README.md) |
+| Sales | [`departments/sales/README.md`](./departments/sales/README.md) |
+| Software | [`departments/software/README.md`](./departments/software/README.md) |
+| HR | [`departments/hr/README.md`](./departments/hr/README.md) |
+| Product | [`departments/product/README.md`](./departments/product/README.md) |
+| Finance | [`departments/finance/README.md`](./departments/finance/README.md) |
+| Legal | [`departments/legal/README.md`](./departments/legal/README.md) |
+| Design | [`departments/design/README.md`](./departments/design/README.md) |
+
+> Operations y DevOps no tienen README de casos de uso todavía porque están como stubs. Se redactarán cuando los depts se activen.
 
 ---
 

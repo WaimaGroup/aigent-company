@@ -17,7 +17,7 @@ Cada departamento (marketing, sales, software, …) tiene su propio **orquestado
 |---|---|---|---|
 | Marketing | ✅ implementado | 5 | 13 |
 | Sales | ✅ implementado | 4 | 11 |
-| Software | ✅ implementado | 4 | 7 |
+| Software | ✅ implementado | 4 | 19 |
 | HR | ✅ implementado | 4 | 7 |
 | Product | ✅ implementado | 3 | 6 |
 | Finance | ✅ implementado | 3 | 7 |
@@ -25,9 +25,9 @@ Cada departamento (marketing, sales, software, …) tiene su propio **orquestado
 | Design | ✅ implementado | 4 | 6 |
 | Operations | 🚧 parcial | — | 1 (`redmine` v2 ejecutable) |
 | DevOps | 🚧 TODO | — | — |
-| `_shared/` (transversal) | ✅ activo | 2 (PRD + skill-builder) | 9 (2 meta + 7 business compartidas) |
+| `_shared/` (transversal) | ✅ activo | 2 (PRD + skill-builder) | 10 (2 meta + 8 business compartidas) |
 
-**Total:** 33 agentes activos + 72 skills (63 dept-específicas + 7 business compartidas + 2 meta).
+**Total:** 33 agentes activos + 85 skills (75 dept-específicas + 8 business compartidas + 2 meta).
 
 Inventario completo con descripción de cada agente y cada skill: [`.aigent/README.md`](./.aigent/README.md) (sección "Catálogo rápido — una frase por agente y skill").
 
