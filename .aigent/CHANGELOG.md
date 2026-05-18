@@ -4,6 +4,254 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 1.16.1 — 2026-05-18
+
+### gitignore
+
+Se ha añadido el gitignore
+
+## 1.16.0 — 2026-05-14
+
+### READMEs de casos de uso por departamento (9 nuevos)
+
+Cada dept implementado (8) más `_shared/` ahora tiene un `README.md` con ejemplos completos de cada agente y cada skill: prompt de entrada realista, output esperado (estructura completa simulada con valores, tablas y snippets de 20-40 líneas) y ruta donde se guarda. Sirven como documentación viva para onboarding de usuarios, referencia rápida y como anti-fricción cuando se duda de qué pedir.
+
+Cobertura total: **~130 casos de uso** (35 agentes especialistas + 2 transversales + 75 skills dept + 10 skills compartidas + flujos end-to-end típicos por dept).
+
+---
+
+### 9 READMEs nuevos
+
+| Archivo | Contenido |
+|---|---|
+| `.aigent/departments/software/README.md` | 4 agentes + 19 skills + 1 shared. 23 ejemplos + flujo feature y bugfix end-to-end. |
+| `.aigent/departments/marketing/README.md` | 5 agentes + 13 skills. 18 ejemplos + flujo de lanzamiento. |
+| `.aigent/departments/sales/README.md` | 4 agentes + 11 skills + 3 shared referenciadas. 15 ejemplos + flujo del funnel. |
+| `.aigent/departments/hr/README.md` | 4 agentes + 7 skills. 11 ejemplos + flujo recruitment→onboarding→evaluation. |
+| `.aigent/departments/product/README.md` | 3 agentes + 6 skills + 6 shared referenciadas. 9 ejemplos + flujo discovery→roadmap→ship. |
+| `.aigent/departments/finance/README.md` | 3 agentes + 7 skills + 2 shared referenciadas. 10 ejemplos + cierre mensual/trimestral/anual. |
+| `.aigent/departments/legal/README.md` | 4 agentes + 6 skills + 2 shared referenciadas. 10 ejemplos + flujo onboarding cliente + audit. |
+| `.aigent/departments/design/README.md` | 4 agentes + 6 skills + 1 shared referenciada. 10 ejemplos + flujo feature visual + DS update. |
+| `.aigent/departments/_shared/README.md` | 2 agentes transversales (shared-prd-agent, shared-skill-builder) + 10 skills compartidas (2 meta + 8 business). 12 ejemplos + tabla de "cuándo invocar transversales vs depts". |
+
+Estructura canónica de cada README (acordada con el usuario):
+
+1. **Header** — frase + link al orquestador y al `.aigent/README` maestro.
+2. **Cómo se invoca** — 3 vías (orquestador / agente / skill directa).
+3. **Agentes** — un caso de uso por cada agente, con prompt + output esperado (estructura completa) + ruta.
+4. **Skills propias del dept** — un caso de uso por cada skill (las que ya tienen ejemplo en su agente solo referencian).
+5. **Skills compartidas usadas** — listado con referencia a `_shared/README.md`.
+6. **Flujo end-to-end típico** — diagrama ASCII de cómo se encadenan agentes y skills en escenarios reales.
+
+---
+
+### Cross-reference desde `.aigent/README.md`
+
+Nueva sección "Casos de uso por departamento" en el `.aigent/README.md` con tabla que linka a los 9 nuevos READMEs.
+
+---
+
+### Archivos editados
+
+**READMEs nuevos:**
+- `.aigent/departments/software/README.md` (nuevo)
+- `.aigent/departments/marketing/README.md` (nuevo)
+- `.aigent/departments/sales/README.md` (nuevo)
+- `.aigent/departments/hr/README.md` (nuevo)
+- `.aigent/departments/product/README.md` (nuevo)
+- `.aigent/departments/finance/README.md` (nuevo)
+- `.aigent/departments/legal/README.md` (nuevo)
+- `.aigent/departments/design/README.md` (nuevo)
+- `.aigent/departments/_shared/README.md` (nuevo)
+
+**Cross-ref + versionado:**
+- `.aigent/README.md` (sección "Casos de uso por departamento" añadida)
+- `.aigent/VERSION` (1.15.0 → 1.16.0)
+- `.aigent/CHANGELOG.md` (esta entrada)
+
+---
+
+## 1.15.0 — 2026-05-14
+
+### Software — iteraciones 2+3+4: workflow coding + docs técnicas + deploy shared (9 skills nuevas)
+
+Segunda tanda de la ampliación del dept Software. Se cierran las tres iteraciones restantes del plan en un solo release: (2) workflow skills agnósticos de lenguaje para `software-coding`, (3) skills de documentación técnica para `software-architecture` con scope ampliado, y (4) `deploy-checklist` como skill compartida usable por software hoy y devops mañana. Aplicación reiterada de la regla "menos agentes ≠ mejor": ningún agente nuevo, todo encaja como skills colgando de los 4 existentes.
+
+**Estado tras esta versión:** 85 skills totales (75 dept-específicas + 8 business compartidas + 2 meta). Software pasa de 11 a 19 skills (+8 propias + 1 shared accesible). El `_shared/` business pasa de 7 a 8 skills.
+
+---
+
+### Iteración 2 — 4 workflow skills nuevas en `software/skills/` (consumidora: `software-coding`)
+
+- **`feature-implementation`** — Workflow estructurado para implementar una feature desde spec. Pre-flight: lectura del spec, lectura del contexto del repo (módulo + ADRs + decisions + tests existentes), planificación (archivos previstos, dependencias nuevas, tests a producir, riesgos), confirmación con el usuario si hay desviaciones. Ejecución: cambios con `Edit/Write`, tests al lado, atomicidad estricta, sin comentarios redundantes. Post-flight: reporte con archivos tocados, AC cubiertos (✅/🟡/❌), tests añadidos / pendientes, TODOs, decisiones tomadas, próximos pasos. Vive el reporte en `<proyecto>/software/code/.reports/feature-<slug>.md`.
+- **`bugfix-workflow`** — Workflow para arreglar un bug en 4 pasos: (1) Reproduce — reproducción confirmada local antes de tocar nada. (2) Diagnose — root cause analysis con evidencia, distingue síntoma de causa. (3) Fix — approach + alternativas descartadas + cambio mínimo. (4) Regression test — debe fallar pre-fix y pasar post-fix. Validación: reproducción original deja de reproducirse, suite verde. Comunicación: mensaje para el reporter sin jerga, decisión sobre nota de changelog y postmortem si Critical.
+- **`refactor-plan`** — Plan de refactor escrito ANTES de tocar código. Cubre motivación con deuda concreta, scope IN/OUT explícito (anti-creep), approach con alternativas, branch strategy (all-at-once/branch-by-abstraction/feature-flag/strangler-fig), safety nets (tests existentes + characterization a añadir + monitoring + flag), validación, rollback. Tras ejecutar el plan, se cierra el archivo con bloque "Resultado" (diff stats, sorpresas, decisiones, próximos pasos). Estado del archivo: Planned → In progress → Done | Reverted | Partial.
+- **`dependency-bump`** — Workflow para subir una dependencia. Assessment: changelog upstream entre versiones (no se saltan versiones intermedias sin leerlas), breaking changes que afectan al repo concretamente (no en abstracto), deps transitivas, compatibilidad con runtime, riesgo global (🟢/🟡/🟠/🔴). Plan: pasos de bump, código a adaptar, configuración/build, tests. Safety nets + validación + rollback. Cierre con resultado. Cubre majors con cuidado (especial atención a `0.x.y` por convenciones laxas de semver en muchos ecosistemas).
+
+### Iteración 3 — 4 docs skills nuevas en `software/skills/` (consumidora: `software-architecture` con scope ampliado)
+
+- **`readme`** — README.md del proyecto adaptado al tipo (library / CLI / web app / API / monorepo / internal tool). Estructura canónica: one-liner + qué resuelve + quick start (requisitos + instalación + primer uso) + uso/API por tipo + configuración (tabla de env vars sin valores) + estructura del repo + tests + deploy resumido + documentación adicional con links + contribuir + licencia + mantenedores. Reglas estrictas: sin marketing-speak, comandos ejecutables tal cual, versiones explícitas, links relativos. Vive en raíz del repo.
+- **`code-docs-style`** — Guía canónica de documentación inline del proyecto. Por cada lenguaje en el repo: formato obligatorio (JSDoc/TSDoc, Google/NumPy docstring, godoc, rustdoc, KDoc, phpDoc), tags admitidos, ejemplo canónico real, anti-patrones. Convenciones transversales: idioma de la doc, naming dentro de la doc, política `TODO`/`FIXME`/`XXX` (formato obligatorio con author + ticket, sin author bloquea en review), comentarios autogenerados. Política de doc generada si aplica. Enforcement por linter/CI. Vive en `<proyecto>/software/architecture/code-docs-style.md`.
+- **`dev-guide`** — Guía de desarrollo extendida del proyecto. Documento vivo. Cubre visión rápida, setup del entorno (con `cp .env.example .env`, docker compose, smoke test de "el setup funciona"), estructura del repo, cómo corre en local, tests por nivel con tiempos, workflow (branching, commits, PRs, release), **common tasks** ("¿cómo añado un endpoint / migración / test e2e?"), referencias a ADRs (resumen + link), troubleshooting con síntomas/causas comunes. Mantenida por owner identificado. Vive en `<proyecto>/docs/dev-guide.md`.
+- **`migration-guide`** — Guía pública de migración de versión X a Y dirigida a CONSUMIDORES (devs que usan la librería, integradores de API, admins del CLI). Audiencia distinta a dev-guide. Cubre TL;DR + pre-requisitos + mapa de cambios + cada breaking change con antes/después (snippet ejecutable) + cambios silenciosos (defaults que cambian) + deprecations + plan paso a paso + validación + rollback + FAQ + soporte de versión anterior. Codemod recomendado si la migración es mecánica. Difícultad explícita (🟢/🟡/🟠) en TL;DR.
+
+### Iteración 4 — 1 skill shared nueva en `_shared/skills/` (consumidora: `software-architecture`, `software-coding`, futura `devops-pipeline`)
+
+- **`deploy-checklist`** — Checklist completa pre/durante/post-deploy de un release adaptado al riesgo (🟢/🟡/🟠/🔴) y a la estrategia (instant/canary/blue-green/progressive/rolling). Pre-deploy: código & tests (CI verde, tag creado, artefacto publicado), especificación & docs (changelog, migration guide, release notes), configuración del entorno (env vars, secrets aprovisionados, permisos), schema & datos (migration reversible, backup, backfill, orden de despliegue), feature flags (estado inicial, criterio de promoción/retirada), comunicación, personas y roles (owner + backup + aprobador para 🟠/🔴). Durante: tabla de pasos con timestamps reales + smoke tests con health checks + caminos críticos manuales + e2e automatizados. Post-deploy: métricas a vigilar con umbrales y acción si se cruzan, confirmaciones funcionales, comunicación de cierre. Rollback con punto sin retorno explícito. Cierre con notas para el siguiente deploy. **Skill compartida**: hoy la consume software, mañana también devops (`devops-pipeline`/`devops-incident`) cuando el dept se active.
+
+---
+
+### Scope ampliado de `software-architecture` (decisión registrada con el usuario)
+
+El agente pasa de "Architecture & Technical Design" a **"Architecture, Technical Design & Documentation"**. Cambios concretos:
+
+- **Frontmatter `description`** ampliada para mencionar explícitamente la documentación técnica como entregable propio.
+- **Sección Rol** reescrita: misión dual (decisiones + documentación humana del proyecto).
+- **Sección "Tipos de entregables"** suma "Documentación técnica" con un párrafo por cada uno de los 4 nuevos entregables (README, dev-guide, code-docs-style, migration-guide, deploy-checklist).
+- **Sección "Skills disponibles"** ahora lista 5 skills propias previas + 5 docs skills nuevas + 2 shared (`risk-matrix` y `deploy-checklist`).
+
+Razonamiento documentado en el plan acordado con el usuario: la doc técnica del proyecto (README, dev guide, migration guide) tiene proceso propio pero está más cerca del autor del sistema que del implementador de código, por lo que encaja mejor en architecture que en coding. Decisión tomada en lugar de crear un agente `software-docs` separado (aplicación de "menos agentes ≠ mejor").
+
+---
+
+### Agentes consumidores actualizados
+
+| Agente | Skills añadidas |
+|---|---|
+| `software-architecture` | `readme`, `code-docs-style`, `dev-guide`, `migration-guide` + `deploy-checklist` (shared). Total: 5 propias previas + 4 docs nuevas + 2 shared (risk-matrix y deploy-checklist) = **11 skills accesibles**. |
+| `software-coding` | `feature-implementation`, `bugfix-workflow`, `refactor-plan`, `dependency-bump` + `deploy-checklist` (shared). Total: 3 git skills previas + 4 workflow nuevas + 1 shared = **8 skills accesibles**. |
+
+Se actualiza también la sección "Tipos de entregables" de cada agente para reflejar los nuevos workflows y documentos.
+
+---
+
+### Orquestador actualizado
+
+`software-orchestrator.md` añade señales/triggers para:
+
+- **`software-architecture`** (skills nuevas docs + deploy + scope ampliado): "README", "documenta el proyecto/módulo", "guía de desarrollo", "dev guide", "guía de migración", "migration guide", "guía de docs", "estilo de docstrings", "deploy checklist", "checklist de release".
+- **`software-coding`** (workflows + deploy): "feature-implementation", "bugfix", "subir dependencia", "dep bump", "actualiza la versión de", "deploy checklist", "preparar release".
+- **Tabla de decisión rápida**: 4 filas nuevas (docs en architecture, deploy-checklist, dep bump en coding, workflows implícitos via las señales de "implementa/fix el bug/refactoriza" ya existentes).
+
+---
+
+### READMEs actualizados
+
+**`.aigent/README.md`**:
+
+- Tabla "Estado de los departamentos": Software 11 → 19 skills. `_shared/` 7 → 8 business compartidas.
+- Sección "Detalle por departamento → `_shared/`": tabla business-skills compartidas añade `deploy-checklist` con consumidores documentados.
+- Sección "Detalle por departamento → Software": tabla de agentes refleja skills propias actualizadas y compartidas. Tabla de skills pasa de 11 a 19 filas con las 8 nuevas + nota de "más 1 compartida `deploy-checklist`".
+- Catálogo rápido: tabla Software pasa de 11 a 19 filas. Tabla "Skills compartidas" pasa de 9 a 10 con `deploy-checklist`. Encabezado "Skills compartidas (9 = 2 meta + 7 business)" → "Skills compartidas (10 = 2 meta + 8 business)". Encabezado "Skills dept-específicas (67)" → "Skills dept-específicas (75)".
+
+**`README.md` raíz**:
+
+- Tabla de estado: Software 11 → 19. `_shared/` 9 → 10 (8 business).
+- Total: 76 → 85 skills (75 dept-específicas + 8 business compartidas + 2 meta).
+
+---
+
+### Archivos editados
+
+**Iteración 2 — workflow coding:**
+- `.aigent/departments/software/skills/feature-implementation/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/bugfix-workflow/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/refactor-plan/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/dependency-bump/SKILL.md` (nuevo)
+
+**Iteración 3 — docs technicas:**
+- `.aigent/departments/software/skills/readme/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/code-docs-style/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/dev-guide/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/migration-guide/SKILL.md` (nuevo)
+
+**Iteración 4 — deploy shared:**
+- `.aigent/departments/_shared/skills/deploy-checklist/SKILL.md` (nueva, compartida)
+
+**Agentes y orquestador:**
+- `.aigent/departments/software/agents/software-architecture.md` (scope ampliado + 5 skills nuevas listadas)
+- `.aigent/departments/software/agents/software-coding.md` (workflows + deploy listados)
+- `.aigent/departments/software/software-orchestrator.md` (señales + tabla de decisión actualizadas)
+
+**Catálogo y versionado:**
+- `.aigent/README.md` (tabla estado + sección _shared/ + detalle Software + catálogo rápido + totales)
+- `README.md` (raíz) (tabla estado + total)
+- `.aigent/VERSION` (1.14.0 → 1.15.0)
+- `.aigent/CHANGELOG.md` (esta entrada)
+
+---
+
+## 1.14.0 — 2026-05-14
+
+### Software — iteración 1: spec-review + git workflow (4 skills nuevas)
+
+Primera tanda de la ampliación del dept Software discutida con el usuario. Se añaden 4 skills v1 prosa que cubren dos huecos identificados: (1) revisión y scoring de specs antes de implementación (`spec-review`), y (2) productos "laterales" del ciclo de implementación que `software-coding` no estaba cubriendo — mensaje de commit, descripción de PR y entrada de changelog. Sin agentes nuevos: aplicación de la regla "menos agentes ≠ mejor" — todo encaja como skills colgando de los agentes existentes.
+
+**Estado tras esta versión:** 76 skills totales (67 dept-específicas + 7 business compartidas + 2 meta). Software pasa de 7 a 11 skills, sigue con 4 agentes. `software-coding` deja de no tener skills propias.
+
+---
+
+### 4 skills dept-específicas nuevas (todas en `software/`)
+
+- **`spec-review`** — Review y scoring de un spec existente (PRD/ADR/tech-spec/api-spec) con rubric de 6 dimensiones (Completeness, Clarity, Testability, Consistency, Risk awareness, Actionability), score 0-5 por dimensión y total /30 con grado (🟢/🟡/🟠/🔴), hallazgos por severidad (🔴/🟠/🟡/🔵), top 3, lo positivo y veredicto (✅ / 🟠 / 🔴). Sirve como gate antes de pasar un spec a implementación. Vive en `<proyecto>/software/reviews/spec-review-<tipo>-<slug>.md`. Consumidora: `software-architecture`.
+- **`commit-message`** — Mensaje de commit a partir del diff staged. Default Conventional Commits con tipos canónicos (feat/fix/refactor/perf/docs/test/build/ci/chore/style/revert), scope opcional derivado del path, `!` para breaking, footer con BREAKING CHANGE/Refs/Closes/Co-authored-by. Reglas estrictas: subject < 50 chars, imperativo, sin punto final, atomicidad (rechaza commits que mezclan cambios). Output: bloque en chat para pegar en `git commit`. Consumidora: `software-coding`.
+- **`pr-description`** — Descripción de Pull Request cruzando spec asociado + diff + commits. Estructura canónica: Qué cambia / Por qué (con refs) / Cómo (approach) / Cambios principales (tabla archivo→cambio) / Testing (añadidos + pendientes + manual) / Impacto (breaking/áreas/riesgos/rollback) / Screenshots / Checklist autor / Para el reviewer. Respeta plantillas del repo (`.github/PULL_REQUEST_TEMPLATE.md`) si existen. Detecta atomicidad rota y breaking change para alertar. Consumidora: `software-coding`.
+- **`changelog-entry`** — Entrada `## [X.Y.Z] — YYYY-MM-DD` Keep a Changelog a partir de PRs merged del release. Mapea Conventional Commits a categorías (Added/Changed/Deprecated/Removed/Fixed/Security) con sección BREAKING CHANGES arriba marcada con ⚠️. Valida coherencia semver (BREAKING → major, Added → minor, Fixed → patch). Filtra commits internos no relevantes para el consumidor. Actualiza también el bloque `[Unreleased]` y los links de comparación al final del archivo. Consumidora: `software-coding`.
+
+---
+
+### 2 agentes consumidores actualizados
+
+| Agente | Skills añadidas |
+|---|---|
+| `software-architecture` | `spec-review` (ahora 5 skills propias + 1 shared) |
+| `software-coding` | `commit-message`, `pr-description`, `changelog-entry` (pasa de "sin skills propias" a 3 skills) |
+
+Se actualiza también la sección "Tipos de entregables" de cada agente para reflejar las nuevas categorías de output.
+
+---
+
+### Orquestador actualizado
+
+`software-orchestrator.md` añade señales/triggers para las nuevas skills:
+
+- **`software-architecture`**: "revisa este PRD/ADR/spec", "scoring del spec", "spec review", "está bien este PRD".
+- **`software-coding`**: "mensaje de commit", "commit message", "descripción de PR", "PR description", "changelog", "release notes técnicas".
+- **Tabla de decisión rápida**: 2 filas nuevas (spec-review y skills de git workflow) más afinado el wording de las filas de code-review para evitar colisión con spec-review.
+
+---
+
+### READMEs actualizados
+
+**`.aigent/README.md`**:
+
+- Tabla "Estado de los departamentos" — Software pasa de 7 a 11 skills.
+- Sección "Detalle por departamento → Software" — tabla de agentes (4) refleja nuevas skills propias; tabla de skills (11) incluye las 4 nuevas con su entregable.
+- Catálogo rápido — "Software (4 agentes activos + 1 implementador sin skill)" → "Software (4)". Tabla Software del catálogo pasa de 7 a 11 filas.
+- "Skills dept-específicas (63)" → "Skills dept-específicas (67)".
+
+**`README.md` raíz**:
+
+- Tabla de estado: Software 7 → 11.
+- Total: 72 → 76 skills (67 dept-específicas + 7 business + 2 meta).
+
+---
+
+### Archivos editados
+
+- `.aigent/departments/software/skills/spec-review/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/commit-message/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/pr-description/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/changelog-entry/SKILL.md` (nuevo)
+- `.aigent/departments/software/agents/software-architecture.md`
+- `.aigent/departments/software/agents/software-coding.md`
+- `.aigent/departments/software/software-orchestrator.md`
+- `.aigent/README.md`
+- `README.md` (raíz)
+- `.aigent/VERSION` (1.13.0 → 1.14.0)
+- `.aigent/CHANGELOG.md` (esta entrada)
+
+---
 
 ## 1.16.0 — 2026-05-14
 
