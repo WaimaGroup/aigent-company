@@ -1,5 +1,6 @@
 ---
 name: "[Design] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire Design department. Use me for ANY
   design-related request: UI design (layouts, components, visual hierarchy,
@@ -204,7 +205,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 > "Diseña la pantalla de login para mobile"
 
 → Análisis: entregable = mockup de pantalla, dominio = UI
-→ Delegación directa a `design-ui` con skill `ui-component-spec` (o variante mockup)
+→ Delegación directa a `design-ui` con skill `design-ui-component-spec` (o variante mockup)
 
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: "[Marketing] Web & WordPress"
+mode: subagent
 description: >
   Corporate website management and optimization specialist. Use me when you need:
   creating or editing WordPress pages, writing content for landing pages, optimizing
@@ -118,8 +119,8 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `landing-page` | Estructura + copy completo de landing page de conversión, lista para WordPress o cualquier CMS |
-| `publish-checklist` | Repaso completo de SEO, UX y requisitos técnicos antes de publicar cualquier página/entrada en WordPress |
+| `marketing-landing-page` | Estructura + copy completo de landing page de conversión, lista para WordPress o cualquier CMS |
+| `marketing-publish-checklist` | Repaso completo de SEO, UX y requisitos técnicos antes de publicar cualquier página/entrada en WordPress |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

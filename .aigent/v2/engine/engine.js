@@ -11,6 +11,7 @@ const path = require('path');
 const { parseSkill, validateSkill } = require('./parser');
 const { validateInputs } = require('./validate');
 const { deepValidateSkill } = require('./lint');
+const { auditRepo } = require('./audit');
 const { loadConfig, loadSecrets, loadConfigLenient, loadSecretsLenient } = require('./config');
 const { executeHttp } = require('./http');
 const { dryRunHttp } = require('./dryrun');
@@ -57,7 +58,7 @@ function enumerateV2Skills() {
         continue;
       }
       seen.set(name, { dept, path: skillMd });
-      out.push({ name, dept, path: skillMd, manifest: parsed.manifest, blocks: parsed.blocks });
+      out.push({ name, dept, dirname: skillEntry.name, path: skillMd, manifest: parsed.manifest, blocks: parsed.blocks });
     }
   }
   return out;
@@ -134,7 +135,8 @@ function validateSkillCmd(name) {
     };
   }
 
-  const { errors, warnings } = deepValidateSkill(found.manifest, found.blocks);
+  const expectedName = found.dirname || null;
+  const { errors, warnings } = deepValidateSkill(found.manifest, found.blocks, { expectedName });
 
   if (errors.length > 0) {
     return {
@@ -353,6 +355,7 @@ function printHelp() {
     '  engine.js list',
     '  engine.js describe <skill>',
     '  engine.js validate <skill>',
+    '  engine.js audit-repo',
     '  engine.js doctor [<skill>]',
     '  engine.js configure <skill> --set <path>=<value> [--set ...] [--scope global|project]',
     '  engine.js prepare-secrets <skill>',
@@ -363,6 +366,7 @@ function printHelp() {
     '  list             - list all v2 skills found across departments',
     '  describe         - print the skill manifest as JSON',
     '  validate         - deep-validate the manifest WITHOUT executing anything',
+    '  audit-repo       - structural audit of ALL skills (v1+v2) and agents in the repo',
     '  doctor           - report config + secrets status (without executing)',
     '  configure        - write declared config values to .context/config.json',
     '  prepare-secrets  - ensure .secrets.json has placeholders for missing secrets',
@@ -390,6 +394,7 @@ async function main() {
       case 'list':            result = listSkills(); break;
       case 'describe':        result = describeSkill(rest[0]); break;
       case 'validate':        result = validateSkillCmd(rest[0]); break;
+      case 'audit-repo':      result = auditRepo(DEPARTMENTS_DIR); break;
       case 'doctor':          result = doctorSkill(rest[0]); break;
       case 'configure':       result = configureSkill(rest[0], args.sets, args.scope); break;
       case 'prepare-secrets': result = prepareSecretsSkill(rest[0]); break;

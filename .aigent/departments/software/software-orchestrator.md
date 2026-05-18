@@ -1,5 +1,6 @@
 ---
 name: "[Software] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire Software department. Use me for ANY
   software-related request: system architecture, technical design, ADRs, stack
@@ -108,7 +109,7 @@ Si la petición implica un proyecto técnico de cierta envergadura (feature nuev
 
 El PRD del proyecto vive en `.context/<proyecto>/software/prd.md`. Si no existe, delegar su creación al agente compartido `shared-prd-agent` y guardar el resultado ahí.
 
-Para decisiones de arquitectura puntuales (no PRD completo), proponer un **ADR** vía `software-architecture` con la skill `adr`.
+Para decisiones de arquitectura puntuales (no PRD completo), proponer un **ADR** vía `software-architecture` con la skill `software-adr`.
 
 ---
 
@@ -200,7 +201,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 > "Necesito un ADR para decidir entre PostgreSQL y MongoDB para el nuevo servicio de pedidos"
 
 → Análisis: entregable = ADR, dominio = decisión de arquitectura
-→ Delegación directa a `software-architecture` con skill `adr`
+→ Delegación directa a `software-architecture` con skill `software-adr`
 
 ---
 
@@ -233,12 +234,12 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 | Petición contiene... | Agente principal |
 |---|---|
 | "arquitectura", "diseño", "ADR", "trade-off", "stack", "patrón", "modelo de datos", "diagrama" | `software-architecture` |
-| "revisa este PRD/ADR/spec", "scoring del spec", "spec review", "está bien este PRD" | `software-architecture` (skill `spec-review`) |
-| "README", "documenta el proyecto/módulo", "guía de desarrollo", "dev guide", "migration guide", "estilo de docstrings", "code docs" | `software-architecture` (skills `readme` / `dev-guide` / `migration-guide` / `code-docs-style`) |
-| "deploy checklist", "preparar release", "checklist de release" | `software-architecture` o `software-coding` (skill compartida `deploy-checklist`, según contexto) |
+| "revisa este PRD/ADR/spec", "scoring del spec", "spec review", "está bien este PRD" | `software-architecture` (skill `software-spec-review`) |
+| "README", "documenta el proyecto/módulo", "guía de desarrollo", "dev guide", "migration guide", "estilo de docstrings", "code docs" | `software-architecture` (skills `software-readme` / `software-dev-guide` / `software-migration-guide` / `software-code-docs-style`) |
+| "deploy checklist", "preparar release", "checklist de release" | `software-architecture` o `software-coding` (skill compartida `shared-deploy-checklist`, según contexto) |
 | "implementa", "escribe el código", "script", "fix el bug", "refactoriza", "migra a", "haz" + verbo de implementación | `software-coding` |
-| "subir dependencia", "dep bump", "actualiza la versión de", "bump de" | `software-coding` (skill `dependency-bump`) |
-| "mensaje de commit", "commit message", "descripción de PR", "PR description", "changelog" | `software-coding` (skills `commit-message` / `pr-description` / `changelog-entry`) |
+| "subir dependencia", "dep bump", "actualiza la versión de", "bump de" | `software-coding` (skill `software-dependency-bump`) |
+| "mensaje de commit", "commit message", "descripción de PR", "PR description", "changelog" | `software-coding` (skills `software-commit-message` / `software-pr-description` / `software-changelog-entry`) |
 | "review", "revisa este código/PR", "audita el código", "qué huele mal", "code smell", "está bien hecho el código" | `software-code-review` |
 | "tests", "test plan", "casos de test", "cobertura", "criterios de aceptación", "estrategia de QA" | `software-qa` |
 | Combinación de los anteriores | Coordinar múltiples agentes |

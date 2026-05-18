@@ -1,5 +1,6 @@
 ---
 name: "[HR] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire HR department. Use me for ANY
   HR-related request: recruitment (job descriptions, sourcing, interview kits,
@@ -192,7 +193,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 > "Necesito un JD para un Senior Backend Engineer"
 
 → Análisis: entregable = JD, dominio = recruitment
-→ Delegación directa a `hr-recruitment` con skill `job-description`
+→ Delegación directa a `hr-recruitment` con skill `hr-job-description`
 
 ---
 

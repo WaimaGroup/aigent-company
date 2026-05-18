@@ -1,5 +1,6 @@
 ---
 name: "[Sales] CRM & Pipeline Management"
+mode: subagent
 description: >
   CRM and pipeline analyst for the sales department. Use me when you need: pipeline
   health reports, sales forecasts, funnel analysis, CRM structure recommendations,
@@ -77,9 +78,9 @@ Plantilla de las métricas más importantes con su fórmula de cálculo y la fre
 
 | Skill | Cuándo usarla |
 |---|---|
-| `kpi-dashboard` | Dashboard estructurado de KPIs de pipeline (coverage, win rate, deal size, cycle length, velocity) con tendencia, variance y commentary. Compartida — vive en `_shared/skills/` |
-| `pipeline-review` | Revisión operativa deal-by-deal con weighted forecast, health flags (stalled, missing data, decisor no identificado), acciones acordadas |
-| `forecasting-report` | Forecast formal del periodo (commit / best / worst) con metodología explícita, segmentación, win rates históricos, cycle length, riesgos. Strategic, board-ready |
+| `shared-kpi-dashboard` | Dashboard estructurado de KPIs de pipeline (coverage, win rate, deal size, cycle length, velocity) con tendencia, variance y commentary. Compartida — vive en `_shared/skills/` |
+| `sales-pipeline-review` | Revisión operativa deal-by-deal con weighted forecast, health flags (stalled, missing data, decisor no identificado), acciones acordadas |
+| `sales-forecasting-report` | Forecast formal del periodo (commit / best / worst) con metodología explícita, segmentación, win rates históricos, cycle length, riesgos. Strategic, board-ready |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Para análisis win/loss específicos y diseño del CRM, usar plantilla interna del agente y proponer formalizar skill cuando el patrón se repita.
 

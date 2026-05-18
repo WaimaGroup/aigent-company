@@ -1,5 +1,6 @@
 ---
 name: "design-handoff-checklist"
+user-invocable: true
 description: >
   Skill for producing a pre-handoff checklist for design → engineering: tokens
   used, all states covered, responsive behavior specified, edge cases handled,

@@ -16,9 +16,10 @@ const VALID_IMPL_TYPES = ['http', 'bash']; // bash declarado, no implementado to
  * Valida en profundidad el manifest de una skill v2.
  * @param {object} manifest      objeto parseado del frontmatter
  * @param {object} blocks        bloques anotados extraídos del body
+ * @param {object} [opts]        opciones: { expectedName?: string }
  * @returns {{errors: string[], warnings: string[]}}
  */
-function deepValidateSkill(manifest, blocks) {
+function deepValidateSkill(manifest, blocks, opts = {}) {
   const errors = [];
   const warnings = [];
 
@@ -34,6 +35,20 @@ function deepValidateSkill(manifest, blocks) {
 
   if (manifest.name && !/^[a-z][a-z0-9-]*$/.test(String(manifest.name))) {
     errors.push(`manifest.name "${manifest.name}" must be kebab-case (lowercase, digits, dashes)`);
+  }
+
+  // Convención §4.1: la carpeta lleva el prefijo del dept y `name:` coincide con el dirname.
+  if (opts.expectedName && manifest.name && manifest.name !== opts.expectedName) {
+    warnings.push(
+      `manifest.name "${manifest.name}" does not match the folder name (expected "${opts.expectedName}"). See _shared/conventions.md §4.1.`
+    );
+  }
+
+  // Convención §7.1: user-invocable: true obligatorio
+  if (manifest['user-invocable'] !== true) {
+    warnings.push(
+      'manifest.user-invocable is missing or not true — all skills in this repo must declare `user-invocable: true` (see _shared/conventions.md §7.1).'
+    );
   }
 
   // ── Config ────────────────────────────────────────────────────────

@@ -4,6 +4,175 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 2.2.0 — 2026-05-18
+
+### Auditoría estructural del repo + `--prune` del installer
+
+Dos capacidades operativas que blindan futuras iteraciones del framework, sin tocar el contrato de skills/agentes.
+
+#### 1. Comando `engine.js audit-repo`
+
+Auditoría estructural de TODO el repo en una sola llamada (no solo skills v2, también v1 y agentes). Reporta errores (bloquean) y warnings (no bloquean) en JSON estructurado.
+
+```bash
+node .aigent/v2/engine/engine.js audit-repo
+```
+
+Comprueba:
+
+- **Skills (86):** carpeta empieza por el prefijo correcto (`<dept>-` o `shared-`), `name:` == dirname, `user-invocable: true`, secciones obligatorias del body (v1: `# Skill:`, `**Entregable:**`, `## Cuándo usar esta skill`; v2: presencia de bloques `\`\`\`http name=`).
+- **Agentes (51):** `name`, `mode`, `description` en frontmatter; `mode == primary` para orquestadores y `subagent` para resto; secciones del body §5 (Rol, Principios, Proceso de trabajo, Skills disponibles, Restricciones, Output esperado); para stubs honestos: `## Estado` + `## Qué hacer`. Warnings si "Output esperado" no referencia `output-rules.md`.
+
+Resultado actual del repo: **0 errores en skills, 0 errores en agentes, 3 warnings legítimos** (`shared-prd-agent` es un agente atípico cuyo body es la propia plantilla de PRD — el reporte lo visibiliza sin bloquear).
+
+Nuevo archivo: `.aigent/v2/engine/audit.js`. Cableado en `engine.js` como comando `audit-repo`.
+
+#### 2. Flag `--prune` en el installer
+
+Tras el rename de carpetas en 2.1.0, los deployments existentes tienen carpetas obsoletas (`.claude/skills/blog-post/` además de `.claude/skills/marketing-blog-post/`). El nuevo flag `--prune` las elimina al final del install:
+
+```bash
+bash .aigent/IDE/install.sh --sync --prune --ide all --dept all
+```
+
+**Lógica conservadora.** Solo toca carpetas en destino que cumplan dos condiciones:
+1. Su nombre empieza por un prefijo Aigent reconocido (`shared-` o `<dept>-` de algún dept existente en el repo).
+2. NO existe la carpeta source equivalente en `.aigent/departments/<dept>/skills/<folder>/`.
+
+Carpetas con otros nombres (skills de otros sistemas, customs del usuario en `.claude/skills/custom-stuff/`) **nunca se tocan**. Compatible con `--dry-run` para previsualizar.
+
+Aplicado a ambos installers: `install.sh` (función `prune_orphans`) e `install.ps1` (función `Invoke-PruneOrphans`).
+
+### Archivos tocados
+
+- `.aigent/v2/engine/audit.js` — nuevo.
+- `.aigent/v2/engine/engine.js` — importa `auditRepo`, añade comando `audit-repo` al CLI y al help.
+- `.aigent/IDE/install.sh` — flag `--prune`, banner correspondiente, función `prune_orphans`, llamada tras `install_for_ide`, ayuda actualizada.
+- `.aigent/IDE/install.ps1` — switch `-Prune`, banner, función `Invoke-PruneOrphans`, llamada análoga.
+
+### Verificación
+
+- `node engine.js audit-repo` → `ok: true`, 0 errores, 3 warnings legítimos (atípicos por diseño).
+- `bash install.sh --sync --prune --ide claude --mode project --dept all --dry-run` con 3 carpetas test (`marketing-old-orphan`, `shared-old-orphan`, `custom-noprefix-user`) en `.claude/skills/` → detecta y marca las 2 primeras como huérfanas, ignora la tercera (sin prefijo Aigent).
+
+---
+## 2.1.0 — 2026-05-18
+
+### Las carpetas de skills también llevan prefijo del dept
+
+Continuación del bump 2.0.0. La regla anterior decía "carpeta sin prefijo, `name:` con prefijo". Ahora **ambos coinciden** (§4.1 reescrita): la carpeta lleva el prefijo y el `name:` del frontmatter es exactamente el dirname.
+
+| Antes (2.0.0) | Ahora (2.1.0) |
+|---|---|
+| `marketing/skills/blog-post/` + `name: "marketing-blog-post"` | `marketing/skills/marketing-blog-post/` + `name: "marketing-blog-post"` |
+| `_shared/skills/competitive-analysis/` + `name: "shared-competitive-analysis"` | `_shared/skills/shared-competitive-analysis/` + `name: "shared-competitive-analysis"` |
+| `operations/skills/redmine/` + `name: "operations-redmine"` | `operations/skills/operations-redmine/` + `name: "operations-redmine"` |
+
+**Excepción "no doblar prefijo".** Si la base ya empezaba por el prefijo del dept (`marketing-plan`, `product-roadmap`, `sales-playbook`, `sales-proposal`, `design-handoff-checklist`, `design-token-set`), la carpeta se queda y el `name:` se ajusta a `marketing-plan` (no `marketing-marketing-plan`). 6 casos detectados y corregidos.
+
+### Archivos tocados
+
+- **80 carpetas renombradas** vía `os.rename`. 6 carpetas se mantienen (ya tenían prefijo) — el `name:` de sus SKILL.md se ajustó para quitar el doble prefijo introducido por 2.0.0.
+- **Convenciones**: §4 tabla actualizada (carpeta = `<dept-prefix>-<base>`). §4.1 reescrita con la nueva regla, la excepción de no-doblar, y nota de que `tools.<key>.path` sigue siendo independiente del `name:`.
+- **`shared-skill-scaffold/SKILL.md`**: tabla de "Información común" actualizada (`base`, `folder` y `name` derivados). Plantillas v1 y v2 con `name: "<dept-prefix>-<base>"`. Plantilla v2: `path: tools.<base>.base_url` (no `<folder>`, para mantener config sin prefijo).
+- **Engine v2**:
+  - `engine.js`: `expectedName` para el lint pasa de `<dept>-<dirname>` a `<dirname>` (carpeta == name canónico).
+  - `lint.js`: mensaje del warning actualizado ("does not match the folder name").
+- **Installer**:
+  - `install.sh`: `install_skill` recibe `$skills_base/${skill_name}` directamente (no `$skills_base/${dept_name}-${skill_name}` ni `$skills_base/shared-${skill_name}` — el dirname ya tiene prefijo). Stub generado: `name: __SKILL__` y comandos del cuerpo usan `__SKILL__` (no `__DEPT__-__SKILL__`).
+  - `install.ps1`: mismo cambio.
+- **READMEs y BOSS.md**: 55 referencias a paths viejos (`<dept>/skills/<base>/`) actualizadas a `<dept>/skills/<new-folder>/` en `CLAUDE.md`, `README.md` raíz, `.aigent/README.md`, `.aigent/BOSS.md`, `.aigent/v2/README.md`, `.aigent/CHANGELOG.md` (la entrada de 2.0.0 también se reescribió para usar los paths nuevos), `_shared/agents/shared-skill-builder.md`, `_shared/skills/shared-skill-scaffold/SKILL.md`.
+
+### Migración para deployments existentes
+
+1. Pull del repo.
+2. Re-ejecutar `bash .aigent/IDE/install.sh --sync` (Linux/macOS) o `pwsh .aigent/IDE/install.ps1 -Sync` (Windows). Las carpetas viejas (`.claude/skills/marketing-blog-post/` etc.) ya tenían el nombre canónico desde 2.0.0 — el installer las regenera con el contenido nuevo. Si quedan carpetas duplicadas con nombres viejos (por ejemplo `.claude/skills/blog-post/`), borrarlas manualmente.
+3. Si tenías scripts externos referenciando paths como `.aigent/departments/marketing/skills/blog-post/`, actualizarlos a `.aigent/departments/marketing/skills/marketing-blog-post/`.
+4. La config en `.context/config.json` (`tools.redmine.base_url`) NO requiere cambios — `config.path` se mantiene como `tools.<base>.<key>`.
+
+### Validación
+
+- `engine.js list` → devuelve `operations-redmine` v0.4.0 (carpeta: `operations/skills/operations-redmine/`).
+- `engine.js validate operations-redmine` → `ok: true`, 0 warnings (lint reconoce que `name == dirname`).
+
+---
+## 2.0.0 — 2026-05-18
+
+### Cambios de contrato — bump MAJOR
+
+Tres cambios coordinados al frontmatter de skills y agentes. Afectan a **todo** SKILL.md y a todo agente del repo. Los stubs regenerados por el installer ya casan; los deployments existentes deben re-instalar con `install.sh --sync` para refrescar `.claude/skills/` y `.opencode/skills/`. Los usuarios que invocan `engine.js run <skill>` desde scripts externos deben actualizar el nombre — el contrato del CLI cambia.
+
+#### 1. `name:` de skills lleva ahora prefijo de departamento (§4.1)
+
+| Antes | Ahora |
+|---|---|
+| `name: "blog-post"` (carpeta `marketing/skills/marketing-blog-post/`) | `name: "marketing-blog-post"` |
+| `name: "redmine"` (carpeta `operations/skills/operations-redmine/`) | `name: "operations-redmine"` |
+| `name: "competitive-analysis"` (carpeta `_shared/skills/shared-competitive-analysis/`) | `name: "shared-competitive-analysis"` |
+| `name: "skill-scaffold"` (meta-skill) | `name: "shared-skill-scaffold"` |
+
+La **carpeta no cambia** — sigue siendo `blog-post/`, `redmine/`, etc. Solo el `name:` del frontmatter. Motivación: el engine v2 identifica skills por `manifest.name`, y los stubs en los IDEs ya viven en `<dept>-<skill>/` desde 1.5.x — esto cierra el drift entre source y stub. Engine v2: `engine.js run redmine` pasa a ser `engine.js run operations-redmine`. `config.<key>.path` se mantiene tal cual (independiente de `name:`), así que la config existente en `tools.redmine.base_url` sigue funcionando.
+
+#### 2. `user-invocable: true` obligatorio en frontmatter de skills (§7.1)
+
+Toda skill (v1 prosa, v2 ejecutable, meta-skill) ahora declara `user-invocable: true`. Es la marca que Claude Code y OpenCode usan para decidir si la skill aparece en el menú del usuario o solo cuando un agente la invoca programáticamente. Política del repo: todas son `user-invocable: true` — la barrera de "esto no lo debería usar el usuario" se pone en la `description`, no en el flag.
+
+#### 3. `mode: primary | subagent` obligatorio en frontmatter de agentes (§5.1)
+
+OpenCode lee este campo para clasificar agentes. Claude Code lo ignora.
+
+- **Orquestadores** (`<dept>-orchestrator.md`) → `mode: primary` (10 archivos).
+- **Especialistas** (`<dept>-<role>.md` en `agents/`) → `mode: subagent` (39 archivos).
+- **Compartidos** (`shared-<role>.md` en `_shared/agents/`) → `mode: subagent` (2 archivos).
+
+Total: 51 agentes con `mode:` añadido.
+
+### Archivos tocados
+
+#### Convenciones y plantillas
+
+- `_shared/conventions.md` — §4 ampliada con §4.1 (regla de naming `<dept>-<folder>`), §5 ampliada con §5.1 (`mode:`), §7 ampliada con §7.1 (`user-invocable:`), §12.3 actualizada (frontmatter v2 con los nuevos campos y aclaración sobre `config.path`).
+- `_shared/orchestrator-template.md` — añadido `mode: primary` al ejemplo del frontmatter.
+- `_shared/skills/shared-skill-scaffold/SKILL.md` — plantillas v1 y v2 actualizadas con `<dept-prefix>-<folder>` y `user-invocable: true`; tabla de campos a recopilar aclara que el `name:` se deriva de carpeta+dept.
+- `_shared/skills/shared-agent-scaffold/SKILL.md` — plantillas `create-specialist` y `create-stub` añaden `mode: subagent`; reglas estrictas actualizadas; checklist ampliado con `mode:`.
+
+#### Skills (86 SKILL.md)
+
+Renombrados de `name:` sin prefijo a `name:` con prefijo de dept (o `shared-` para `_shared/skills/`). `user-invocable: true` añadido tras la línea `name:`. Aplicado vía script idempotente — toda skill v1 y v2 del repo.
+
+#### Agentes (51 .md)
+
+`mode:` añadido tras la línea `name:`. 10 orquestadores → `primary`. 39 especialistas + 2 shared → `subagent`. Aplicado vía script idempotente.
+
+#### Engine v2
+
+- `engine.js` — `enumerateV2Skills()` ahora almacena `dirname` por skill. `validateSkillCmd` calcula `expectedName = <dept>-<dirname>` y se lo pasa al lint para warning de drift.
+- `lint.js` — nuevos warnings: (a) si `manifest.name` no casa con `<dept>-<dirname>`, (b) si falta `user-invocable: true`.
+
+#### Installer
+
+- `install.sh` — el stub v2 generado añade `user-invocable: true`; los comandos del cuerpo del stub (`engine.js describe`/`run`) ahora usan `<dept>-<skill>` (no solo `<skill>`), igualando el nuevo contrato. Logs `(engine: ...)` actualizados.
+- `install.ps1` — mismos cambios.
+
+### Migración para deployments existentes
+
+1. Pull del repo y re-ejecutar `bash .aigent/IDE/install.sh --sync` (Linux/macOS) o `pwsh .aigent/IDE/install.ps1 -Sync` (Windows) para regenerar stubs.
+2. Si tenías scripts externos invocando `engine.js run redmine`, cambiarlos a `engine.js run operations-redmine`. (Solo Redmine en este repo; otras skills v2 que añadas a futuro respetan la regla desde el principio.)
+3. La config en `.context/config.json` (`tools.redmine.base_url`) NO requiere cambios — `config.path` se mantiene.
+
+### Notas
+
+- **Doble prefijo "natural" en algunas skills.** Cuando la carpeta de la skill ya empezaba por el nombre del dept (`marketing/skills/marketing-plan/`), el `name:` resultante es `marketing-marketing-plan` — feo pero consistente con la regla. Casos detectados: `marketing-marketing-plan`, `finance-financial-report`. Si en el futuro se decide limpiar, renombrar las carpetas a `plan/`, `report/`, etc. (es un PATCH posterior, no parte de este bump).
+- También se han actualizado las menciones de las skills en tablas de "Skills disponibles" de agentes, orquestadores y READMEs (445 reemplazos en 42 archivos) para usar los nombres canónicos con prefijo. Los textos quedan coherentes con el `name:` del frontmatter de cada SKILL.md.
+
+### Validación
+
+- `engine.js list` → devuelve `operations-redmine` (v0.4.0) correctamente.
+- `engine.js validate operations-redmine` → `ok: true`, 0 warnings.
+- `engine.js validate redmine` → `SKILL_NOT_FOUND` (esperado: el nombre viejo ya no existe).
+- Audit estructural: 86/86 SKILL.md con `name:` correcto + `user-invocable: true`; 51/51 agentes con `mode:` correcto (10 primary, 41 subagent).
+
+---
 ## 1.16.1 — 2026-05-18
 
 ### gitignore
@@ -154,19 +323,19 @@ Se actualiza también la sección "Tipos de entregables" de cada agente para ref
 ### Archivos editados
 
 **Iteración 2 — workflow coding:**
-- `.aigent/departments/software/skills/feature-implementation/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/bugfix-workflow/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/refactor-plan/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/dependency-bump/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-feature-implementation/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-bugfix-workflow/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-refactor-plan/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-dependency-bump/SKILL.md` (nuevo)
 
 **Iteración 3 — docs technicas:**
-- `.aigent/departments/software/skills/readme/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/code-docs-style/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/dev-guide/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/migration-guide/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-readme/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-code-docs-style/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-dev-guide/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-migration-guide/SKILL.md` (nuevo)
 
 **Iteración 4 — deploy shared:**
-- `.aigent/departments/_shared/skills/deploy-checklist/SKILL.md` (nueva, compartida)
+- `.aigent/departments/_shared/skills/shared-deploy-checklist/SKILL.md` (nueva, compartida)
 
 **Agentes y orquestador:**
 - `.aigent/departments/software/agents/software-architecture.md` (scope ampliado + 5 skills nuevas listadas)
@@ -239,10 +408,10 @@ Se actualiza también la sección "Tipos de entregables" de cada agente para ref
 
 ### Archivos editados
 
-- `.aigent/departments/software/skills/spec-review/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/commit-message/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/pr-description/SKILL.md` (nuevo)
-- `.aigent/departments/software/skills/changelog-entry/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-spec-review/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-commit-message/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-pr-description/SKILL.md` (nuevo)
+- `.aigent/departments/software/skills/software-changelog-entry/SKILL.md` (nuevo)
 - `.aigent/departments/software/agents/software-architecture.md`
 - `.aigent/departments/software/agents/software-coding.md`
 - `.aigent/departments/software/software-orchestrator.md`
@@ -360,7 +529,7 @@ Tras documentar el patrón de skills compartidas en 1.11.0, esta versión llena 
 
 | Skill | Consumidores | Justificación |
 |---|---|---|
-| `_shared/skills/journey-map/` | `design-ux-research` (journey de uso de interfaz) + `product-discovery` (customer journey end-to-end) | Estructura idéntica: fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints. Cumple §7.1 |
+| `_shared/skills/shared-journey-map/` | `design-ux-research` (journey de uso de interfaz) + `product-discovery` (customer journey end-to-end) | Estructura idéntica: fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints. Cumple §7.1 |
 
 ---
 
@@ -491,7 +660,7 @@ Documenta cuándo una skill vive en `_shared/skills/` vs en un dept. Criterios c
 
 Ambas referencias canónicas de creación de skills se actualizan para considerar explícitamente la ubicación (`dept` vs `_shared/`) durante el proceso de creación de cualquier skill nueva.
 
-- **`_shared/skills/skill-scaffold/SKILL.md`** — añadidos:
+- **`_shared/skills/shared-skill-scaffold/SKILL.md`** — añadidos:
   - Campo `location` en "Información común a recopilar".
   - Sección nueva "Decidir ubicación: dept o `_shared/`" con criterios y caso de duda explícitos.
   - Paso adicional en "Proceso" (paso 2) para evaluar ubicación antes de decidir modo.
@@ -544,7 +713,7 @@ Total: 14 agentes editados, 22 referencias añadidas a skills compartidas.
 - `.aigent/VERSION` — bump 1.10.0 → 1.11.0 (MINOR: nueva categoría de skills + 6 archivos nuevos, sin romper contratos).
 - `.aigent/CHANGELOG.md` — esta entrada.
 - `.aigent/departments/_shared/conventions.md` — nueva sección §7.1.
-- `.aigent/departments/_shared/skills/skill-scaffold/SKILL.md` — proceso ampliado.
+- `.aigent/departments/_shared/skills/shared-skill-scaffold/SKILL.md` — proceso ampliado.
 - `.aigent/departments/_shared/agents/shared-skill-builder.md` — modos `create-v1` y `create-v2` ampliados.
 
 **`.aigent/BOSS.md` no se modifica** — BOSS no lista skills, solo orquesta a nivel de dept.
@@ -579,9 +748,9 @@ Composición según README sin cambios (`design-ui`, `design-ux-research`, `desi
 
 **Skills v1 nuevas (3):**
 
-- `.aigent/departments/design/skills/ui-component-spec/SKILL.md` — spec UI para handoff con anatomía, props/variantes, estados completos, responsive, tokens consumidos, accesibilidad mínima, edge cases (texto largo, datos vacíos, errores, permisos), criterios de aceptación.
+- `.aigent/departments/design/skills/design-ui-component-spec/SKILL.md` — spec UI para handoff con anatomía, props/variantes, estados completos, responsive, tokens consumidos, accesibilidad mínima, edge cases (texto largo, datos vacíos, errores, permisos), criterios de aceptación.
 - `.aigent/departments/design/skills/design-token-set/SKILL.md` — set de design tokens por categoría (color/spacing/typography/radius/shadow/motion) con base + semánticos, soporte light/dark, traducción multi-plataforma (web/iOS/Android), versioning semver + política de deprecation, tabla maestra de contraste WCAG para tokens de color.
-- `.aigent/departments/design/skills/accessibility-audit/SKILL.md` — audit WCAG 2.2 estructurado con scope, metodología (manual + screen reader + tooling), tabla de SC con pass/fail/partial/N-A, hallazgos individuales con severidad (bloqueante/crítico/mayor/menor/cosmético) y categoría (`[DS FIX]` / `[ENGINEERING FIX]`), casos edge (zoom 200%, reduced motion, high contrast, RTL), score por nivel.
+- `.aigent/departments/design/skills/design-accessibility-audit/SKILL.md` — audit WCAG 2.2 estructurado con scope, metodología (manual + screen reader + tooling), tabla de SC con pass/fail/partial/N-A, hallazgos individuales con severidad (bloqueante/crítico/mayor/menor/cosmético) y categoría (`[DS FIX]` / `[ENGINEERING FIX]`), casos edge (zoom 200%, reduced motion, high contrast, RTL), score por nivel.
 
 ---
 
@@ -624,9 +793,9 @@ Composición re-evaluada respecto al README: en lugar de 4 agentes (`finance-bud
 
 **Skills v1 nuevas (3):**
 
-- `.aigent/departments/finance/skills/budget-plan/SKILL.md` — presupuesto estructurado con drivers, P&L mensualizado, headcount plan, capex plan, escenarios (best/base/worst) + sensibilidades, supuestos trazables y variance framework para futuros ciclos.
-- `.aigent/departments/finance/skills/financial-report/SKILL.md` — report financiero con resumen ejecutivo adaptado a audiencia (board / leadership / externo), P&L + Balance + Cash Flow con comparativos, KPI dashboard, variance commentary obligatorio, forecast actualizado opcional.
-- `.aigent/departments/finance/skills/invoice-template/SKILL.md` — factura a cliente con campos fiscales del país emisor, numeración consecutiva por serie (factura / rectificativa / proforma), cálculo de impuestos y retenciones, términos de pago, notas legales por jurisdicción.
+- `.aigent/departments/finance/skills/finance-budget-plan/SKILL.md` — presupuesto estructurado con drivers, P&L mensualizado, headcount plan, capex plan, escenarios (best/base/worst) + sensibilidades, supuestos trazables y variance framework para futuros ciclos.
+- `.aigent/departments/finance/skills/finance-financial-report/SKILL.md` — report financiero con resumen ejecutivo adaptado a audiencia (board / leadership / externo), P&L + Balance + Cash Flow con comparativos, KPI dashboard, variance commentary obligatorio, forecast actualizado opcional.
+- `.aigent/departments/finance/skills/finance-invoice-template/SKILL.md` — factura a cliente con campos fiscales del país emisor, numeración consecutiva por serie (factura / rectificativa / proforma), cálculo de impuestos y retenciones, términos de pago, notas legales por jurisdicción.
 
 ---
 
@@ -646,9 +815,9 @@ Composición según README sin cambios — Privacy lo merece como dominio especi
 
 **Skills v1 nuevas (3):**
 
-- `.aigent/departments/legal/skills/contract-template/SKILL.md` — borrador estructurado de contrato comercial (NDA / MSA / SOW / consulting / partnership) con preámbulo, definiciones, cláusulas (objeto, pricing, IP, confidencialidad, liability cap, indemnización, jurisdicción), resumen ejecutivo para el firmante y marca `[REVISAR LEGAL]` en cláusulas críticas.
-- `.aigent/departments/legal/skills/privacy-policy/SKILL.md` — política de privacidad pública compliant con GDPR/CCPA/LGPD: responsable, categorías de datos, finalidades con base legal, plazos, destinatarios, transferencias internacionales, derechos del interesado con plazos, decisiones automatizadas, menores, cambios materiales.
-- `.aigent/departments/legal/skills/terms-of-service/SKILL.md` — T&C / ToS estructurados con resumen de 3 minutos, cuenta, pricing & billing, IP del usuario y del servicio, AUP resumido, limitación responsabilidad, indemnización, terminación, modificaciones materiales con plazo de aviso, derechos de consumo si aplican.
+- `.aigent/departments/legal/skills/legal-contract-template/SKILL.md` — borrador estructurado de contrato comercial (NDA / MSA / SOW / consulting / partnership) con preámbulo, definiciones, cláusulas (objeto, pricing, IP, confidencialidad, liability cap, indemnización, jurisdicción), resumen ejecutivo para el firmante y marca `[REVISAR LEGAL]` en cláusulas críticas.
+- `.aigent/departments/legal/skills/legal-privacy-policy/SKILL.md` — política de privacidad pública compliant con GDPR/CCPA/LGPD: responsable, categorías de datos, finalidades con base legal, plazos, destinatarios, transferencias internacionales, derechos del interesado con plazos, decisiones automatizadas, menores, cambios materiales.
+- `.aigent/departments/legal/skills/legal-terms-of-service/SKILL.md` — T&C / ToS estructurados con resumen de 3 minutos, cuenta, pricing & billing, IP del usuario y del servicio, AUP resumido, limitación responsabilidad, indemnización, terminación, modificaciones materiales con plazo de aviso, derechos de consumo si aplican.
 
 ---
 
@@ -690,9 +859,9 @@ Composición según README sin cambios. Los 4 stubs originales conservan rol per
 
 **Skills v1 nuevas (3):**
 
-- `.aigent/departments/hr/skills/job-description/SKILL.md` — JD completo con frontmatter `type`, EVP, responsabilidades, must/nice, banda salarial (con pay-transparency consciente de jurisdicción), proceso, equidad.
-- `.aigent/departments/hr/skills/performance-review/SKILL.md` — review estructurado con secciones evidencia → impacto → competencias → rating con calibración → feedback con frases listas → growth plan → feedback bidireccional → decisiones derivadas.
-- `.aigent/departments/hr/skills/policy-document/SKILL.md` — política individual con propósito, scope, definiciones, reglas, procedimiento, excepciones, consecuencias, owner y fecha de revisión. Plain language + jurisdicción.
+- `.aigent/departments/hr/skills/hr-job-description/SKILL.md` — JD completo con frontmatter `type`, EVP, responsabilidades, must/nice, banda salarial (con pay-transparency consciente de jurisdicción), proceso, equidad.
+- `.aigent/departments/hr/skills/hr-performance-review/SKILL.md` — review estructurado con secciones evidencia → impacto → competencias → rating con calibración → feedback con frases listas → growth plan → feedback bidireccional → decisiones derivadas.
+- `.aigent/departments/hr/skills/hr-policy-document/SKILL.md` — política individual con propósito, scope, definiciones, reglas, procedimiento, excepciones, consecuencias, owner y fecha de revisión. Plain language + jurisdicción.
 
 ---
 
@@ -713,9 +882,9 @@ Composición re-evaluada respecto al README: en lugar de 4 agentes (`product-dis
 
 **Skills v1 nuevas (3):**
 
-- `.aigent/departments/product/skills/user-interview-script/SKILL.md` — script con calentamiento, exploratorias, profundización (5 whys suave), preguntas de comportamiento (no hipotéticas), reacción a propuesta (solo solution-validation), cierre, debrief en caliente, notas para el entrevistador.
+- `.aigent/departments/product/skills/product-user-interview-script/SKILL.md` — script con calentamiento, exploratorias, profundización (5 whys suave), preguntas de comportamiento (no hipotéticas), reacción a propuesta (solo solution-validation), cierre, debrief en caliente, notas para el entrevistador.
 - `.aigent/departments/product/skills/product-roadmap/SKILL.md` — roadmap por horizonte (now/next/later o quarterly), fichas por iniciativa con outcome + hipótesis + dependencias + riesgo + criterio de éxito, sección "Lo que NO está en el roadmap (y por qué)", confianza explícita, cadencia de revisión.
-- `.aigent/departments/product/skills/north-star-metric/SKILL.md` — NSM con candidates evaluados contra 3 criterios (valor, accionabilidad, sostenibilidad), definición operativa precisa, KPI tree de inputs, guardraíles, anti-patrones a evitar, cadencia de revisión.
+- `.aigent/departments/product/skills/product-north-star-metric/SKILL.md` — NSM con candidates evaluados contra 3 criterios (valor, accionabilidad, sostenibilidad), definición operativa precisa, KPI tree de inputs, guardraíles, anti-patrones a evitar, cadencia de revisión.
 
 ---
 
@@ -757,9 +926,9 @@ Los 4 agentes stub originalmente listados eran `software-architecture`, `softwar
 
 **Skills v1 nuevas (3):**
 
-- `.aigent/departments/software/skills/adr/SKILL.md` — Architecture Decision Record numerado y fechado: contexto, drivers, opciones (mínimo 2), decisión, consecuencias, riesgos. Convención de supersedes para reversiones.
-- `.aigent/departments/software/skills/code-review-checklist/SKILL.md` — report estructurado: veredicto (✅/🟠/🔴), top 3, hallazgos por severidad con `archivo:línea/categoría/razón/sugerencia/referencias`, análisis por 8 ejes.
-- `.aigent/departments/software/skills/test-plan/SKILL.md` — plan por niveles (unit/integration/e2e/perf/security) con casos `TC-###`, prioridades P0-P3, criterios de salida verificables, riesgos.
+- `.aigent/departments/software/skills/software-adr/SKILL.md` — Architecture Decision Record numerado y fechado: contexto, drivers, opciones (mínimo 2), decisión, consecuencias, riesgos. Convención de supersedes para reversiones.
+- `.aigent/departments/software/skills/software-code-review-checklist/SKILL.md` — report estructurado: veredicto (✅/🟠/🔴), top 3, hallazgos por severidad con `archivo:línea/categoría/razón/sugerencia/referencias`, análisis por 8 ejes.
+- `.aigent/departments/software/skills/software-test-plan/SKILL.md` — plan por niveles (unit/integration/e2e/perf/security) con casos `TC-###`, prioridades P0-P3, criterios de salida verificables, riesgos.
 
 **Cambios en archivos transversales:**
 
@@ -811,7 +980,7 @@ Cambio puramente textual sin tocar contrato de engine/skills. Bump PATCH.
 
 LinkedIn no acepta sintaxis markdown en el cuerpo del post: `**negrita**`, `## títulos`, listas con `-` y `[texto](url)` aparecen como texto literal. La skill ahora produce, además del análisis de métricas, una versión plain-text del copy lista para copiar y pegar.
 
-**Cambios concretos en `marketing/skills/linkedin-audit/SKILL.md`:**
+**Cambios concretos en `marketing/skills/marketing-linkedin-audit/SKILL.md`:**
 
 - **Entregable ampliado:** ahora son dos secciones añadidas al `.md` del post — `## MÉTRICAS OBJETIVO` (igual que antes) y `## COPY PARA LINKEDIN` (nueva). El copy original en markdown se mantiene intacto como fuente editable.
 - **Frontmatter `description`** actualizado para reflejar la nueva capacidad.
@@ -867,9 +1036,9 @@ Hasta 1.4.0 la red de seguridad era **reactiva**: el agente llamaba a `run`, rec
   - §12.8 — dos reglas nuevas en negrita: **Precheck proactivo (regla de oro)** y **Secrets nunca por chat (regla de seguridad)**. La segunda incluye el wording exacto para rechazar al usuario si intenta dictar un secreto.
   - §6 — el título de la sección obligatoria del orquestador pasa de "Manejo de skills v2 no configuradas" a "Manejo de skills v2 — readiness".
 - `_shared/orchestrator-template.md` — la sección "Manejo de skills v2 — readiness" se reorganiza en dos caminos (proactivo principal + reactivo fallback) con un único flujo de configuración común y un bloque "Reglas (innegociables)".
-- `_shared/skills/skill-scaffold/SKILL.md` — la plantilla v2 ahora obliga a incluir una sección **"Antes de ejecutar (precheck para el agente caller)"** justo después de Requisitos y antes de Acciones. El checklist estructural (paso 0 de la verificación v2) la verifica explícitamente.
+- `_shared/skills/shared-skill-scaffold/SKILL.md` — la plantilla v2 ahora obliga a incluir una sección **"Antes de ejecutar (precheck para el agente caller)"** justo después de Requisitos y antes de Acciones. El checklist estructural (paso 0 de la verificación v2) la verifica explícitamente.
 - `_shared/agents/shared-skill-builder.md` — el modo `configure` distingue tres disparadores con el mismo proceso: tras `create-v2`, **proactivo** (recomendado: orquestador hace `doctor` y delega antes de `run`), **reactivo** (un `run` ya falló). Refuerzo en el paso 3: la regla "secrets nunca por chat" es **innegociable**, aplica también si el usuario insiste o argumenta entorno de desarrollo.
-- `operations/skills/redmine/SKILL.md` — añadida la sección "Antes de ejecutar (precheck)" con el wording específico de la skill (`<replace_me_REDMINE_API_KEY>`, link a `/my/account`).
+- `operations/skills/operations-redmine/SKILL.md` — añadida la sección "Antes de ejecutar (precheck)" con el wording específico de la skill (`<replace_me_REDMINE_API_KEY>`, link a `/my/account`).
 - `sales/sales-orchestrator.md` — sincronizado con la nueva versión de la plantilla.
 
 ### Redmine — nueva acción `update-time-entry` (skill 0.3.0)
@@ -894,7 +1063,7 @@ Antes la única forma de editar una imputación era ir por web/curl manualmente.
 - **Eliminado** `.aigent/v2/.secrets.example.json` (innecesario; el engine genera placeholders dinámicamente desde el manifest).
 - **Eliminado** `.aigent/v2/.secrets.json` antiguo si existía. `.aigent/v2/.gitignore` simplificado (sólo node_modules y similares).
 - **Installers** (`install.sh` / `install.ps1`): nueva función `install_context_secrets` / `Install-ContextSecrets` que crea `.context/.gitignore` y `.context/.secrets.json` vacío en primera pasada (no en `--sync`).
-- **Documentación actualizada** en `_shared/conventions.md` (§1, §12.5, §12.8, §12.9), `_shared/agents/shared-skill-builder.md`, `_shared/orchestrator-template.md`, `_shared/skills/skill-scaffold/SKILL.md`, `operations/skills/redmine/SKILL.md`, `v2/README.md`.
+- **Documentación actualizada** en `_shared/conventions.md` (§1, §12.5, §12.8, §12.9), `_shared/agents/shared-skill-builder.md`, `_shared/orchestrator-template.md`, `_shared/skills/shared-skill-scaffold/SKILL.md`, `operations/skills/operations-redmine/SKILL.md`, `v2/README.md`.
 
 ### Migración para usuarios existentes
 
@@ -922,11 +1091,4 @@ Cualquiera de los tres garantiza que la estructura existe. Si el usuario borra e
 
 ### Engine v2 — onboarding de skills
 - Comando `doctor [<skill>]` — reporta estado de config + secrets de una o todas las skills. JSON estructurado: `{ skill, ready, config[], secrets[], missing_count }`.
-- Comando `configure <skill> --set <path>=<value> [--scope global|project]` — escribe valores en `.context/config.json` validando contra el manifest. Admite múltiples `--set`. Type-coercion automática (string/integer/number/boolean/array). Atómico (escribe vía .tmp + rename).
-- Comando `prepare-secrets <skill>` — garantiza placeholders en `.aigent/v2/.secrets.json` para los secrets pendientes. NUNCA acepta valores por CLI; el usuario los rellena a mano. Reporta los pendientes con instrucciones.
-- Nuevo módulo `engine/configure.js`. `engine/config.js` exporta `getByPath`, `GLOBAL_CONFIG`, `CONTEXT_DIR` para reuso.
-
-### Skill builder — modo configure
-- Nuevo modo `configure` en `shared-skill-builder` (5º modo: create-v1, create-v2, configure, audit, add-action).
-- `create-v2` ahora encadena `configure` automáticamente como paso 6: la skill nace creada **y configurada**. No se cierra create-v2 con la skill sin onboarding.
-- El modo `configure` también es punto de entrada para "skill ya existe pero no está set up" o cuando un orquestador re
+- Comando `configure <skill> --set <path>=<value> [--scope global|project]` — escribe valores en `.context/config.json` validando contra el manifest. Admite múltiple

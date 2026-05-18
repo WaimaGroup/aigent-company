@@ -1,5 +1,6 @@
 ---
 name: "product-roadmap"
+user-invocable: true
 description: >
   Skill for producing a structured product roadmap by horizon (now/next/later or
   by quarter) with outcomes per initiative, owners, dependencies, risks and

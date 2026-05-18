@@ -1,5 +1,6 @@
 ---
 name: "[Legal] Risk, Compliance, Litigation & M&A"
+mode: subagent
 description: >
   Risk and compliance specialist for the Legal department. Use me when you need:
   legal risk analysis for a decision/launch/new market, compliance reviews
@@ -123,9 +124,9 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `risk-matrix` | Matriz de riesgos por dimensión con probabilidad × impacto y mitigación. Compartida — vive en `_shared/skills/`. Útil para análisis de riesgo de decisiones, compliance reviews, due diligence |
-| `stakeholder-map` | Mapa de stakeholders cuando un asunto legal involucra a varios actores (regulador, contraparte, internos). Compartida — vive en `_shared/skills/` |
-| `compliance-checklist` | Checklist estructurada contra un marco (GDPR / SOC 2 / ISO 27001 / HIPAA / PCI DSS / sectorial) con estado por control, gap analysis, remediation plan priorizado |
+| `shared-risk-matrix` | Matriz de riesgos por dimensión con probabilidad × impacto y mitigación. Compartida — vive en `_shared/skills/`. Útil para análisis de riesgo de decisiones, compliance reviews, due diligence |
+| `shared-stakeholder-map` | Mapa de stakeholders cuando un asunto legal involucra a varios actores (regulador, contraparte, internos). Compartida — vive en `_shared/skills/` |
+| `legal-compliance-checklist` | Checklist estructurada contra un marco (GDPR / SOC 2 / ISO 27001 / HIPAA / PCI DSS / sectorial) con estado por control, gap analysis, remediation plan priorizado |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso. Para due diligence y M&A playbooks específicos, usar plantilla interna y proponer formalizar skill cuando el patrón se repita.
 

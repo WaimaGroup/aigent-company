@@ -12,7 +12,7 @@
 
 Los agentes y skills de `_shared/` están disponibles para cualquier departamento. Se invocan:
 
-1. **Desde un orquestador de dept**: cuando la tarea aplica transversalmente (ej. el orquestador de Sales delega un caso de éxito a `sales-enablement`, que invoca la skill `case-study`).
+1. **Desde un orquestador de dept**: cuando la tarea aplica transversalmente (ej. el orquestador de Sales delega un caso de éxito a `sales-enablement`, que invoca la skill `shared-case-study`).
 2. **Directamente al agente transversal**: para tareas que no pertenecen a un dept específico (ej. PRD inicial → `shared-prd-agent`; crear skill nueva → `shared-skill-builder`).
 3. **Skill directa**: cuando ya sabes que necesitas un OKR set, una stakeholder map, etc.
 
@@ -95,7 +95,7 @@ Crear, auditar y configurar skills v1 prosa o v2 ejecutables. Cinco modos: `crea
 > "Quiero una skill v2 ejecutable para Slack: 4 acciones (list-channels, post-message, list-users, get-user). Auth: Bot token via env var. Documenta el setup completo."
 
 **Output esperado:**
-- Ruta: `.aigent/departments/operations/skills/slack/SKILL.md` (o donde encaje según `skill-scaffold` §"Decidir ubicación")
+- Ruta: `.aigent/departments/operations/skills/slack/SKILL.md` (o donde encaje según `shared-skill-scaffold` §"Decidir ubicación")
 - Estructura del SKILL.md generado:
   ```markdown
   ---
@@ -189,7 +189,7 @@ Crear, auditar y configurar skills v1 prosa o v2 ejecutables. Cinco modos: `crea
 
 ## Skills meta (para construir el sistema)
 
-### `skill-scaffold` — Plantilla canónica para crear skill
+### `shared-skill-scaffold` — Plantilla canónica para crear skill
 
 Cubre v1 prosa y v2 ejecutable en un solo SKILL.md. La invoca `shared-skill-builder`.
 
@@ -200,7 +200,7 @@ Cubre v1 prosa y v2 ejecutable en un solo SKILL.md. La invoca `shared-skill-buil
 
 **Output esperado:**
 - Ruta: `.aigent/departments/operations/skills/meeting-notes/SKILL.md`
-- El builder usa `skill-scaffold` como template y produce:
+- El builder usa `shared-skill-scaffold` como template y produce:
   ```markdown
   ---
   name: "meeting-notes"
@@ -749,12 +749,12 @@ Ver ejemplo en [`software/README.md`](../software/README.md) — sección "Skill
 | Crear skill v1 o v2 nueva en el sistema | `shared-skill-builder` (modo `create-v1` o `create-v2`) |
 | Auditar drift entre prosa y manifest de una skill v2 | `shared-skill-builder` (modo `audit`) |
 | Configurar config + secrets de una skill v2 | `shared-skill-builder` (modo `configure`) |
-| Análisis competitivo recurrente | skill `competitive-analysis` (la invoca el dept que lo necesita) |
-| Mapear stakeholders de un deal o decisión | skill `stakeholder-map` |
-| Dashboard recurrente de KPIs | skill `kpi-dashboard` |
-| Caso de éxito de cliente | skill `case-study` |
-| Matriz de riesgos | skill `risk-matrix` |
-| OKRs por ciclo | skill `okr-set` |
-| Journey de usuario | skill `journey-map` |
-| Checklist de deploy de release | skill `deploy-checklist` |
-| Crear agente nuevo en un dept | skill `agent-scaffold` (la invoca `shared-skill-builder` o el orquestador del dept) |
+| Análisis competitivo recurrente | skill `shared-competitive-analysis` (la invoca el dept que lo necesita) |
+| Mapear stakeholders de un deal o decisión | skill `shared-stakeholder-map` |
+| Dashboard recurrente de KPIs | skill `shared-kpi-dashboard` |
+| Caso de éxito de cliente | skill `shared-case-study` |
+| Matriz de riesgos | skill `shared-risk-matrix` |
+| OKRs por ciclo | skill `shared-okr-set` |
+| Journey de usuario | skill `shared-journey-map` |
+| Checklist de deploy de release | skill `shared-deploy-checklist` |
+| Crear agente nuevo en un dept | skill `shared-agent-scaffold` (la invoca `shared-skill-builder` o el orquestador del dept) |

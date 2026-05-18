@@ -20,6 +20,7 @@ param(
 
   [switch]$Mcp,
   [switch]$Sync,         # solo regenera skills (omite agentes, MCP y BOSS bootstrap)
+  [switch]$Prune,        # borra en destino las carpetas de skills sin source en el repo
   [switch]$Update,       # git pull del repo remoto antes de instalar
   [switch]$DryRun,
   [switch]$Help
@@ -166,7 +167,8 @@ function Write-V2Stub($srcSkillMd, $destDir, $deptName, $skillName) {
 
   $stub = @"
 ---
-name: $deptName-$skillName
+name: $skillName
+user-invocable: true
 description: >
   $desc
 ---
@@ -207,7 +209,7 @@ ejecuta llamadas deterministas.
 
   $short = $destDir -replace [regex]::Escape($env:APPDATA), "%APPDATA%"
   $short = $short -replace [regex]::Escape((Get-Location).Path), "."
-  Log-Ok "stub v2: $deptName-$skillName → $short\  (engine: $skillName)"
+  Log-Ok "stub v2: $skillName → $short\  (engine: $skillName)"
 }
 
 function Install-Skill($srcSkillMd, $destDir, $deptName, $skillName) {
@@ -239,13 +241,13 @@ function Install-Dept($deptName, $agentsBase, $skillsBase) {
         }
       }
     }
-    # Skills de _shared: cada carpeta skill_name/ → skillsBase/shared-<skill_name>/SKILL.md
+    # Skills de _shared: cada carpeta ya viene con prefijo `shared-` → skillsBase/<skill_name>/SKILL.md
     $skillsDir = Join-Path $deptPath "skills"
     if (Test-Path $skillsDir) {
       foreach ($skillDir in (Get-ChildItem $skillsDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
         $skillFile = Join-Path $skillDir.FullName "SKILL.md"
         if (Test-Path $skillFile) {
-          Install-Skill $skillFile (Join-Path $skillsBase "shared-$($skillDir.Name)") "shared" $skillDir.Name
+          Install-Skill $skillFile (Join-Path $skillsBase $skillDir.Name) "shared" $skillDir.Name
           $count++
         }
       }
@@ -273,14 +275,14 @@ function Install-Dept($deptName, $agentsBase, $skillsBase) {
     }
   }
 
-  # Skills: cada carpeta skill_name/ → skillsBase/<dept>-<skill_name>/SKILL.md
+  # Skills: cada carpeta ya viene con prefijo `<dept>-` → skillsBase/<skill_name>/SKILL.md
   # Si el SKILL.md es engine-v2, Install-Skill genera un stub en lugar de copiar.
   $skillsDir = Join-Path $deptPath "skills"
   if (Test-Path $skillsDir) {
     foreach ($skillDir in (Get-ChildItem $skillsDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
       $skillFile = Join-Path $skillDir.FullName "SKILL.md"
       if (Test-Path $skillFile) {
-        Install-Skill $skillFile (Join-Path $skillsBase "$deptName-$($skillDir.Name)") $deptName $skillDir.Name
+        Install-Skill $skillFile (Join-Path $skillsBase $skillDir.Name) $deptName $skillDir.Name
         $count++
       }
     }
@@ -299,6 +301,50 @@ function Install-ForIde($ideName, $agentsBase, $skillsBase, [string[]]$selectedD
 
   foreach ($dept in $selectedDepts) {
     Install-Dept $dept $agentsBase $skillsBase
+  }
+}
+
+# ── Prune: borra carpetas en destino sin source en el repo ────────────────────
+# Conservador: solo toca carpetas con prefijo `shared-` o `<dept>-` reconocido.
+# Carpetas con otros prefijos (skills de otros sistemas, customs del usuario)
+# NUNCA se tocan.
+function Invoke-PruneOrphans($skillsBase) {
+  if (-not (Test-Path $skillsBase)) { return }
+
+  # Construir set de prefijos válidos: "shared-" + cada dept del repo
+  $validPrefixes = @("shared-")
+  foreach ($d in (Get-ChildItem $DepartmentsDir -Directory -ErrorAction SilentlyContinue)) {
+    if ($d.Name -ne "_shared") { $validPrefixes += ("{0}-" -f $d.Name) }
+  }
+
+  $pruned = 0
+  foreach ($entry in (Get-ChildItem $skillsBase -Directory -ErrorAction SilentlyContinue)) {
+    $folder = $entry.Name
+    $matchedDept = $null
+    foreach ($p in $validPrefixes) {
+      if ($folder.StartsWith($p)) { $matchedDept = $p.TrimEnd('-'); break }
+    }
+    if (-not $matchedDept) { continue }
+
+    # ¿existe la carpeta source en el repo?
+    if ($matchedDept -eq "shared") {
+      $srcDir = Join-Path $DepartmentsDir "_shared/skills/$folder"
+    } else {
+      $srcDir = Join-Path $DepartmentsDir "$matchedDept/skills/$folder"
+    }
+
+    if (-not (Test-Path $srcDir -PathType Container)) {
+      if ($DryRun) {
+        Log-Dry "prune → $($entry.FullName) (no source)"
+      } else {
+        Remove-Item $entry.FullName -Recurse -Force
+        Log-Ok "pruned → $($entry.FullName) (no source)"
+      }
+      $pruned++
+    }
+  }
+  if ($pruned -gt 0) {
+    Write-Host "  ♻  Prune: $pruned carpeta(s) huérfana(s) en $(Split-Path -Leaf $skillsBase)/" -ForegroundColor Yellow
   }
 }
 
@@ -737,6 +783,7 @@ if ($Help) {
 
 if ($DryRun) { Write-Host "  ⚠  Modo DRY-RUN activado — no se realizarán cambios`n" -ForegroundColor Yellow }
 if ($Sync)   { Write-Host "  ⟳  SYNC — solo se procesan skills (omite agentes, MCP, BOSS)`n" -ForegroundColor Cyan }
+if ($Prune)  { Write-Host "  ♻  PRUNE — al terminar se eliminarán las skills huérfanas en destino`n" -ForegroundColor Yellow }
 if ($Update) { Invoke-Update }
 
 # En -Sync, Mode default = project
@@ -771,6 +818,13 @@ if ($Dept -eq "all") {
 # Instalar agentes y skills (en -Sync, Install-Dept salta agentes internamente)
 if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-ForIde "Claude Code" $claudeAgents $claudeSkills $selectedDepts }
 if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-ForIde "OpenCode"    $ocAgents     $ocSkills     $selectedDepts }
+
+# Prune: solo si -Prune. Recorre cada $skillsBase y borra carpetas huérfanas.
+if ($Prune) {
+  Write-Host ""
+  if ($Ide -eq "claude"   -or $Ide -eq "all") { Invoke-PruneOrphans $claudeSkills }
+  if ($Ide -eq "opencode" -or $Ide -eq "all") { Invoke-PruneOrphans $ocSkills }
+}
 
 # MCP templates, BOSS bootstrap y scaffold de secretos — saltados en -Sync
 if (-not $Sync) {

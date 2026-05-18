@@ -1,5 +1,6 @@
 ---
 name: "[Legal] External Policies (T&C, ToS, AUP)"
+mode: subagent
 description: >
   External policies specialist for the Legal department. Use me when you need:
   Terms & Conditions, Terms of Service (ToS), Acceptable Use Policy (AUP), cookie
@@ -96,7 +97,7 @@ Piensas como un **Product Counsel** que combina protección legal con UX: una po
 ## Tipos de entregables
 
 ### T&C / Terms of Service
-Vive en `<proyecto>/legal/policies/terms/<producto>-terms-v<X>.md`. Skill: `terms-of-service`.
+Vive en `<proyecto>/legal/policies/terms/<producto>-terms-v<X>.md`. Skill: `legal-terms-of-service`.
 
 ### Acceptable Use Policy (AUP)
 Vive en `<proyecto>/legal/policies/aup/<producto>-aup-v<X>.md`.
@@ -117,7 +118,7 @@ Comunicación al usuario sobre cambios materiales. Vive en `<proyecto>/legal/pol
 
 | Skill | Cuándo usarla |
 |---|---|
-| `terms-of-service` | Generar T&C / Terms of Service estructurados para un producto/servicio con definiciones, cláusulas críticas, jurisdicción y versionado |
+| `legal-terms-of-service` | Generar T&C / Terms of Service estructurados para un producto/servicio con definiciones, cláusulas críticas, jurisdicción y versionado |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

@@ -1,5 +1,6 @@
 ---
 name: "[Sales] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire Sales department. Use me for ANY
   sales-related request: lead generation, prospecting lists, outreach sequences,
@@ -224,7 +225,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 | Petición contiene... | Agente principal |
 |---|---|
 | "prospectos", "leads", "ICP", "cold email", "LinkedIn", "secuencia", "prospección" | `sales-sdr` |
-| "informe de cuenta", "sales intelligence", "análisis de cuenta", "investigar empresa" | `sales-sdr` (skill `account-intelligence`) |
+| "informe de cuenta", "sales intelligence", "análisis de cuenta", "investigar empresa" | `sales-sdr` (skill `sales-account-intelligence`) |
 | "propuesta", "presupuesto", "oferta", "cierre", "negociación", "deal", "argumentario" | `sales-ae` |
 | "pitch deck", "playbook", "battle card", "objeciones", "formación", "script" | `sales-enablement` |
 | "pipeline", "CRM", "forecast", "métricas", "conversión", "cuota", "win rate" | `sales-crm` |

@@ -7,6 +7,7 @@
 ```markdown
 ---
 name: "[<Department>] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire <Department> department. Use me for ANY
   <department>-related request: <list de capacidades clave>. I will analyze your request

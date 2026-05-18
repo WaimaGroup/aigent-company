@@ -1,5 +1,6 @@
 ---
 name: "[Product] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire Product department. Use me for ANY
   product-related request: discovery (user interviews, JTBD, validation,
@@ -179,7 +180,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 > "Necesito un script para entrevistar a 5 usuarios sobre nuestro flujo de onboarding"
 
 → Análisis: entregable = script de entrevista, dominio = discovery
-→ Delegación directa a `product-discovery` con skill `user-interview-script`
+→ Delegación directa a `product-discovery` con skill `product-user-interview-script`
 
 ---
 

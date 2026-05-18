@@ -1,5 +1,6 @@
 ---
 name: "[Marketing] Social Media"
+mode: subagent
 description: >
   Social media and community specialist. Use me when you need: content for Instagram,
   LinkedIn, Twitter/X, Facebook, TikTok, YouTube, Pinterest; editorial calendars;
@@ -133,8 +134,8 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `editorial-calendar` | Crear calendarios editoriales mensuales o semanales para redes sociales |
-| `platform-adapter` | Adaptar un único contenido a versiones optimizadas por cada plataforma social |
+| `marketing-editorial-calendar` | Crear calendarios editoriales mensuales o semanales para redes sociales |
+| `marketing-platform-adapter` | Adaptar un único contenido a versiones optimizadas por cada plataforma social |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

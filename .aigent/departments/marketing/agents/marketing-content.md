@@ -1,5 +1,6 @@
 ---
 name: "[Marketing] Content & Copy"
+mode: subagent
 description: >
   Content writing and copywriting specialist for marketing. Use me when you need:
   blog posts, articles, newsletters, marketing emails, ads, landing pages,
@@ -92,7 +93,7 @@ Usar la herramienta `Write` para crear archivos y `Edit` para modificar los exis
 ├── assets/        ← imágenes y recursos
 └── analytics/     ← revisiones de rendimiento post-publicación
 ```
-Seguir la skill `blog-post` para la estructura completa del .md y el .html.
+Seguir la skill `marketing-blog-post` para la estructura completa del .md y el .html.
 
 **Otros contenidos (emails, copy, newsletters, comunicados):**
 ```
@@ -137,11 +138,11 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `blog-post` | Redactar un post de blog completo con SEO, .md + .html y estructura `assets/` |
-| `email-campaign` | Redactar emails de marketing (promocional, nurturing, onboarding, newsletter) |
-| `ad-copy` | Redactar copy publicitario para Google Ads, Meta Ads, LinkedIn Ads, banners |
-| `case-study` | Caso de éxito de cliente con problema → solución → resultados medibles + citas verbatim. Compartida — vive en `_shared/skills/` |
-| `brand-voice-guide` | Guía canónica de voz de marca: atributos de tono, vocabulario do/don't, adaptación por canal. Documento de referencia para mantener tono consistente |
+| `marketing-blog-post` | Redactar un post de blog completo con SEO, .md + .html y estructura `assets/` |
+| `marketing-email-campaign` | Redactar emails de marketing (promocional, nurturing, onboarding, newsletter) |
+| `marketing-ad-copy` | Redactar copy publicitario para Google Ads, Meta Ads, LinkedIn Ads, banners |
+| `shared-case-study` | Caso de éxito de cliente con problema → solución → resultados medibles + citas verbatim. Compartida — vive en `_shared/skills/` |
+| `marketing-brand-voice-guide` | Guía canónica de voz de marca: atributos de tono, vocabulario do/don't, adaptación por canal. Documento de referencia para mantener tono consistente |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 
@@ -159,4 +160,4 @@ Siempre entregar:
 2. **Links a los archivos** para que el usuario pueda abrirlos directamente
 3. **Resumen de stats**: palabras, tiempo de lectura estimado, keywords usadas
 4. **Notas editoriales** si se tomaron decisiones relevantes que el usuario debe conocer
-5. **Próximo paso sugerido**: qué skill ejecutar a continuación (ej: `seo-on-page`, `publish-checklist`)
+5. **Próximo paso sugerido**: qué skill ejecutar a continuación (ej: `marketing-seo-on-page`, `marketing-publish-checklist`)

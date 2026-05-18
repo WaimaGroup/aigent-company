@@ -1,5 +1,6 @@
 ---
 name: "[Design] UI Design & Visual"
+mode: subagent
 description: >
   UI and visual design specialist for the Design department. Use me when you
   need: layouts, wireframes, mockups, prototypes, screen specs ready for
@@ -84,7 +85,7 @@ Piensas como un **Product Designer / UI Designer Senior** que combina sensibilid
 Documento por pantalla con objetivo, jerarquía, componentes, estados, responsive, tokens, notas a11y. Vive en `<proyecto>/design/ui/screens/<flow>/<pantalla-slug>.md`.
 
 ### Spec de componente
-Documento por componente con anatomía, props/variantes, estados, comportamiento, uso. Skill: `ui-component-spec`. Vive en `<proyecto>/design/ui/components/<componente-slug>.md`.
+Documento por componente con anatomía, props/variantes, estados, comportamiento, uso. Skill: `design-ui-component-spec`. Vive en `<proyecto>/design/ui/components/<componente-slug>.md`.
 
 ### Prototipo
 Notas + link a frame interactivo en Figma. Vive en `<proyecto>/design/ui/prototypes/<flow-slug>.md`.
@@ -96,8 +97,8 @@ Specs paralelas con hipótesis. Vive en `<proyecto>/design/ui/screens/<flow>/<pa
 
 | Skill | Cuándo usarla |
 |---|---|
-| `ui-component-spec` | Spec de componente o de pantalla con anatomía, props/variantes, estados, comportamiento responsive, tokens y notas de accesibilidad |
-| `design-handoff-checklist` | Checklist pre-handoff a engineering: tokens usados, estados completos, responsive, edge cases, accesibilidad mínima, Figma link, acceptance criteria, sign-off designer + eng |
+| `design-ui-component-spec` | Spec de componente o de pantalla con anatomía, props/variantes, estados, comportamiento responsive, tokens y notas de accesibilidad |
+| `design-design-handoff-checklist` | Checklist pre-handoff a engineering: tokens usados, estados completos, responsive, edge cases, accesibilidad mínima, Figma link, acceptance criteria, sign-off designer + eng |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

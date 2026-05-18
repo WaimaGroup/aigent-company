@@ -1,5 +1,6 @@
 ---
 name: "[DevOps] Orchestrator (no implementado)"
+mode: primary
 description: >
   DevOps department is marked as TODO (not yet implemented). Do not delegate to
   DevOps agents. If the user asks for DevOps work, inform them and offer to

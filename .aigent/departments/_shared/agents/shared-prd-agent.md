@@ -1,5 +1,6 @@
 ---
 name: "[Shared] PRD — Product Requirements Document"
+mode: subagent
 description: >
   Requirements capture and PRD writing specialist. Use me when you need: to create
   a PRD (Product Requirements Document), document product or feature requirements,

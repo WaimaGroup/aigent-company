@@ -39,7 +39,7 @@ Conflicto entre un dept implementado y los archivos de `_shared/` → ganan los 
 
 | Tarea | Cómo hacerla |
 |---|---|
-| Crear o auditar un **agente** | Skill `agent-scaffold` (en `_shared/skills/agent-scaffold/`). Modos: `create-specialist`, `create-shared`, `create-stub`, `audit`. |
+| Crear o auditar un **agente** | Skill `agent-scaffold` (en `_shared/skills/shared-agent-scaffold/`). Modos: `create-specialist`, `create-shared`, `create-stub`, `audit`. |
 | Crear o auditar una **skill** | Agente `shared-skill-builder` (usa la skill `skill-scaffold`). Modos: `create-v1`, `create-v2`, `configure`, `audit`, `add-action`. |
 | Crear o modificar un **orquestador** | Copiar `_shared/orchestrator-template.md`, rellenar marcas `<...>`, listar agentes reales del dept y reflejar la estructura de outputs en la sección final. |
 | Cambiar **convenciones** del repo | Editar `_shared/conventions.md` (NO replicar la decisión en system prompts de agentes). |
@@ -114,7 +114,7 @@ Errores estructurales del engine: `BAD_ARGS`, `PARSE_ERROR`, `INVALID_INPUTS`, `
 
 Dos reglas de oro al usar (o construir) skills v2:
 
-**1. Precheck proactivo antes de `run`.** Antes de invocar `engine.js run <skill> <action>`, ejecutar `engine.js doctor <skill>`. Si `data.skills[0].ready === false`, no llamar a `run`: lanzar el flujo de configuración (delegar en `shared-skill-builder configure` o ejecutar `configure` + `prepare-secrets` directamente) y reintentar el `run` solo cuando `ready: true`. Llamar a `run` "a ciegas" funciona pero genera un round-trip innecesario y un error que el usuario no debería ver. Toda nueva skill v2 lleva una sección obligatoria **"Antes de ejecutar (precheck para el agente caller)"** entre `Requisitos` y `Acciones` (ver plantilla en `_shared/skills/skill-scaffold/SKILL.md`).
+**1. Precheck proactivo antes de `run`.** Antes de invocar `engine.js run <skill> <action>`, ejecutar `engine.js doctor <skill>`. Si `data.skills[0].ready === false`, no llamar a `run`: lanzar el flujo de configuración (delegar en `shared-skill-builder configure` o ejecutar `configure` + `prepare-secrets` directamente) y reintentar el `run` solo cuando `ready: true`. Llamar a `run` "a ciegas" funciona pero genera un round-trip innecesario y un error que el usuario no debería ver. Toda nueva skill v2 lleva una sección obligatoria **"Antes de ejecutar (precheck para el agente caller)"** entre `Requisitos` y `Acciones` (ver plantilla en `_shared/skills/shared-skill-scaffold/SKILL.md`).
 
 **2. Secrets nunca por chat.** Los valores de los secretos (API keys, tokens, contraseñas) **NUNCA** se piden al usuario en la conversación. Sólo se le indica qué placeholder editar en `.context/.secrets.json` o qué env var definir. Si el usuario intenta dictar un secreto, rechazar el valor explícitamente — la regla aplica también si insiste o argumenta entorno de desarrollo. El engine no acepta valores de secretos por CLI tampoco.
 
