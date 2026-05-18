@@ -4,6 +4,11 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 1.16.1 — 2026-05-18
+
+### gitignore
+
+Se ha añadido el gitignore
 
 ## 1.16.0 — 2026-05-14
 
