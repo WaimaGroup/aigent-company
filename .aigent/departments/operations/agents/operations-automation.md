@@ -1,5 +1,6 @@
 ---
 name: "[Operations] Automation (TODO)"
+mode: subagent
 description: >
   Operations specialist for automation tasks. Department is marked as TODO
   (not yet implemented). Do not act on this agent's invocation: inform the user that

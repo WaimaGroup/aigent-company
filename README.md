@@ -152,7 +152,7 @@ Para descripción de cada skill en una frase: [`.aigent/README.md`](./.aigent/RE
 
 | Quieres… | Ruta |
 |---|---|
-| Añadir o auditar un agente | Skill `agent-scaffold` (en `.aigent/departments/_shared/skills/agent-scaffold/`) |
+| Añadir o auditar un agente | Skill `agent-scaffold` (en `.aigent/departments/_shared/skills/shared-agent-scaffold/`) |
 | Añadir o auditar una skill | Agente `shared-skill-builder`, que usa `skill-scaffold` y considera ubicación (dept vs `_shared/`) |
 | Añadir un departamento nuevo | Copiar `_shared/orchestrator-template.md` + crear agentes con `agent-scaffold` |
 | Crear una skill compartida | Aplicar criterios de `conventions.md` §7.1; vive en `_shared/skills/` sin prefijo |

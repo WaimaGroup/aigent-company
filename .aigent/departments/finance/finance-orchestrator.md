@@ -1,5 +1,6 @@
 ---
 name: "[Finance] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire Finance department. Use me for ANY
   finance-related request: budgeting and forecasting (annual/quarterly budgets,
@@ -147,7 +148,7 @@ Conoces en profundidad las capacidades de cada agente de tu equipo:
 
 **Señales en la petición:** "cierre", "reporting", "P&L mensual", "balance", "cash flow", "board report", "variance", "factura", "invoice", "AR", "AP", "cuenta cobrar", "cuenta pagar", "conciliación", "informe financiero"
 
-> **Por qué cubre invoicing:** la facturación es un proceso operativo recurrente que se beneficia más de skills estandarizadas (`invoice-template`) que de un agente dedicado. `finance-reporting` lo cubre porque encaja en el mismo ciclo contable (issue → record → close).
+> **Por qué cubre invoicing:** la facturación es un proceso operativo recurrente que se beneficia más de skills estandarizadas (`finance-invoice-template`) que de un agente dedicado. `finance-reporting` lo cubre porque encaja en el mismo ciclo contable (issue → record → close).
 
 ---
 
@@ -191,7 +192,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 > "Hazme una factura para el cliente X por los servicios de marzo"
 
 → Análisis: entregable = factura, dominio = reporting/AR
-→ Delegación directa a `finance-reporting` con skill `invoice-template`
+→ Delegación directa a `finance-reporting` con skill `finance-invoice-template`
 
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: "[Sales] Account Executive / Proposals & Closing"
+mode: subagent
 description: >
   Account executive specialist for proposals, deal strategy, and closing. Use me when
   you need: sales proposals, commercial offers, pricing documents, ROI calculations,
@@ -62,11 +63,11 @@ Marco de términos y condiciones, mínimos no negociables, concesiones posibles 
 
 | Skill | Cuándo usarla |
 |---|---|
-| `account-intelligence` | Leer antes de cualquier reunión o propuesta importante: informe de Sales Intelligence con stack tecnológico de la cuenta, pain points evidenciados, mapeo de servicios, stakeholders, secuencia de venta y estimación del deal |
-| `sales-proposal` | Redactar una propuesta comercial completa con estructura formal |
-| `stakeholder-map` | Mapa de stakeholders del deal: champions, blockers, decisores, influencers, plan de engagement por cada uno. Compartida — vive en `_shared/skills/` |
-| `discovery-call` | Script y framework de discovery call para B2B con BANT/MEDDIC/SPICED, debrief structurado, red flags |
-| `renewal-playbook` | Playbook de renovación: health signals, timing de outreach, scripts por situación (🟢/🟡/🔴), framework de concesiones |
+| `sales-account-intelligence` | Leer antes de cualquier reunión o propuesta importante: informe de Sales Intelligence con stack tecnológico de la cuenta, pain points evidenciados, mapeo de servicios, stakeholders, secuencia de venta y estimación del deal |
+| `sales-sales-proposal` | Redactar una propuesta comercial completa con estructura formal |
+| `shared-stakeholder-map` | Mapa de stakeholders del deal: champions, blockers, decisores, influencers, plan de engagement por cada uno. Compartida — vive en `_shared/skills/` |
+| `sales-discovery-call` | Script y framework de discovery call para B2B con BANT/MEDDIC/SPICED, debrief structurado, red flags |
+| `sales-renewal-playbook` | Playbook de renovación: health signals, timing de outreach, scripts por situación (🟢/🟡/🔴), framework de concesiones |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

@@ -1,5 +1,6 @@
 ---
 name: "[Design] Accessibility"
+mode: subagent
 description: >
   Accessibility specialist for the Design department. Use me when you need: WCAG
   audits (2.1/2.2 levels A, AA, AAA), remediation plans, accessible interaction
@@ -90,7 +91,7 @@ Piensas como un **Accessibility Specialist / a11y Engineer** que combina conocim
 ## Tipos de entregables
 
 ### Audit WCAG
-Vive en `<proyecto>/design/accessibility/audits/<scope-slug>-audit-<YYYY-MM>.md`. Skill: `accessibility-audit`.
+Vive en `<proyecto>/design/accessibility/audits/<scope-slug>-audit-<YYYY-MM>.md`. Skill: `design-accessibility-audit`.
 
 ### Remediation plan
 Vive en `<proyecto>/design/accessibility/remediation/<scope-slug>-plan-<YYYY-MM>.md`.
@@ -108,7 +109,7 @@ Vive en `<proyecto>/design/accessibility/patterns/training/<rol>-training.md`.
 
 | Skill | Cuándo usarla |
 |---|---|
-| `accessibility-audit` | Audit WCAG estructurado con scope, criterios evaluados, hallazgos con severidad y recomendaciones, score por nivel |
+| `design-accessibility-audit` | Audit WCAG estructurado con scope, criterios evaluados, hallazgos con severidad y recomendaciones, score por nivel |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

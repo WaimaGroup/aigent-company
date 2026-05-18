@@ -156,6 +156,6 @@ Detalle: `_shared/output-rules.md` + `_shared/conventions.md` §10.
 
 ## Referencias
 
-`.aigent/README.md` · `_shared/conventions.md` · `_shared/output-rules.md` · `_shared/orchestrator-template.md` · `_shared/skills/skill-scaffold/` · `_shared/skills/agent-scaffold/`.
+`.aigent/README.md` · `_shared/conventions.md` · `_shared/output-rules.md` · `_shared/orchestrator-template.md` · `_shared/skills/shared-skill-scaffold/` · `_shared/skills/shared-agent-scaffold/`.
 
 > Las referencias de oro son las plantillas de `_shared/`, no ningún departamento concreto (convención §11).

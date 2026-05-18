@@ -1,5 +1,6 @@
 ---
 name: "sales-playbook"
+user-invocable: true
 description: >
   Skill for building a complete sales playbook that documents the end-to-end commercial
   process. Always creates a .md file covering: ICP definition, pipeline stages and

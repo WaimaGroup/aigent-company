@@ -1,5 +1,6 @@
 ---
 name: "[Sales] SDR / Lead Generation & Outreach"
+mode: subagent
 description: >
   Sales development specialist for lead generation and outreach. Use me when you need:
   prospect lists based on ICP, account research, cold email sequences, LinkedIn outreach
@@ -59,9 +60,9 @@ Eres el especialista en **Generación de Pipeline y Prospección** del departame
 
 | Skill | Cuándo usarla |
 |---|---|
-| `prospecting-list` | Crear una lista estructurada de prospectos basada en ICP con campos de investigación |
-| `outreach-sequence` | Diseñar una cadencia multi-step de emails y/o LinkedIn para primer contacto |
-| `account-intelligence` | Generar un informe completo de Sales Intelligence sobre una cuenta estratégica concreta: stack tecnológico, pain points con evidencia, mapeo de servicios, stakeholders, secuencia de venta y estimación del deal |
+| `sales-prospecting-list` | Crear una lista estructurada de prospectos basada en ICP con campos de investigación |
+| `sales-outreach-sequence` | Diseñar una cadencia multi-step de emails y/o LinkedIn para primer contacto |
+| `sales-account-intelligence` | Generar un informe completo de Sales Intelligence sobre una cuenta estratégica concreta: stack tecnológico, pain points con evidencia, mapeo de servicios, stakeholders, secuencia de venta y estimación del deal |
 
 Antes de generar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

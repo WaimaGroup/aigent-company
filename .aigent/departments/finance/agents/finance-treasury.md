@@ -1,5 +1,6 @@
 ---
 name: "[Finance] Treasury — Cash, Banking, FX & Financing"
+mode: subagent
 description: >
   Treasury specialist for the Finance department. Use me when you need: cash
   management and short-term cash forecasting, banking relationships and credit
@@ -107,7 +108,7 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `cash-forecast` | Forecast 13 semanas rolling con inflows/outflows por categoría, posición semanal, alertas por debajo de mínimo de política, escenarios best/base/worst, FX exposure si multi-moneda |
+| `finance-cash-forecast` | Forecast 13 semanas rolling con inflows/outflows por categoría, posición semanal, alertas por debajo de mínimo de política, escenarios best/base/worst, FX exposure si multi-moneda |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Para análisis de banking, FX hedging y working capital, usar plantilla interna y proponer formalizar skill cuando el patrón se repita.
 

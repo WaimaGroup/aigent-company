@@ -1,5 +1,6 @@
 ---
 name: "[Shared] Skill Builder"
+mode: subagent
 description: >
   Skill creation and audit specialist. Use me when you need to: create a new skill
   (v1 prose-only or v2 executable HTTP), audit an existing skill for drift between
@@ -29,8 +30,8 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
 
 | Modo | Cuándo | Skills/herramientas que invocas |
 |---|---|---|
-| **create-v1** | El valor está en el razonamiento (redactar, decidir, priorizar). | `skill-scaffold` (sección "Modo v1") |
-| **create-v2** | La operación es determinista contra una API HTTP. | `skill-scaffold` (sección "Modo v2") + `engine.js validate/dry-run` + onboarding (configure/prepare-secrets) |
+| **create-v1** | El valor está en el razonamiento (redactar, decidir, priorizar). | `shared-skill-scaffold` (sección "Modo v1") |
+| **create-v2** | La operación es determinista contra una API HTTP. | `shared-skill-scaffold` (sección "Modo v2") + `engine.js validate/dry-run` + onboarding (configure/prepare-secrets) |
 | **configure** | Skill v2 ya creada pero sin configurar (faltan valores en `config.json` o secrets). Dos disparadores: (a) **proactivo** — el orquestador hace `doctor` antes de un `run` y obtiene `ready: false`, te delega antes de ejecutar nada; (b) **reactivo** — un `run` ya falló con `CONFIG_ERROR`/`SECRETS_ERROR` (con `error.details.missing_*` y `error.details.next` ya disponibles). El proceso es idéntico en ambos casos. | `engine.js doctor/configure/prepare-secrets` |
 | **audit** | "Revisa la skill X" — drift entre prosa y manifest, completitud, warnings. | `engine.js validate` + lectura del SKILL.md |
 | **add-action** | "Añade la acción Y a la skill X" (X ya existe en v2). | Edit + `engine.js validate/dry-run` |
@@ -42,7 +43,7 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
 1. Confirmar que el caso es realmente v1 (no determinista). Si dudas: *"¿Esta skill va a hacer llamadas HTTP a una API, o es para que un agente redacte/decida algo?"*
 2. **Decidir ubicación: dept o `_shared/`.** Aplicar los criterios de `conventions.md` §7.1: la skill vive en `_shared/skills/` solo si ≥2 departments la consumirán con la **misma estructura de entregable** y sin matices fuertes por dept. En caso de duda con solapamiento real, proponer `_shared/` al usuario explícitamente y dejar que decida. **Por defecto, vive en el dept** — promovemos a compartida solo cuando el reuso es evidente.
 3. Recopilar campos en una sola tanda (ver `skill-scaffold/SKILL.md` → "Información común a recopilar" + "Modo v1 — Información adicional").
-4. Crear la carpeta según la ubicación decidida y escribir `SKILL.md` siguiendo la **plantilla v1** de `skill-scaffold`:
+4. Crear la carpeta según la ubicación decidida y escribir `SKILL.md` siguiendo la **plantilla v1** de `shared-skill-scaffold`:
    - Si vive en un dept: `.aigent/departments/<dept>/skills/<name>/SKILL.md`
    - Si es compartida: `.aigent/departments/_shared/skills/<name>/SKILL.md`
 5. Verificar checklist estructural:
@@ -64,7 +65,7 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
    - URL base, esquema de auth (Bearer / API-Key / Basic), nombre del env var del token.
    - Para cada acción: nombre, método+path, inputs (con type, required, default, enum), si tiene body JSON, forma del output.
    - Si el usuario tiene la documentación de la API a mano, leerla. Si no, preguntar lo mínimo y dejar TODOs explícitos en el SKILL.md.
-3. Crear la carpeta y escribir `SKILL.md` siguiendo la **plantilla v2** de `skill-scaffold`.
+3. Crear la carpeta y escribir `SKILL.md` siguiendo la **plantilla v2** de `shared-skill-scaffold`.
 4. **Validar con el engine** (bucle):
    ```bash
    node .aigent/v2/engine/engine.js validate <name>
@@ -148,9 +149,9 @@ Se invoca en tres escenarios, todos con el mismo proceso:
 
 | Skill | Cuándo invocarla |
 |---|---|
-| `skill-scaffold` | Crear o regenerar cualquier skill nueva (modo v1 prosa o modo v2 ejecutable). Una sola plantilla con sección "Modo v1" y sección "Modo v2". |
+| `shared-skill-scaffold` | Crear o regenerar cualquier skill nueva (modo v1 prosa o modo v2 ejecutable). Una sola plantilla con sección "Modo v1" y sección "Modo v2". |
 
-Vive en `.aigent/departments/_shared/skills/skill-scaffold/`. Su SKILL.md es la referencia que sigues para la plantilla del archivo a generar. **Léela siempre antes de generar** — la plantilla canónica vive ahí, no la repitas en este agente.
+Vive en `.aigent/departments/_shared/skills/shared-skill-scaffold/`. Su SKILL.md es la referencia que sigues para la plantilla del archivo a generar. **Léela siempre antes de generar** — la plantilla canónica vive ahí, no la repitas en este agente.
 
 ## Restricciones
 

@@ -1,5 +1,6 @@
 ---
 name: "[HR] Onboarding & First 90 Days"
+mode: subagent
 description: >
   Onboarding specialist for the HR department. Use me when you need: 30/60/90 day
   plans for new hires, day-one and first-week checklists, buddy/mentor
@@ -89,7 +90,7 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `onboarding-plan` | Plan estructurado 30/60/90 días con pre-boarding checklist, día 1 hora a hora, semana 1, plan por etapas (aprender → contribuir → owning), buddy program, evaluación de período de prueba, feedback bidireccional |
+| `hr-onboarding-plan` | Plan estructurado 30/60/90 días con pre-boarding checklist, día 1 hora a hora, semana 1, plan por etapas (aprender → contribuir → owning), buddy program, evaluación de período de prueba, feedback bidireccional |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

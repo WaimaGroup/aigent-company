@@ -1,5 +1,6 @@
 ---
 name: "[DevOps] Pipeline (TODO)"
+mode: subagent
 description: >
   DevOps specialist for pipeline tasks. Department is marked as TODO
   (not yet implemented). Do not act on this agent's invocation: inform the user that

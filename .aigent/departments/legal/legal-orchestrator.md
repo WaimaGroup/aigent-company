@@ -1,5 +1,6 @@
 ---
 name: "[Legal] Orchestrator"
+mode: primary
 description: >
   Entry point and coordinator for the entire Legal department. Use me for ANY
   legal-related request: commercial contracts (MSAs, NDAs, SOWs, licenses),
@@ -216,7 +217,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 > "Necesito un NDA mutuo para una conversación con un potencial inversor"
 
 → Análisis: entregable = NDA, dominio = contracts
-→ Delegación directa a `legal-contracts` con skill `contract-template` (variante NDA mutuo)
+→ Delegación directa a `legal-contracts` con skill `legal-contract-template` (variante NDA mutuo)
 
 ---
 

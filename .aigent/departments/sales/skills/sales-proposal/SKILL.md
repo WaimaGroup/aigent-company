@@ -1,5 +1,6 @@
 ---
 name: "sales-proposal"
+user-invocable: true
 description: >
   Skill for writing a complete, structured sales proposal from a deal brief.
   Always creates a .md file with all sections: executive summary, problem diagnosis,

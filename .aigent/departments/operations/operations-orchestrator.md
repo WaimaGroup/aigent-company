@@ -1,5 +1,6 @@
 ---
 name: "[Operations] Orchestrator (no implementado)"
+mode: primary
 description: >
   Operations department is marked as TODO (not yet implemented). Do not delegate to
   Operations agents. If the user asks for operations work, inform them and offer

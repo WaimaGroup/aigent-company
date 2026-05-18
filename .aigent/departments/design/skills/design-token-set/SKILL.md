@@ -1,5 +1,6 @@
 ---
 name: "design-token-set"
+user-invocable: true
 description: >
   Skill for defining or evolving a design token set by category (color, spacing,
   typography, radii, shadow, motion) with semantic naming, value mapping, and

@@ -49,10 +49,28 @@
 | Orquestador | `<dept>-orchestrator.md` | `marketing-orchestrator.md` |
 | Agente especialista | `<dept>-<role>.md` kebab-case | `marketing-social.md` |
 | Agente compartido | `shared-<role>.md` | `shared-prd-agent.md`, `shared-skill-builder.md` |
-| Skill (carpeta y archivo) | kebab-case + `SKILL.md` | `editorial-calendar/SKILL.md` |
+| Skill (carpeta del repo) | `<dept-prefix>-<base>` + `SKILL.md` | `marketing/skills/marketing-blog-post/SKILL.md` |
+| Frontmatter `name` skill | igual al nombre de la carpeta | `marketing-blog-post`, `shared-skill-scaffold`, `operations-redmine` |
 | Frontmatter `name` orq. | `[Department] Orchestrator` | `[Marketing] Orchestrator` |
 | Frontmatter `name` agente | `[Department] <Role>` | `[Marketing] Social Media`, `[Shared] Skill Builder` |
 | Capitalización `[Dept]` | título correcto | `[HR]`, `[DevOps]` (no `[Hr]`, `[Devops]`) |
+
+### 4.1 Regla: carpeta y `name:` llevan prefijo del dept, y son iguales
+
+Tanto la **carpeta** como el **`name:` del frontmatter** de toda skill (v1 y v2) llevan el prefijo del departamento al que pertenece, separado por guion. Y coinciden uno a uno: el `name:` es exactamente el nombre de la carpeta.
+
+| Ubicación en el repo | Prefijo de carpeta | Ejemplo |
+|---|---|---|
+| `departments/<dept>/skills/<x>/` | `<dept>-` | `marketing/skills/marketing-blog-post/` → `name: "marketing-blog-post"` |
+| `departments/_shared/skills/<x>/` | `shared-` | `_shared/skills/shared-competitive-analysis/` → `name: "shared-competitive-analysis"` |
+
+**Excepción: no doblar prefijo.** Si la "base" del nombre ya empieza por el prefijo del dept (caso histórico: `marketing-plan`, `product-roadmap`, `sales-playbook`, `design-token-set`...), la carpeta se queda tal cual y el `name:` también. **No** se genera `marketing-marketing-plan/`. Mecánicamente: si `<carpeta>` empieza por `<dept>-`, ya es válida; si no, el nombre canónico es `<dept>-<carpeta>`.
+
+Motivación: evitar colisiones cuando todas las skills acaban en un único directorio plano del IDE (`.claude/skills/`, `.opencode/skills/`), hacer obvio el dept de origen al leer cualquier referencia, y eliminar el drift entre source y stub — el installer ya no manipula el nombre, solo copia.
+
+**Engine v2:** la skill se invoca por su `name:`, que coincide con el dirname. `engine.js run operations-redmine list-issues`. El `path:` de `config:` (p. ej. `tools.redmine.base_url`) es independiente del `name:` y puede mantenerse sin prefijo si la config ya existía — o pasar a `tools.<name>.<...>` para skills nuevas.
+
+**Lint del engine:** `engine.js validate <skill>` emite un warning si `manifest.name` no coincide con el dirname.
 
 ## 5. Estructura mínima de un agente
 
@@ -61,6 +79,7 @@ Secciones obligatorias en este orden:
 ```markdown
 ---
 name: "[Department] Role"
+mode: primary | subagent
 description: > ...
 ---
 
@@ -72,6 +91,18 @@ description: > ...
 ## Output esperado          ← debe contener: "Aplican las reglas de output de _shared/output-rules.md"
 ```
 
+### 5.1 Campo `mode:` — clasificación para OpenCode
+
+OpenCode lee el frontmatter de los agentes y necesita saber si un agente es **punto de entrada** (el usuario habla con él directamente) o **ejecuta delegado** (otro agente lo invoca como subagente). El campo `mode:` lo declara explícitamente. Claude Code lo ignora; no rompe nada en ningún IDE.
+
+| Tipo de agente | `mode:` | Por qué |
+|---|---|---|
+| Orquestador (`<dept>-orchestrator.md`) | `primary` | Es la puerta de entrada del departamento. BOSS delega aquí; el orquestador delega luego en especialistas. |
+| Especialista (`<dept>-<role>.md`) | `subagent` | Lo invoca su orquestador; el usuario no debería hablarle directamente. |
+| Compartido (`shared-<role>.md`) | `subagent` | Lo invocan orquestadores o BOSS; nunca es entrada directa. |
+
+El template `_shared/orchestrator-template.md` lleva `mode: primary`. Los scaffolds de agentes (`shared/skills/agent-scaffold`) deben generar el modo correcto según la subskill (`create-specialist` → `subagent`, `create-shared` → `subagent`, orquestadores → `primary`).
+
 ## 6. Estructura mínima de un orquestador
 
 Sigue `_shared/orchestrator-template.md`. Secciones obligatorias: frontmatter, Rol, Paso 0 (proyecto activo), Paso 0.5 (primera vez en proyecto: confirmar `paths` + `mcps`), Ficheros a leer, Gestión de tareas, Agentes disponibles, Proceso de delegación (simple/compuesto/ambiguo), Tabla de decisión rápida, Comportamiento en tareas compuestas, **Manejo de skills v2 — readiness** (precheck proactivo con `doctor` antes de `run` + red de seguridad reactiva tras `CONFIG_ERROR`/`SECRETS_ERROR` → delegar en `shared-skill-builder configure` → reintentar; secrets nunca por chat), Cuándo NO delegar, Restricciones, Reglas de output (referencia a `_shared/output-rules.md` + carpetas del dept), Principio de cierre.
@@ -80,8 +111,9 @@ Sigue `_shared/orchestrator-template.md`. Secciones obligatorias: frontmatter, R
 
 ```markdown
 ---
-name: "skill-name"
+name: "<dept-prefix>-<carpeta>"   # §4.1 — ej. "marketing-blog-post", "shared-case-study"
 description: > ...
+user-invocable: true               # §7.1
 ---
 
 # Skill: <Nombre>
@@ -96,6 +128,14 @@ description: > ...
 **La skill no declara qué agentes la usan.** El agente conoce sus skills, no al revés. La asociación vive en la sección `## Skills disponibles` del agente.
 
 > Para skills v2 (ejecutables por engine), ver §12.
+
+### 7.1 Campo `user-invocable:` — quién puede llamar a la skill
+
+Toda skill del repo (v1 prosa, v2 ejecutable, meta-skill) lleva `user-invocable: true` en el frontmatter. Es la marca que tanto Claude Code como OpenCode usan para decidir si una skill aparece en el menú del usuario o solo está disponible cuando un agente la invoca programáticamente.
+
+Política del repo: **todas las skills son `user-invocable: true`**. La barrera para "esto no lo debería usar el usuario directamente" se pone en la `description` (que explica para quién es) y en la lógica del agente que la consume, no en restringir el flag. Mantener una sola convención simplifica el contrato.
+
+Si en el futuro aparece una skill que de verdad no debe poder lanzarse fuera de su agente caller (caso teórico: una acción peligrosa sin guardrails), se discute caso a caso y se justifica en su `description`. Hasta entonces, **`user-invocable: true` es obligatorio** en todo SKILL.md nuevo o existente.
 
 ## 7.1 Skills compartidas en `_shared/skills/`
 
@@ -262,10 +302,11 @@ Existen dos clases de skills en el repo. Ambas viven en la misma jerarquía y co
 
 ```yaml
 ---
-name: "skill-name"                          # kebab-case, único en el repo
+name: "<dept-prefix>-<carpeta>"             # §4.1 — ej. "operations-redmine"
 version: "0.1.0"                            # semver
 description: >                              # una frase, qué hace la skill
   ...
+user-invocable: true                        # §7.1
 runtime: engine-v2                          # marca: skill ejecutable v2
 
 config:                                     # qué necesita de .context/config.json
@@ -299,7 +340,9 @@ actions:
 
 **Reglas:**
 - `runtime: engine-v2` es obligatorio para que el engine cargue la skill.
-- `config.<key>.path` apunta a la ruta dentro de `.context/config.json` con prefijo `tools.<skill>.<...>` (§10).
+- `name:` sigue §4.1 (`<dept-prefix>-<carpeta>`). Es por este `name` por el que el engine encuentra la skill (`engine.js run operations-redmine ...`), no por dirname.
+- `user-invocable: true` es obligatorio (§7.1).
+- `config.<key>.path` apunta a la ruta dentro de `.context/config.json` con prefijo `tools.<skill>.<...>` (§10). El `<skill>` del path es independiente del `name:` de la skill — puede mantenerse sin prefijo si la config ya existe (ej. `tools.redmine.base_url`).
 - `secrets[].name` es el nombre del env var. Nunca poner valores aquí.
 - `actions.<name>.impl.ref` debe coincidir con el atributo `name=` de un bloque de código en el body.
 - Inputs con `required: true` y sin `default` hacen fallar la ejecución si no se aportan.

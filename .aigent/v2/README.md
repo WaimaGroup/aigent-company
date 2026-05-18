@@ -32,7 +32,7 @@ Los stubs en `.claude/` y `.opencode/` son derivados, regenerables con `install.
 
 Iteración 1 funcional:
 - Engine sin dependencias externas (parser YAML propio).
-- Skill piloto Redmine en `operations/skills/redmine/`.
+- Skill piloto Redmine en `operations/skills/operations-redmine/`.
 - Installer detecta `runtime: engine-v2` y genera stubs (~1.3 KB) en lugar de copiar la fuente (~6.7 KB).
 - Tests internos pasan: parser, validate, render de URL/headers/body con omisión de opcionales, integers como números, manejo de 204.
 
@@ -96,10 +96,10 @@ export REDMINE_API_KEY="..."
 node .aigent/v2/engine/engine.js list
 
 # Ver el contrato de una skill (acciones, inputs, outputs) — sin leer la fuente
-node .aigent/v2/engine/engine.js describe redmine
+node .aigent/v2/engine/engine.js describe operations-redmine
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.js run redmine list-issues \
+node .aigent/v2/engine/engine.js run operations-redmine list-issues \
   --inputs '{"project_id":"internal-tools","limit":10}'
 ```
 
@@ -139,4 +139,4 @@ El frontmatter usa un subset de YAML que parsea el engine sin dependencias. Tabl
 
 - Si ya existe un MCP fiable para la herramienta → usar el MCP.
 - Si la operación necesita razonamiento (decidir qué pedir, cómo redactar, cómo priorizar) → eso lo hace un agente; v2 es solo la mano determinista.
-- Si la skill v1 (instrucción al LLM) cubre el caso sin coste excesivo de tokens → no migrar por migrar.
+- Si la skill v1 (instrucción al LLM) cubre el caso sin coste excesivo de tokens → 

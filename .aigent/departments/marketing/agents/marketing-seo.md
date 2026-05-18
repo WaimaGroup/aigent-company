@@ -1,5 +1,6 @@
 ---
 name: "[Marketing] SEO & Analytics"
+mode: subagent
 description: >
   SEO and web analytics specialist. Use me when you need: keyword research, SEO
   content optimization, SEO audits, link building strategy, technical SEO, web
@@ -126,9 +127,9 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `keyword-research` | Investigación de palabras clave: identificar, clasificar y priorizar términos de búsqueda |
-| `seo-on-page` | Optimización SEO on-page de contenido existente o nuevo (titles, estructura, meta tags, internal links) |
-| `kpi-dashboard` | Dashboard estructurado de KPIs SEO (tráfico orgánico, posiciones, CTR, conversiones) con tendencia y variance. Compartida — vive en `_shared/skills/` |
+| `marketing-keyword-research` | Investigación de palabras clave: identificar, clasificar y priorizar términos de búsqueda |
+| `marketing-seo-on-page` | Optimización SEO on-page de contenido existente o nuevo (titles, estructura, meta tags, internal links) |
+| `shared-kpi-dashboard` | Dashboard estructurado de KPIs SEO (tráfico orgánico, posiciones, CTR, conversiones) con tendencia y variance. Compartida — vive en `_shared/skills/` |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

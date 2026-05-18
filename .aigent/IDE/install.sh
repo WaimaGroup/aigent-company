@@ -47,6 +47,7 @@ INSTALL_MCP=false
 DRY_RUN=false
 SYNC_ONLY=false       # --sync: solo skills (omite agentes, MCP, BOSS)
 UPDATE=false          # --update: git pull antes de instalar
+PRUNE=false           # --prune: borrar carpetas en destino que no tengan source en el repo
 CLAUDE_SKILLS=""
 OC_SKILLS=""
 
@@ -118,6 +119,7 @@ print_usage() {
   echo "    --dept         lista separada por comas (ej: marketing,operations) o 'all'"
   echo "    --mcp          copia los templates de configuración MCP al proyecto"
   echo "    --sync         solo regenera skills (omite agentes, MCP y BOSS)"
+  echo "    --prune        al terminar, borra en destino las carpetas de skills sin source en el repo"
   echo "    --update       git pull del repo remoto antes de instalar"
   echo "    --dry-run      muestra lo que haría sin escribir nada"
   echo "    --help, -h     esta ayuda"
@@ -126,6 +128,7 @@ print_usage() {
   echo "    ./install.sh                                              # modo interactivo (recomendado)"
   echo "    ./install.sh --ide all --mode project --dept all          # instalación completa"
   echo "    ./install.sh --sync --ide claude --dept all               # refresca todos los stubs"
+  echo "    ./install.sh --sync --prune --ide all --dept all          # refresca + limpia huérfanas"
   echo "    ./install.sh --sync --ide all --dept operations           # refresca solo redmine"
   echo "    ./install.sh --sync --dept marketing --dry-run            # ver qué tocaría"
   echo "    ./install.sh --update                                     # actualizar desde GitHub + reinstalar"
@@ -204,18 +207,19 @@ write_v2_stub() {
   meta="$(extract_skill_meta "$src_skill_md")"
   name="${meta%%|||*}"
   desc="${meta#*|||}"
-  [ -z "$name" ] && name="${dept_name}-${skill_name}"
+  [ -z "$name" ] && name="${skill_name}"
   [ -z "$desc" ] && desc="Skill ejecutable v2 (sin description en el manifiesto)."
 
   if $DRY_RUN; then
-    log_dry "stub v2 → ${dest_dir##"$HOME"}/SKILL.md  (engine: $skill_name)"
+    log_dry "stub v2 → ${dest_dir##"$HOME"}/SKILL.md  (engine: ${skill_name})"
     return
   fi
 
   mkdir -p "$dest_dir"
   cat > "$dest_file" <<'STUB_EOF'
 ---
-name: __DEPT__-__SKILL__
+name: __SKILL__
+user-invocable: true
 description: >
   __DESC__
 ---
@@ -257,7 +261,7 @@ STUB_EOF
     -e "s|__DESC__|${desc_esc}|g" \
     "$dest_file"
 
-  log_ok "stub v2: ${dept_name}-${skill_name} → ${dest_dir##"$HOME"}/  (engine: $skill_name)"
+  log_ok "stub v2: ${skill_name} → ${dest_dir##"$HOME"}/  (engine: ${skill_name})"
 }
 
 install_skill() {
@@ -294,7 +298,7 @@ install_dept() {
         [ -d "$skill_dir" ] || continue
         local skill_name; skill_name="$(basename "$skill_dir")"
         if [ -f "$skill_dir/SKILL.md" ]; then
-          install_skill "$skill_dir/SKILL.md" "$skills_base/shared-${skill_name}" "shared" "$skill_name"
+          install_skill "$skill_dir/SKILL.md" "$skills_base/${skill_name}" "shared" "$skill_name"
           ((count++)) || true
         fi
       done
@@ -324,7 +328,7 @@ install_dept() {
       [ -d "$skill_dir" ] || continue
       local skill_name; skill_name="$(basename "$skill_dir")"
       if [ -f "$skill_dir/SKILL.md" ]; then
-        install_skill "$skill_dir/SKILL.md" "$skills_base/${dept_name}-${skill_name}" "$dept_name" "$skill_name"
+        install_skill "$skill_dir/SKILL.md" "$skills_base/${skill_name}" "$dept_name" "$skill_name"
         ((count++)) || true
       fi
     done
@@ -341,6 +345,66 @@ install_for_ide() {
   divider
   install_dept "_shared" "$agents_base" "$skills_base"
   for dept in "${selected_depts[@]}"; do install_dept "$dept" "$agents_base" "$skills_base"; done
+}
+
+# ── Prune: borrar carpetas en destino que no tengan source en el repo ─────────
+# Conservador: solo toca carpetas con prefijo `shared-` o `<dept>-` reconocido,
+# y solo si NO existe la carpeta correspondiente en el repo. Carpetas con otros
+# prefijos (skills de otros sistemas, customs del usuario) NUNCA se tocan.
+prune_orphans() {
+  local skills_base="$1"
+  [ -d "$skills_base" ] || return 0
+
+  # Construir set de prefijos válidos: "shared-" + cada dept del repo
+  local valid_prefixes=("shared-")
+  for d in "$DEPARTMENTS_DIR"/*/; do
+    local name; name="$(basename "$d")"
+    [[ "$name" == _shared ]] && continue
+    valid_prefixes+=("${name}-")
+  done
+
+  local pruned=0
+  for entry in "$skills_base"/*/; do
+    [ -d "$entry" ] || continue
+    local folder; folder="$(basename "$entry")"
+
+    # ¿empieza por algún prefijo Aigent conocido?
+    local has_aigent_prefix=false
+    local matched_dept=""
+    for p in "${valid_prefixes[@]}"; do
+      if [[ "$folder" == ${p}* ]]; then
+        has_aigent_prefix=true
+        matched_dept="${p%-}"
+        break
+      fi
+    done
+    $has_aigent_prefix || continue
+
+    # ¿existe la carpeta source en el repo?
+    local src_dept_dir
+    if [ "$matched_dept" == "shared" ]; then
+      src_dept_dir="$DEPARTMENTS_DIR/_shared/skills/$folder"
+    else
+      src_dept_dir="$DEPARTMENTS_DIR/$matched_dept/skills/$folder"
+    fi
+
+    if [ ! -d "$src_dept_dir" ]; then
+      local short="${entry%/}"
+      short="${short/#$HOME/~}"
+      if $DRY_RUN; then
+        log_dry "prune → $short (no source)"
+      else
+        rm -rf "$entry"
+        log_ok "pruned → $short (no source)"
+      fi
+      pruned=$((pruned+1))
+    fi
+  done
+  local base_name
+  base_name="$(basename "$skills_base")"
+  if [ $pruned -gt 0 ]; then
+    echo -e "  ${YELLOW}♻  Prune:${NC} $pruned carpeta(s) huérfana(s) en $base_name/"
+  fi
 }
 
 # ── Bootstrap BOSS ────────────────────────────────────────────────────────────
@@ -659,6 +723,7 @@ while [[ $# -gt 0 ]]; do
     --dept)        DEPT="$2";        shift 2 ;;
     --mcp)         INSTALL_MCP=true; shift   ;;
     --sync)        SYNC_ONLY=true;   shift   ;;
+    --prune)       PRUNE=true;       shift   ;;
     --update)      UPDATE=true;      shift   ;;
     --dry-run)     DRY_RUN=true;     shift   ;;
     --help|-h)     print_header; print_usage; exit 0 ;;
@@ -670,6 +735,7 @@ done
 print_header
 $DRY_RUN   && echo -e "  ${YELLOW}⚠  DRY-RUN — no se realizarán cambios${NC}\n"
 $SYNC_ONLY && echo -e "  ${CYAN}⟳  SYNC — solo se procesan skills (omite agentes, MCP, BOSS)${NC}\n"
+$PRUNE     && echo -e "  ${YELLOW}♻  PRUNE — al terminar se eliminarán las skills huérfanas en destino${NC}\n"
 $UPDATE    && run_update
 
 # En sync, mode default = project (lo más común al refrescar stubs)
@@ -706,6 +772,13 @@ fi
 # 1. Agentes + skills (en --sync solo skills)
 if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_for_ide "Claude Code" "$CLAUDE_AGENTS" "$CLAUDE_SKILLS" "${SELECTED_DEPTS[@]}"; fi
 if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_for_ide "OpenCode"    "$OC_AGENTS"     "$OC_SKILLS"     "${SELECTED_DEPTS[@]}"; fi
+
+# 1.5 Prune: solo si --prune. Recorre cada $skills_base y borra carpetas huérfanas.
+if $PRUNE; then
+  echo ""
+  if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then prune_orphans "$CLAUDE_SKILLS"; fi
+  if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then prune_orphans "$OC_SKILLS";     fi
+fi
 
 # 2. MCP templates, BOSS bootstrap y scaffold de secretos — saltados en --sync
 if ! $SYNC_ONLY; then

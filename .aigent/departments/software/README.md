@@ -11,7 +11,7 @@ Tres formas, en orden de fricción creciente para el usuario:
 
 1. **Vía orquestador** (recomendado, default): hablar al `software-orchestrator`. Analiza la petición, identifica al especialista correcto y delega. Si la tarea es compuesta, coordina varios agentes en secuencia.
 2. **Directo a agente**: invocar al agente específico cuando ya sabes a quién. Ahorra un salto pero requiere conocer el equipo.
-3. **Skill directa**: para tareas muy concretas con input claro (ej. "genera el commit message de este diff" → directo a `commit-message`).
+3. **Skill directa**: para tareas muy concretas con input claro (ej. "genera el commit message de este diff" → directo a `software-commit-message`).
 
 > En BOSS-mode (deployments), toda petición de naturaleza técnica entra por el orquestador del dept Software. Los ejemplos de prompts de abajo son lo que el usuario teclea — el orquestador hace el resto.
 
@@ -925,7 +925,7 @@ Breaking changes con antes/después, codemods, plan paso a paso, validación, ro
 
 ## Skill compartida usada en este dept
 
-### `deploy-checklist` (en `_shared/skills/`)
+### `shared-deploy-checklist` (en `_shared/skills/`)
 
 Checklist pre/durante/post-deploy adaptado a riesgo y estrategia.
 

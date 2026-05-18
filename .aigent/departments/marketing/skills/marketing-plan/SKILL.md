@@ -1,5 +1,6 @@
 ---
 name: "marketing-plan"
+user-invocable: true
 description: >
   Skill for creating an annual or quarterly marketing plan with objectives, channels, budget and calendar.
 ---
