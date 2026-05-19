@@ -4,6 +4,174 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.0.2 — 2026-05-18
+
+### Reversión de la simplificación de `configure` (deshace 3.0.1)
+
+3.0.1 quitó `--scope project` y `--project` de `engine.js configure` asumiendo que las skills se configuran solo globalmente. **Eso es el patrón habitual pero no el único:** un proyecto puede necesitar un override puntual (ej. piloto que usa staging mientras producción usa otra URL). El agente caller es quien decide.
+
+Restaurado:
+- `engine.js configure <skill> --set <path>=<value> [--scope global|project] [--project <name>]`. Default sigue siendo `--scope global`.
+- Cuando `--scope project`, el target es `.context/<proyecto>/config.json`. Si no se pasa `--project` y hay solo 1 proyecto, se autodetecta. Si hay varios, error `NO_PROJECT_SPECIFIED` con la lista.
+- Re-añadido import de `resolveProject` en `configure.js`. Rama `scope === 'project'` con su lógica de resolución y la plantilla del config de proyecto (description / tone_override / paths / decisions).
+- `engine.js`: `--scope` re-añadido al parser. `configureSkill` recupera firma `(name, sets, scope, projectName)`. Help muestra los flags.
+- `conventions.md` §12.8: documentado el uso de `configure --scope project --project <name>` con ejemplo del proyecto piloto. §10.1: aclarado que `--project` está disponible también en `configure --scope project`, y que la decisión de qué va al global vs al proyecto la toma el agente.
+
+En `run`/`dry-run` sigue igual: aceptan `--project`, mergean global + proyecto al ejecutar.
+
+---
+## 3.0.1 — 2026-05-18
+
+### Simplificación de `engine.js configure`
+
+Las skills se configuran exclusivamente en `.context/config.json` global. El config de proyecto (`.context/<proyecto>/config.json`) es competencia de los orquestadores (paths, decisions, tone_override), no de las skills. Por tanto `--scope project` no aportaba nada útil al `configure` del engine:
+
+- **Eliminado `--scope global|project`** del CLI. `configure` siempre escribe al global.
+- **Eliminado `--project`** de `configure`. Sigue presente en `run` y `dry-run` (que sí necesitan saber qué proyecto mergear).
+- `configure.js`: borrada toda la rama `scope === 'project'`, errores `NO_PROJECT_AVAILABLE` y la dependencia de `resolveProject`.
+- `engine.js`: borrado `--scope` del parser. Help actualizado.
+- `conventions.md` §12.8 y §10.1: documentado el nuevo contrato. **`configure` no acepta `--project`.** Si un orquestador necesita escribir en el config de proyecto, edita el JSON directamente (es metadata suya, no de skills).
+
+Ningún cambio funcional sobre `run`/`dry-run`: siguen aceptando `--project` y mergeando global + proyecto.
+
+---
+## 3.0.0 — 2026-05-18
+
+### Eliminación de `active_project` — bump MAJOR
+
+La estructura del filesystem `.context/<proyecto>/` es ahora la **única fuente de verdad** del proyecto. Se elimina el campo `active_project` de `config.json` y todo el código que dependía de él.
+
+#### Modelo nuevo
+
+- Cada carpeta directa dentro de `.context/` (que no empiece por `.`) es **un proyecto**.
+- BOSS deduce el proyecto del contexto en cada delegación:
+  1. Si el usuario menciona un nombre que existe → ése.
+  2. Si hay 1 carpeta → ésa (silencioso).
+  3. Si hay varias → preguntar al usuario.
+  4. Si hay 0 y la tarea lo necesita → preguntar para crear uno.
+- El engine v2 expone esto vía `--project <name>` en CLI. Si solo hay 1 proyecto, lo autodetecta. Si hay varios y no se pasa el flag, devuelve `NO_PROJECT_SPECIFIED` con la lista de proyectos disponibles.
+- Los orquestadores reciben el nombre del proyecto desde BOSS en la delegación; al invocar skills v2 propagan `--project <name>`.
+
+#### Por qué ahora
+
+`active_project` era estado mutable que tenía que mantenerse sincronizado entre BOSS, orquestadores y filesystem. Causaba dos clases de bug: (a) BOSS arrancaba un proyecto distinto al que el usuario tenía en mente porque el config no se había actualizado, (b) cambiar de proyecto en mid-session requería escribir en config. Con el modelo nuevo el FS es siempre la verdad y el cambio de proyecto es natural: el usuario menciona el nombre o BOSS pregunta.
+
+#### Archivos tocados
+
+- **Engine v2:**
+  - `config.js` — nueva función `resolveProject(projectName)` con auto-detección. `loadConfig`/`loadContextConfig` aceptan `projectName` como parámetro. Errores nuevos: `NO_PROJECT_SPECIFIED` (>1 sin flag), `PROJECT_NOT_FOUND` (nombre no existe).
+  - `configure.js` — `configure(skill, sets, scope, projectName)`. Elimina `getActiveProject()`. Plantilla del config global ya no incluye `active_project`. Error renombrado: `NO_ACTIVE_PROJECT` → `NO_PROJECT_AVAILABLE`.
+  - `engine.js` — `parseArgv` reconoce `--project <name>`. `configure`/`dry-run`/`run` lo propagan a las funciones del engine. Help actualizado.
+- **BOSS.md** — secciones `Bootstrap` (checklist sin `active_project`, paso 6 ahora "≥1 carpeta de proyecto"), `Detección de proyecto en cada delegación` (nueva, explica las 4 reglas de resolución), `Lo primero` (sin lectura de `active_project`), plantilla `config.json` global sin el campo.
+- **`conventions.md`** — §10 plantilla sin `active_project`. Tabla "Quién escribe qué" sin la fila. **Nueva §10.1**: "El proyecto activo no se guarda — se deduce de la estructura" con las 4 reglas. §12.8 (CLI del engine) actualizada para mencionar `--project`.
+- **`orchestrator-template.md`** — Paso 0 reescrito con la lógica de detección desde filesystem.
+- **9 orquestadores activos** (marketing, sales, software, hr, product, finance, legal, design, operations) — Paso 0 actualizado vía script idempotente.
+- **`output-rules.md`** — sección "Cuando un agente se invoca sin orquestador" actualizada para resolver proyecto desde FS.
+- **`marketing-blog-post/SKILL.md`** — referencia a `<proyecto>` actualizada.
+- **`v2/README.md`** — diagrama ASCII actualizado.
+
+#### Migración para deployments existentes
+
+1. Pull del repo + `bash .aigent/IDE/install.sh --sync` para regenerar stubs (los stubs no cambian, pero conviene).
+2. **Limpiar `.context/config.json`:** quitar el campo `"active_project"` si está. (Si se deja, no rompe nada — el engine lo ignora — pero el config queda más limpio sin él.)
+3. **Scripts externos:** si invocas `engine.js configure --scope project` esperando que use `active_project`, ahora hay que pasar `--project <name>`. Lo mismo para `run` / `dry-run` cuando hay varios proyectos en `.context/`. Si solo tienes 1, sigue funcionando sin flag.
+
+#### Verificación
+
+- `engine.js list` → devuelve `operations-redmine` v0.4.0 correctamente sin tocar `active_project`.
+- `engine.js validate operations-redmine` → `ok: true`, 0 warnings.
+- `engine.js audit-repo` → 0 errores en skills y agentes; 3 warnings legítimos de `shared-prd-agent`.
+- `grep -r "active_project" .aigent/v2/engine/` → 0 matches (eliminado del código).
+- Las referencias remanentes en BOSS.md, conventions.md y orchestrator-template.md son **explicaciones del cambio** ("No existe ningún campo active_project..."), no usos activos.
+
+---
+## 2.4.0 — 2026-05-18
+
+### BOSS: auditoría de bootstrap con modos auto/manual/omitir
+
+Refuerza el comportamiento de BOSS al recibir el control. Antes la sección "Bootstrap (cada arranque)" describía qué crear pero no documentaba el flujo de **detección + comunicación + elección de modo**. Eso causaba dos problemas en la práctica: (a) BOSS asumía estado completo y se quedaba a medias, (b) BOSS arrancaba a preguntar sin avisar de lo que faltaba.
+
+#### Nuevo comportamiento al ser invocado
+
+1. **Auditoría obligatoria** del estado del bootstrap antes de delegar nada. Construye una lista `MISSING[]` recorriendo el checklist (ahora 8 pasos, no 7 — separa `config.json` exista de `config.company.name` con valor).
+2. **Si todo está completo** → silencio total, lee contexto y atiende la petición.
+3. **Si falta algo** → comunica exactamente qué falta y ofrece 3 modos:
+   - **🤖 Automático** — defaults sensatos, placeholders donde haga falta, anota lo pendiente en `decisions[]`.
+   - **💬 Manual** — pregunta una cosa a la vez, en orden del checklist.
+   - **⏭️ Omitir** — solo crea regla fija (1-3); resto se deja, BOSS avisa si una tarea falla por config faltante.
+
+#### Tabla de decisiones por modo
+
+Documentada explícitamente qué hace cada modo en cada paso del checklist:
+
+| Paso | 🤖 Automático | 💬 Manual | ⏭️ Omitir |
+|---|---|---|---|
+| 1-3 (regla fija) | crear sin preguntar | crear sin preguntar | crear sin preguntar |
+| 4. `config.json` | crear vacío + anotar pendiente | preguntar empresa/industria/tono/audiencia | no crear |
+| 5. `company.name` | dejar vacío + entrada en `decisions[]` | preguntar | dejar vacío |
+| 6. `active_project` | **siempre preguntar** (sin default razonable) | preguntar | dejar vacío |
+| 7-8. proyecto | crear con plantilla mínima | preguntar descripción | crear vacío si hace falta |
+
+**Reglas:** BOSS nunca inventa nombre de empresa ni de proyecto (incluso en automático). Si el usuario no contesta o elige un modo no listado, asume manual. Decisión final = del usuario.
+
+#### Cambios al checklist
+
+Se separó "existe `config.json`" (paso 4) de "tiene `company.name`" (paso 5). El bootstrap anterior los mezclaba implícitamente, lo que dejaba sesiones funcionando con `config.json` creado pero `company.*` totalmente vacío sin avisar.
+
+### Archivos tocados
+
+- `.aigent/BOSS.md` — secciones `Bootstrap` (reescrita), `Lo primero` (referencia al nuevo flujo), `Reglas de oro` (nueva regla al inicio).
+- `.aigent/VERSION` — bump a 2.4.0.
+
+---
+## 2.3.0 — 2026-05-18
+
+### Limpieza de stubs, Operations activado, routing de BOSS reescrito
+
+Tres cambios coordinados que mejoran cómo BOSS llega a cada orquestador y eliminan inconsistencias visuales en el frontmatter de los stubs.
+
+#### 1. Sufijos "(TODO)" / "(no implementado)" eliminados del `name:`
+
+Los 9 archivos en estado stub llevaban marcadores en el `name:` del frontmatter que ensuciaban el menú del IDE. Ahora el `name:` está limpio y la condición de stub se infiere del `description` (que sigue diciendo "marked as TODO" / "not yet implemented") — el comando `audit-repo` ya detectaba stubs por description, no por name.
+
+| Antes | Ahora |
+|---|---|
+| `[DevOps] Orchestrator (no implementado)` | `[DevOps] Orchestrator` |
+| `[DevOps] Incident (TODO)` | `[DevOps] Incident` |
+| `[Operations] Automation (TODO)` | `[Operations] Automation` |
+| (4 agentes devops + 4 operations + 1 orquestador devops) | (todos limpios) |
+
+#### 2. Operations pasa a "✅ parcial"
+
+El estado "TODO completo" de Operations era inconsistente: la skill `operations-redmine` (v2 ejecutable) lleva funcional desde 1.x. Ahora se reconoce explícitamente:
+
+- **`operations-orchestrator.md` reescrito** siguiendo `_shared/orchestrator-template.md`. La description ya no menciona TODO. El orquestador documenta sus 10 acciones Redmine, el patrón de invocación directa al engine (sin agente intermedio), readiness con `doctor`, secrets rule, y registro de tareas fuera de Redmine como TODO para los 4 agentes stub.
+- Los 4 agentes especialistas (`operations-automation`, `operations-kpis`, `operations-processes`, `operations-suppliers`) **siguen siendo stubs honestos** — su description mantiene "TODO" para que el audit los detecte. El orquestador rechaza delegarles.
+- README maestro: Operations pasa de "🚧 parcial" a "✅ parcial" con la nota de los 4 stubs.
+
+#### 3. BOSS.md — tabla de routing canónica + disambiguación
+
+Reescritas las secciones `Departamentos` y `Cómo enrutar`:
+
+- **Tabla canónica de routing**: cada fila lista el `name:` exacto del orquestador (`[Marketing] Orchestrator`, etc.). BOSS delega anunciando `Delegando en <name>` sin inventar alias.
+- **Tabla de disambiguación**: 11 filas que resuelven solapamientos típicos (Marketing↔Sales, Marketing↔Product, Marketing↔Design, Sales↔Operations, Product↔Software, Software↔DevOps, Design↔Product, HR↔Operations, Finance↔Operations, Legal+cualquiera, "+PRD" en cualquier dept).
+- **Patrón de delegación en 6 pasos**: identificar dept → anunciar → pasar contexto (decisions globales + del dept + PRD) → dejar al orquestador su Paso 0.5 → secuenciar si la petición cruza depts → ofrecer PRD antes si la tarea es grande.
+- **Sección "Petición a un dept TODO"**: ahora aplica solo a DevOps (Operations dejó de ser TODO).
+
+### Archivos tocados
+
+- `.aigent/departments/devops/devops-orchestrator.md` + `agents/{devops-incident, devops-infrastructure, devops-monitoring, devops-pipeline}.md` — `name:` limpio.
+- `.aigent/departments/operations/operations-orchestrator.md` — **reescrito completo** (de 23 líneas stub a ~250 líneas funcionales).
+- `.aigent/departments/operations/agents/{operations-automation, operations-kpis, operations-processes, operations-suppliers}.md` — `name:` limpio.
+- `.aigent/BOSS.md` — secciones `Departamentos`, `Petición a un dept TODO`, `Cómo enrutar`, `Reglas de oro` reescritas.
+- `.aigent/README.md` — estado de Operations actualizado.
+
+### Verificación
+
+- `node engine.js audit-repo` → 0 errores; sigue detectando los 4 agentes stub de Operations + el orquestador y 4 agentes stub de DevOps como tales (description menciona TODO / not yet implemented).
+- BOSS.md y `operations-orchestrator.md` ya usan el `name:` canónico (`[Marketing] Orchestrator`, `operations-redmine`) consistente con el resto del repo.
+
+---
 ## 2.2.0 — 2026-05-18
 
 ### Auditoría estructural del repo + `--prune` del installer

@@ -1,4 +1,12 @@
 // config.js — carga de configuración (.context/) y resolución de secretos.
+//
+// Modelo: la estructura de `.context/` es la fuente de verdad. Cada carpeta
+// directa dentro de `.context/` (que no empiece por `.`) es un proyecto.
+// El proyecto a usar se especifica con el parámetro `projectName` (que el
+// engine recibe vía --project <name>). Si no se pasa:
+//   - 0 proyectos → solo se usa el config global.
+//   - 1 proyecto → autodetectado.
+//   - >1 proyectos → error NO_PROJECT_SPECIFIED.
 
 'use strict';
 
@@ -11,7 +19,47 @@ const PROJECT_ROOT = path.resolve(AIGENT_ROOT, '..');
 const CONTEXT_DIR = path.join(PROJECT_ROOT, '.context');
 const GLOBAL_CONFIG = path.join(CONTEXT_DIR, 'config.json');
 
-function loadContextConfig() {
+/**
+ * Lista los proyectos en `.context/`: carpetas directas que no empiezan por `.`.
+ */
+function listProjects() {
+  if (!fs.existsSync(CONTEXT_DIR)) return [];
+  return fs.readdirSync(CONTEXT_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .map((e) => e.name)
+    .sort();
+}
+
+/**
+ * Resuelve el proyecto activo según la regla del modelo:
+ *  - Si `projectName` se pasa explícitamente, valida que exista y lo devuelve.
+ *  - Si no, autodetecta: 0 → null, 1 → ese, >1 → throw con NO_PROJECT_SPECIFIED.
+ */
+function resolveProject(projectName) {
+  const projects = listProjects();
+  if (projectName) {
+    if (!projects.includes(projectName)) {
+      const err = new Error(
+        `Project "${projectName}" not found in ${CONTEXT_DIR}. ` +
+        `Available: ${projects.length ? projects.join(', ') : '(none)'}.`
+      );
+      err.code = 'PROJECT_NOT_FOUND';
+      throw err;
+    }
+    return projectName;
+  }
+  if (projects.length === 0) return null;
+  if (projects.length === 1) return projects[0];
+  const err = new Error(
+    `Multiple projects exist in ${CONTEXT_DIR} (${projects.join(', ')}). ` +
+    `Pass --project <name> to disambiguate.`
+  );
+  err.code = 'NO_PROJECT_SPECIFIED';
+  err.projects = projects;
+  throw err;
+}
+
+function loadContextConfig(projectName) {
   if (!fs.existsSync(GLOBAL_CONFIG)) {
     throw new Error(`Config not found: ${GLOBAL_CONFIG}`);
   }
@@ -22,7 +70,7 @@ function loadContextConfig() {
     throw new Error(`Invalid JSON in ${GLOBAL_CONFIG}: ${e.message}`);
   }
 
-  const active = typeof global.active_project === 'string' ? global.active_project.trim() : '';
+  const active = resolveProject(projectName);
   if (!active) return global;
 
   const projectConfig = path.join(CONTEXT_DIR, active, 'config.json');
@@ -57,17 +105,12 @@ function getByPath(obj, dotPath) {
   }, obj);
 }
 
-function loadConfig(manifest, _ignoredPath) {
+function loadConfig(manifest, projectName) {
   const declared = manifest.config || {};
   const declaredEntries = Object.entries(declared);
   if (declaredEntries.length === 0) return {};
 
-  let raw;
-  try {
-    raw = loadContextConfig();
-  } catch (e) {
-    throw e;
-  }
+  const raw = loadContextConfig(projectName);
 
   const resolved = {};
   const missing = [];
@@ -137,7 +180,7 @@ function loadSecrets(manifest, secretsPath) {
 // ── Lenient loaders (para dry-run / scaffolding) ─────────────────────────────
 // Si una clave no está set, devuelve placeholder visible en lugar de error.
 
-function loadConfigLenient(manifest) {
+function loadConfigLenient(manifest, projectName) {
   const declared = manifest.config || {};
   const missing = [];
   const resolved = {};
@@ -146,7 +189,7 @@ function loadConfigLenient(manifest) {
 
   let raw = {};
   try {
-    raw = loadContextConfig();
+    raw = loadContextConfig(projectName);
   } catch (e) {
     missing.push(`Could not read .context config: ${e.message}`);
   }
@@ -218,6 +261,75 @@ module.exports = {
   loadContextConfig,
   loadConfigLenient,
   loadSecretsLenient,
+  resolveProject,
+  listProjects,
+  getByPath,
+  GLOBAL_CONFIG,
+  CONTEXT_DIR,
+};
+f.path);
+    if (value === undefined || value === '' || value === null) {
+      resolved[key] = `***CONFIG:${def.path}:UNSET***`;
+      if (def.required) {
+        missing.push(`Required config "${def.path}" not found in ${GLOBAL_CONFIG}`);
+      }
+      continue;
+    }
+    resolved[key] = value;
+  }
+
+  return { resolved, missing };
+}
+
+function loadSecretsLenient(manifest, secretsPath) {
+  const declared = manifest.secrets || [];
+  const resolved = {};
+  const realValues = {};
+  const missing = [];
+
+  if (declared.length === 0) return { resolved, realValues, missing };
+
+  let fileSecrets = {};
+  if (fs.existsSync(secretsPath)) {
+    try {
+      fileSecrets = JSON.parse(fs.readFileSync(secretsPath, 'utf8'));
+    } catch (e) {
+      missing.push(`Invalid JSON in ${secretsPath}: ${e.message}`);
+    }
+  }
+
+  for (const def of declared) {
+    if (!def.name) continue;
+    const fromEnv = process.env[def.name];
+    const fromFile = fileSecrets[def.name];
+    let val = fromEnv ?? fromFile;
+    if (typeof val === 'string' && /^<.*>$/.test(val.trim())) val = undefined;
+
+    if (val === undefined || val === '') {
+      resolved[def.name] = `***SECRET:${def.name}:UNSET***`;
+      if (def.required) {
+        missing.push(
+          `Required secret "${def.name}" not set ` +
+            `(define env var ${def.name} or add it to .secrets.json)`
+        );
+      }
+      continue;
+    }
+    resolved[def.name] = val;
+    realValues[def.name] = val;
+  }
+
+  return { resolved, realValues, missing };
+}
+
+module.exports = {
+  loadConfig,
+  loadSecrets,
+  loadContextConfig,
+  loadConfigLenient,
+  loadSecretsLenient,
+  resolveProject,
+  listProjects,
   getByPath,
   GLOBAL_CONFIG,
   CONTEXT_DIR,

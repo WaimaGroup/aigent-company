@@ -1,5 +1,5 @@
 ---
-name: "[DevOps] Monitoring (TODO)"
+name: "[DevOps] Monitoring"
 mode: subagent
 description: >
   DevOps specialist for monitoring tasks. Department is marked as TODO

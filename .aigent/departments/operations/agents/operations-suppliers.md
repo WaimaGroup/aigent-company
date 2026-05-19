@@ -1,5 +1,5 @@
 ---
-name: "[Operations] Suppliers (TODO)"
+name: "[Operations] Suppliers"
 mode: subagent
 description: >
   Operations specialist for suppliers tasks. Department is marked as TODO

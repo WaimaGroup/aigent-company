@@ -78,7 +78,7 @@ La taxonomía concreta dentro de `<proyecto>/<departamento>/` (qué subcarpetas 
 
 Si el usuario invoca a un agente especialista directamente (sin pasar por el orquestador del departamento), el agente debe:
 
-1. Preguntar el proyecto activo si no lo conoce (`.context/config.json` → `active_project`).
+1. Resolver el proyecto activo (ver `conventions.md` §10.1): listar carpetas en `.context/`. Si hay 1, usarla. Si hay varias, preguntar al usuario. Si hay 0, preguntar para crear una.
 2. Comprobar si el proyecto ya tiene una estructura de carpetas en la raíz del repo. Si la tiene, seguirla; si no, crear `<proyecto>/<departamento>/` en la raíz.
 3. Inferir la subcarpeta más razonable dentro de esa ruta según el tipo de entregable (consultar el orquestador del departamento si hace falta).
 4. Guardar el archivo y comunicar al usuario la ruta exacta donde quedó.

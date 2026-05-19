@@ -1,5 +1,5 @@
 ---
-name: "[Operations] KPIs (TODO)"
+name: "[Operations] KPIs"
 mode: subagent
 description: >
   Operations specialist for kpis tasks. Department is marked as TODO

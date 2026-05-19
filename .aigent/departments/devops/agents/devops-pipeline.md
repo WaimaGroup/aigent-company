@@ -1,5 +1,5 @@
 ---
-name: "[DevOps] Pipeline (TODO)"
+name: "[DevOps] Pipeline"
 mode: subagent
 description: >
   DevOps specialist for pipeline tasks. Department is marked as TODO

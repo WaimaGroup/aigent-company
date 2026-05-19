@@ -1,5 +1,5 @@
 ---
-name: "[Operations] Automation (TODO)"
+name: "[Operations] Automation"
 mode: subagent
 description: >
   Operations specialist for automation tasks. Department is marked as TODO

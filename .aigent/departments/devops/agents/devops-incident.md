@@ -1,5 +1,5 @@
 ---
-name: "[DevOps] Incident (TODO)"
+name: "[DevOps] Incident"
 mode: subagent
 description: >
   DevOps specialist for incident tasks. Department is marked as TODO

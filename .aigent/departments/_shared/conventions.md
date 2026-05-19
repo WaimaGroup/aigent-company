@@ -209,12 +209,31 @@ Nunca dejar un orquestador o agente con `description` afirmando capacidad y body
 
 La configuración se divide en dos ficheros con scope distinto. BOSS siempre carga ambos al arrancar (el proyecto sobreescribe o amplía el global).
 
+### 10.1 El proyecto activo no se guarda — se deduce de la estructura
+
+No existe ningún campo `active_project` ni equivalente en `config.json`. **La fuente de verdad es la estructura `.context/`:** cada subcarpeta directa que no empiece por `.` es un proyecto.
+
+Reglas de resolución (las aplica BOSS al inicio de cada delegación, y el engine v2 al cargar config):
+
+1. Si el usuario menciona explícitamente un nombre que existe como `.context/<X>/` → ése.
+2. Si hay exactamente **1 carpeta de proyecto** → ése (silencioso).
+3. Si hay **varias** y el usuario no mencionó ninguna → **preguntar al usuario cuál**.
+4. Si hay **0** y la petición lo requiere → preguntar para crear una.
+
+El engine v2 expone `--project <name>` en `run`, `dry-run` **y `configure --scope project`**. Si solo hay 1 proyecto en `.context/`, lo autodetecta. Si hay >1 y no se pasa el flag (cuando hace falta), devuelve `NO_PROJECT_SPECIFIED` con la lista.
+
+**Patrón habitual de configuración:**
+- La gran mayoría de valores van al config global con `engine.js configure <skill> --set ... ` (default `--scope global`). Una sola fuente de verdad por skill, válida para todos los proyectos.
+- Cuando un proyecto necesita un **override puntual** (ej. proyecto piloto que usa una URL de Redmine staging mientras el resto usa producción), el agente decide y pasa `--scope project --project <name>`. El valor se escribe en `.context/<proyecto>/config.json` bajo el mismo `path:` declarado en el manifest. En `run`/`dry-run`, el config del proyecto **sobreescribe** al global vía `deepMerge`.
+- Las decisiones de qué va en cada nivel las toma el agente caller, no el usuario directamente. El usuario aporta los valores; el agente decide el scope.
+
+Los orquestadores reciben el nombre del proyecto en la delegación de BOSS y lo propagan al engine cuando invocan skills v2.
+
 ### `.context/config.json` — global (empresa + entorno)
 
 ```json
 {
   "company": { "name": "", "industry": "", "tone": "", "audience": "", "value_proposition": "" },
-  "active_project": "",
   "mcps": [],
   "tools": {},
   "decisions": [
@@ -223,7 +242,7 @@ La configuración se divide en dos ficheros con scope distinto. BOSS siempre car
 }
 ```
 
-Contiene lo que es estable y compartido entre todos los proyectos: identidad de empresa, MCPs y herramientas disponibles globalmente, el puntero al proyecto activo, y decisiones operativas que aplican a **todos los proyectos** (ej. idioma de publicación, restricciones de marca, herramientas obligatorias).
+Contiene lo que es estable y compartido entre todos los proyectos: identidad de empresa, MCPs y herramientas disponibles globalmente, y decisiones operativas que aplican a **todos los proyectos** (ej. idioma de publicación, restricciones de marca, herramientas obligatorias). **No hay puntero al proyecto activo**: el proyecto se deduce de la estructura `.context/<proyecto>/` cada vez que se necesita (ver §10.1).
 
 ### `.context/<proyecto>/config.json` — por proyecto
 
@@ -247,7 +266,6 @@ Contiene lo específico del proyecto: paths de output por dept, MCPs/tools adici
 | Campo | Fichero | Quién | Cuándo |
 |---|---|---|---|
 | `company.*` | global | usuario (vía BOSS) | bootstrap o cuando lo pida |
-| `active_project` | global | BOSS | al confirmar proyecto activo |
 | `mcps` (global) | global | BOSS / orquestador | cuando se confirma un MCP transversal |
 | `tools` (global) | global | BOSS / usuario | bootstrap o ad hoc |
 | `decisions[]` (global) | global | BOSS o cualquier orquestador | decisión que aplica a todos los proyectos |
@@ -472,8 +490,11 @@ node .aigent/v2/engine/engine.js doctor [<skill>]
   → reporta estado de configuración: qué config + secrets faltan por rellenar
   → sin <skill> = reporta todas las skills v2
 
-node .aigent/v2/engine/engine.js configure <skill> --set <path>=<valor> [--scope global|project]
-  → escribe valores en .context/config.json (global) o .context/<active_project>/config.json
+node .aigent/v2/engine/engine.js configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
+  → escribe valores en .context/config.json (global, default) o .context/<proyecto>/config.json (--scope project)
+  → para --scope project: el agente decide qué proyecto pasar con --project <name>. Si solo hay 1 proyecto
+    en .context/ se autodetecta. La mayoría de skills se configuran en global; los overrides por proyecto
+    son la excepción puntual (ej. proyecto piloto con URL de staging).
   → valida que <path> está declarado en manifest.config y aplica el type del manifest
   → admite múltiples --set en la misma llamada (atómico: todos o ninguno)
 
@@ -484,7 +505,9 @@ node .aigent/v2/engine/engine.js prepare-secrets <skill>
   → devuelve la lista de secrets pendientes; el usuario los rellena a mano
   → NUNCA acepta valores de secret por CLI (los secrets no pasan por la conversación)
 
-node .aigent/v2/engine/engine.js dry-run <skill> <action> [--inputs '{...}']
+node .aigent/v2/engine/engine.js dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
+  → para mergear con .context/<proyecto>/config.json hace falta --project (o autodetección si hay 1)
+  → si hay >1 proyecto y no se pasa --project, devuelve NO_PROJECT_SPECIFIED con la lista
   → renderiza la request HTTP sin llamarla. Devuelve { method, url, headers, body }
   → secrets cargados se enmascaran como ***SECRET:NAME***
   → secrets/config no configurados aparecen como ***SECRET:NAME:UNSET***
