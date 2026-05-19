@@ -4,6 +4,25 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.0.4 — 2026-05-19
+
+### Corrección de ficheros corruptos del engine v2
+
+**`engine/config.js`** — el archivo tenía el bloque completo desde `loadConfigLenient` hasta `module.exports` duplicado en texto, seguido de cientos de bytes nulos (`\x00`). El parser de Node fallaba con `SyntaxError: Invalid or unexpected token`. Solucionado truncando el archivo binariamente al cierre limpio del `module.exports` original.
+
+**`engine/engine.js`** — el archivo estaba truncado (le faltaban el cierre de `emit()` y la llamada a `main()`), y los intentos de reparación posteriores apilaron el bloque final tres veces (líneas 425–439 repetidas). Solucionado truncando al primer `main();` correcto.
+
+**`engine/engine.js` + `engine/configure.js` — `doctor` no propagaba `--project`** — el argumento `--project` era parseado por `parseArgv` pero nunca llegaba a `loadContextConfig`. Cadena de fix:
+- `configure.js`: `doctorOne(skillObject, projectName)` → pasa `projectName` a `loadContextConfig(projectName)`.
+- `configure.js`: `doctor(skillName, allSkills, projectName)` → propaga `projectName` a cada `doctorOne`.
+- `engine.js`: `doctorSkill(name, projectName)` → lo recibe y lo pasa a `doctorCmd`.
+- `engine.js`: `case 'doctor'` → pasa `args.project`.
+- `engine.js`: `readinessError(code, message, found, projectName)` → propaga a su llamada interna a `doctorOne`.
+- Help text: `doctor [<skill>] [--project <name>]`.
+
+Ficheros editados: `.aigent/v2/engine/config.js`, `.aigent/v2/engine/engine.js`, `.aigent/v2/engine/configure.js`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
 ## 3.0.2 — 2026-05-18
 
 ### Reversión de la simplificación de `configure` (deshace 3.0.1)

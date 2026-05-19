@@ -423,16 +423,3 @@ function emit(result) {
 }
 
 main();
-  }
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-  process.exitCode = exitCode;
-}
-
-main();
-
-  }
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-  process.exitCode = exitCode;
-}
-
-main();
