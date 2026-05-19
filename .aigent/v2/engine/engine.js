@@ -165,8 +165,8 @@ function validateSkillCmd(name) {
   };
 }
 
-function doctorSkill(name) {
-  return doctorCmd(name, enumerateV2Skills());
+function doctorSkill(name, projectName) {
+  return doctorCmd(name, enumerateV2Skills(), projectName);
 }
 
 function configureSkill(name, sets, scope, projectName) {
@@ -238,9 +238,9 @@ async function runAction(skillName, actionName, providedInputs, projectName) {
 
   let config, secrets;
   try { config = loadConfig(found.manifest, projectName); }
-  catch (e) { return readinessError('CONFIG_ERROR', e.message, found); }
+  catch (e) { return readinessError('CONFIG_ERROR', e.message, found, projectName); }
   try { secrets = loadSecrets(found.manifest, SECRETS_PATH); }
-  catch (e) { return readinessError('SECRETS_ERROR', e.message, found); }
+  catch (e) { return readinessError('SECRETS_ERROR', e.message, found, projectName); }
 
   const block = found.blocks[action.impl.ref];
   const scope = { config, inputs: merged, secrets };
@@ -253,9 +253,9 @@ async function runAction(skillName, actionName, providedInputs, projectName) {
 // el reporte de doctor (qué config y secrets faltan exactamente) y los siguientes
 // pasos exactos que el agente caller debe seguir. Importante: nunca pedir secrets
 // por chat — el agente sólo indica al usuario dónde rellenarlos.
-function readinessError(code, message, found) {
+function readinessError(code, message, found, projectName) {
   let report;
-  try { report = doctorOne(found); }
+  try { report = doctorOne(found, projectName); }
   catch (e) { report = null; }
 
   const skill = found.manifest.name;
@@ -360,7 +360,7 @@ function printHelp() {
     '  engine.js describe <skill>',
     '  engine.js validate <skill>',
     '  engine.js audit-repo',
-    '  engine.js doctor [<skill>]',
+    '  engine.js doctor [<skill>] [--project <name>]',
     '  engine.js configure <skill> --set <path>=<value> [--set ...] [--scope global|project] [--project <name>]',
     '  engine.js prepare-secrets <skill>',
     "  engine.js dry-run <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
@@ -399,7 +399,7 @@ async function main() {
       case 'describe':        result = describeSkill(rest[0]); break;
       case 'validate':        result = validateSkillCmd(rest[0]); break;
       case 'audit-repo':      result = auditRepo(DEPARTMENTS_DIR); break;
-      case 'doctor':          result = doctorSkill(rest[0]); break;
+      case 'doctor':          result = doctorSkill(rest[0], args.project); break;
       case 'configure':       result = configureSkill(rest[0], args.sets, args.scope, args.project); break;
       case 'prepare-secrets': result = prepareSecretsSkill(rest[0]); break;
       case 'dry-run':         result = await dryRunAction(rest[0], rest[1], args.inputs, args.project); break;
@@ -417,6 +417,19 @@ function emit(result) {
   if (!result.ok) {
     const err = result.error || {};
     process.stderr.write(`[engine] ${err.code || 'ERROR'}: ${err.message || ''}\n`);
+  }
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  process.exitCode = exitCode;
+}
+
+main();
+  }
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  process.exitCode = exitCode;
+}
+
+main();
+
   }
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   process.exitCode = exitCode;
