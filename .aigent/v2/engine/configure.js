@@ -139,14 +139,14 @@ function ensureContextWithGitignore() {
 
 // ── doctor ────────────────────────────────────────────────────────────────
 
-function doctorOne(skillObject) {
+function doctorOne(skillObject, projectName) {
   const m = skillObject.manifest;
   const declaredConfig = m.config || {};
   const declaredSecrets = m.secrets || [];
 
   // Config status.
   let raw = {};
-  try { raw = loadContextConfig(); } catch { raw = {}; }
+  try { raw = loadContextConfig(projectName); } catch { raw = {}; }
 
   const configStatus = [];
   for (const [key, def] of Object.entries(declaredConfig)) {
@@ -196,7 +196,7 @@ function doctorOne(skillObject) {
   };
 }
 
-function doctor(skillName, allSkills) {
+function doctor(skillName, allSkills, projectName) {
   const usable = allSkills.filter(s => !s.error && s.manifest);
 
   if (skillName) {
@@ -208,7 +208,7 @@ function doctor(skillName, allSkills) {
         meta: {},
       };
     }
-    const report = doctorOne(found);
+    const report = doctorOne(found, projectName);
     return {
       ok: true,
       data: { skills: [report] },
@@ -220,7 +220,7 @@ function doctor(skillName, allSkills) {
     };
   }
 
-  const reports = usable.map(doctorOne);
+  const reports = usable.map((s) => doctorOne(s, projectName));
   return {
     ok: true,
     data: { skills: reports },
