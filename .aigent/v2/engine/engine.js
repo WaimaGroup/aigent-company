@@ -169,11 +169,11 @@ function doctorSkill(name) {
   return doctorCmd(name, enumerateV2Skills());
 }
 
-function configureSkill(name, sets, scope) {
-  if (!name) return errorResult('BAD_ARGS', "Usage: engine.js configure <skill> --set <path>=<value> [--scope global|project]");
+function configureSkill(name, sets, scope, projectName) {
+  if (!name) return errorResult('BAD_ARGS', "Usage: engine.js configure <skill> --set <path>=<value> [--scope global|project] [--project <name>]");
   const found = findSkill(name);
   if (!found) return errorResult('SKILL_NOT_FOUND', `Skill "${name}" not found in any department`);
-  return configureCmd(found, sets, scope || 'global');
+  return configureCmd(found, sets, scope || 'global', projectName);
 }
 
 function prepareSecretsSkill(name) {
@@ -183,7 +183,7 @@ function prepareSecretsSkill(name) {
   return prepareSecretsCmd(found);
 }
 
-async function dryRunAction(skillName, actionName, providedInputs) {
+async function dryRunAction(skillName, actionName, providedInputs, projectName) {
   if (!skillName || !actionName) {
     return errorResult('BAD_ARGS', "Usage: engine.js dry-run <skill> <action> [--inputs '{...}']");
   }
@@ -200,7 +200,7 @@ async function dryRunAction(skillName, actionName, providedInputs) {
   const { merged, errors } = validateInputs(action, providedInputs);
   if (errors.length) return errorResult('INVALID_INPUTS', 'Input validation failed', errors);
 
-  const { resolved: config, missing: configMissing } = loadConfigLenient(found.manifest);
+  const { resolved: config, missing: configMissing } = loadConfigLenient(found.manifest, projectName);
   const { resolved: secrets, realValues, missing: secretsMissing } =
     loadSecretsLenient(found.manifest, SECRETS_PATH);
 
@@ -219,7 +219,7 @@ async function dryRunAction(skillName, actionName, providedInputs) {
   return result;
 }
 
-async function runAction(skillName, actionName, providedInputs) {
+async function runAction(skillName, actionName, providedInputs, projectName) {
   if (!skillName || !actionName) {
     return errorResult('BAD_ARGS', "Usage: engine.js run <skill> <action> [--inputs '{...}']");
   }
@@ -237,7 +237,7 @@ async function runAction(skillName, actionName, providedInputs) {
   if (errors.length) return errorResult('INVALID_INPUTS', 'Input validation failed', errors);
 
   let config, secrets;
-  try { config = loadConfig(found.manifest); }
+  try { config = loadConfig(found.manifest, projectName); }
   catch (e) { return readinessError('CONFIG_ERROR', e.message, found); }
   try { secrets = loadSecrets(found.manifest, SECRETS_PATH); }
   catch (e) { return readinessError('SECRETS_ERROR', e.message, found); }
@@ -319,7 +319,7 @@ function errorResult(code, message, details) {
 }
 
 function parseArgv(argv) {
-  const args = { positional: [], inputs: {}, sets: [], scope: null };
+  const args = { positional: [], inputs: {}, sets: [], scope: null, project: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--inputs') {
@@ -340,6 +340,10 @@ function parseArgv(argv) {
       const next = argv[++i];
       if (next === undefined) throw new Error('--scope requires "global" or "project"');
       args.scope = next.trim();
+    } else if (a === '--project') {
+      const next = argv[++i];
+      if (next === undefined) throw new Error('--project requires a project name');
+      args.project = next.trim();
     } else if (a === '--help' || a === '-h') {
       args.help = true;
     } else {
@@ -357,10 +361,10 @@ function printHelp() {
     '  engine.js validate <skill>',
     '  engine.js audit-repo',
     '  engine.js doctor [<skill>]',
-    '  engine.js configure <skill> --set <path>=<value> [--set ...] [--scope global|project]',
+    '  engine.js configure <skill> --set <path>=<value> [--set ...] [--scope global|project] [--project <name>]',
     '  engine.js prepare-secrets <skill>',
-    "  engine.js dry-run <skill> <action> [--inputs '{\"k\":\"v\"}']",
-    "  engine.js run      <skill> <action> [--inputs '{\"k\":\"v\"}']",
+    "  engine.js dry-run <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
+    "  engine.js run      <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
     '',
     'Commands:',
     '  list             - list all v2 skills found across departments',
@@ -396,10 +400,10 @@ async function main() {
       case 'validate':        result = validateSkillCmd(rest[0]); break;
       case 'audit-repo':      result = auditRepo(DEPARTMENTS_DIR); break;
       case 'doctor':          result = doctorSkill(rest[0]); break;
-      case 'configure':       result = configureSkill(rest[0], args.sets, args.scope); break;
+      case 'configure':       result = configureSkill(rest[0], args.sets, args.scope, args.project); break;
       case 'prepare-secrets': result = prepareSecretsSkill(rest[0]); break;
-      case 'dry-run':         result = await dryRunAction(rest[0], rest[1], args.inputs); break;
-      case 'run':             result = await runAction(rest[0], rest[1], args.inputs); break;
+      case 'dry-run':         result = await dryRunAction(rest[0], rest[1], args.inputs, args.project); break;
+      case 'run':             result = await runAction(rest[0], rest[1], args.inputs, args.project); break;
       default:                result = errorResult('BAD_CMD', `Unknown command "${cmd}". Use list | describe | validate | doctor | configure | prepare-secrets | dry-run | run.`);
     }
   } catch (e) {

@@ -18,7 +18,7 @@
 │   └── .secrets.json                   ← tokens (gitignored)
 ├── ../.context/
 │   ├── config.json                     ← global: tools.<skill>.<key>
-│   └── <active_project>/config.json    ← override por proyecto (opcional)
+│   └── <proyecto>/config.json          ← override por proyecto (opcional, pasar --project <name>)
 └── IDE/install.{sh,ps1}                ← detecta runtime: engine-v2 → genera STUB
                                           en .claude/skills/<dept>-<name>/SKILL.md
                                           (~80% menos contexto que la fuente)

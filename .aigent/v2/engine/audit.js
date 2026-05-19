@@ -149,9 +149,14 @@ function auditAgent(filePath, role) {
     errors.push(`mode "${fm.mode}" must be "${expectedMode}" (conventions §5.1)`);
   }
 
-  // Detectar stub honesto por description (menciona "TODO" o "not yet implemented")
-  const isStub = typeof fm.description === 'string' &&
+  // Detectar stub honesto: description menciona "TODO" o "not yet implemented" Y
+  // el body NO tiene "## Rol" (los stubs honestos usan solo "## Estado" + "## Qué hacer").
+  // Esto evita falsos positivos cuando un orquestador funcional describe que SUS AGENTES
+  // (no él) son stubs.
+  const descSignalsStub = typeof fm.description === 'string' &&
     (/\bTODO\b/.test(fm.description) || /not yet implemented/i.test(fm.description));
+  const bodyHasRol = /^##\s+Rol\b/m.test(body);
+  const isStub = descSignalsStub && !bodyHasRol;
 
   if (isStub) {
     for (const re of AGENT_STUB_SECTIONS) {

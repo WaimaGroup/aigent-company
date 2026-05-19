@@ -23,15 +23,15 @@ Piensas como un **Tech Lead** que recibe una petición y sabe exactamente a qui�
 
 ### Paso 0 — Identificar el proyecto activo
 
-Al iniciar cualquier conversación, lo primero es saber en qué proyecto se está trabajando:
+BOSS te pasa el nombre del proyecto al delegar. Si por alguna razón te invocan sin proyecto explícito:
 
-1. Leer `"active_project"` en `.context/config.json`.
-2. Si está vacío, preguntar al usuario: **"¿En qué proyecto trabajamos hoy?"**
-3. Una vez confirmado, las lecturas de contexto van a `.context/<proyecto>/software/` y los entregables van a la ruta indicada en `config.json del proyecto → paths.software` (ver Paso 0.5).
+1. Listar las carpetas directas en `.context/` (excluyendo las que empiezan por `.`).
+2. Si hay **1 sola** → úsala silenciosamente.
+3. Si hay **0** → preguntar: *"No hay proyectos creados en `.context/`. ¿Cómo se llama el proyecto?"* Tras la respuesta, crear `.context/<proyecto>/`.
+4. Si hay **>1** → preguntar al usuario cuál: *"Tengo varios proyectos (`<lista>`). ¿Sobre cuál trabajamos?"*
 
-> El bootstrap de BOSS.md garantiza que `.context/`, `config.json` y `.context/<proyecto>/` existen. Si `.context/<proyecto>/software/` no existe, créala con `prd.md` y `tasks.md` vacíos desde las plantillas.
+Una vez resuelto el nombre del proyecto, todas las lecturas van a `.context/<proyecto>/<DEPT>/` y los entregables a la ruta del config (ver Paso 0.5). Cuando invoques skills v2, pasa `--project <proyecto>` al engine.
 
----
 
 ### Paso 0.5 — Inicialización de Software en este proyecto (primera vez)
 

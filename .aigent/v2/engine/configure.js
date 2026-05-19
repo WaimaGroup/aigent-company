@@ -15,6 +15,7 @@ const path = require('path');
 
 const {
   loadContextConfig,
+  resolveProject,
   getByPath,
   GLOBAL_CONFIG,
   CONTEXT_DIR,
@@ -101,15 +102,6 @@ function writeJsonAtomic(filePath, data) {
   const tmp = filePath + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n');
   fs.renameSync(tmp, filePath);
-}
-
-function getActiveProject() {
-  if (!fs.existsSync(GLOBAL_CONFIG)) return null;
-  let g;
-  try { g = JSON.parse(fs.readFileSync(GLOBAL_CONFIG, 'utf8')); }
-  catch { return null; }
-  const ap = typeof g.active_project === 'string' ? g.active_project.trim() : '';
-  return ap || null;
 }
 
 /**
@@ -243,7 +235,11 @@ function doctor(skillName, allSkills) {
 
 // ── configure ─────────────────────────────────────────────────────────────
 
-function configure(skillObject, sets, scope) {
+function configure(skillObject, sets, scope, projectName) {
+  // Las skills se configuran normalmente en `.context/config.json` global. Si el
+  // agente determina que el valor debe vivir en el config de un proyecto concreto
+  // (override puntual, ej. proyecto piloto que usa staging), pasa --scope project
+  // y --project <name>.
   if (!Array.isArray(sets) || sets.length === 0) {
     return { ok: false, error: { code: 'BAD_ARGS', message: 'configure requires at least one --set <path>=<value>' }, meta: {} };
   }
@@ -279,15 +275,28 @@ function configure(skillObject, sets, scope) {
 
   let target;
   if (scope === 'project') {
-    const ap = getActiveProject();
-    if (!ap) {
+    let proj;
+    try {
+      proj = resolveProject(projectName);
+    } catch (e) {
       return {
         ok: false,
-        error: { code: 'NO_ACTIVE_PROJECT', message: 'scope=project requires active_project set in .context/config.json' },
+        error: {
+          code: e.code || 'PROJECT_RESOLVE_ERROR',
+          message: e.message,
+          details: e.projects ? { available: e.projects } : undefined,
+        },
         meta: {},
       };
     }
-    target = path.join(CONTEXT_DIR, ap, 'config.json');
+    if (!proj) {
+      return {
+        ok: false,
+        error: { code: 'NO_PROJECT_AVAILABLE', message: `scope=project requires at least one project folder in ${CONTEXT_DIR}` },
+        meta: {},
+      };
+    }
+    target = path.join(CONTEXT_DIR, proj, 'config.json');
   } else {
     target = GLOBAL_CONFIG;
   }
@@ -297,7 +306,6 @@ function configure(skillObject, sets, scope) {
     if (scope === 'global') {
       data = readJsonOrDefault(target, {
         company: { name: '', industry: '', tone: '', audience: '', value_proposition: '' },
-        active_project: '',
         mcps: [],
         tools: {},
         decisions: [],

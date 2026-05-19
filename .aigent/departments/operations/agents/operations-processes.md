@@ -1,5 +1,5 @@
 ---
-name: "[Operations] Processes (TODO)"
+name: "[Operations] Processes"
 mode: subagent
 description: >
   Operations specialist for processes tasks. Department is marked as TODO

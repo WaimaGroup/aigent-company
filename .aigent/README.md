@@ -40,7 +40,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | Finance | ✅ implementado | completo | 3 / 3 | 7 (v1 prosa) |
 | Legal | ✅ implementado | completo | 4 / 4 | 6 (v1 prosa) |
 | Design | ✅ implementado | completo | 4 / 4 | 6 (v1 prosa) |
-| Operations | 🚧 parcial | stub honesto | 0 / 4 implementados | 1 (`operations-redmine` v2 ejecutable) |
+| Operations | ✅ parcial | completo (Redmine) | 0 / 4 implementados (4 stubs) | 1 (`operations-redmine` v2 ejecutable) |
 | DevOps | 🚧 TODO | stub honesto | 0 / 4 stub | 0 |
 | _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`shared-skill-scaffold`, `shared-agent-scaffold`) + 8 business compartidas (v1 prosa) |
 

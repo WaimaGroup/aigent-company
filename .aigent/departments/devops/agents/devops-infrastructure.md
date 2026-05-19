@@ -1,5 +1,5 @@
 ---
-name: "[DevOps] Infrastructure (TODO)"
+name: "[DevOps] Infrastructure"
 mode: subagent
 description: >
   DevOps specialist for infrastructure tasks. Department is marked as TODO

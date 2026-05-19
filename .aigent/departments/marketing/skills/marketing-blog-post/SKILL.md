@@ -50,7 +50,7 @@ Cada post vive en su propia carpeta, con el slug del título como nombre:
 **Regla de naming del slug:** a partir del título: minúsculas, espacios → guiones, sin tildes ni caracteres especiales.
 Ejemplo: "Cómo usar IA en Marketing" → `como-usar-ia-en-marketing`
 
-**Ruta base:** `<proyecto>/marketing/posts/` donde `<proyecto>` se lee de `.context/config.json → active_project`.
+**Ruta base:** `<proyecto>/marketing/posts/` donde `<proyecto>` viene del orquestador (que lo deduce de `.context/<proyecto>/`, ver `_shared/conventions.md` §10.1).
 
 ---
 
