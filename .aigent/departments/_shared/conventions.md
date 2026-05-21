@@ -127,6 +127,8 @@ user-invocable: true               # §7.1
 
 **La skill no declara qué agentes la usan.** El agente conoce sus skills, no al revés. La asociación vive en la sección `## Skills disponibles` del agente.
 
+> **Excepción — utility-skills compartidas** (categoría introducida en framework 3.4.0): no se listan en agentes. Se autodescubren vía la `description` del frontmatter cuando el LLM detecta que el contexto las requiere. Ver §7.1, subsección "Tres categorías: meta, business, utility".
+
 > Para skills v2 (ejecutables por engine), ver §12.
 
 ### 7.1 Campo `user-invocable:` — quién puede llamar a la skill
@@ -156,24 +158,44 @@ Todos los criterios deben cumplirse:
 - **Sin prefijo.** Las skills compartidas siguen el mismo naming que cualquier skill: kebab-case directo (ej. `competitive-analysis`, `case-study`, `kpi-dashboard`). No llevan `common-` ni `shared-` — la carpeta `_shared/skills/` ya identifica la ubicación, el nombre identifica el entregable. Coherente con `skill-scaffold` y `agent-scaffold` que tampoco llevan prefijo.
 - La regla §7 sigue aplicando: la skill no declara qué agentes la usan.
 
-### Coexistencia con las meta-skills
+### Tres categorías: meta, business, utility
 
-`_shared/skills/` aloja dos tipos de skills, conviviendo en la misma carpeta sin subcarpetas:
+`_shared/skills/` aloja **tres tipos de skills**, conviviendo en la misma carpeta sin subcarpetas. Se distinguen por dominio (no por ubicación), y **dos de las tres se invocan de forma distinta**:
 
-- **Meta-skills**: `skill-scaffold`, `agent-scaffold` — para construir el sistema.
-- **Business-skills compartidas**: `competitive-analysis`, `case-study`, `kpi-dashboard`, etc. — para producir entregables de cliente.
+| Categoría | Ejemplos | Cómo se invoca | Listada en agentes |
+|---|---|---|---|
+| **Meta-skills** — construyen el sistema | `shared-skill-scaffold`, `shared-agent-scaffold` | Las invoca otra meta-skill o agente compartido (`shared-skill-builder`, `shared-prd-agent`) | No habitualmente; uso interno del framework |
+| **Business-skills compartidas** — entregables transversales | `shared-competitive-analysis`, `shared-case-study`, `shared-kpi-dashboard`, `shared-okr-set`, etc. | El agente caller la lista en su `## Skills disponibles` y la invoca explícitamente | **Sí, en cada agente que la use** |
+| **Utility-skills** — utilidades técnicas con script propio | `shared-base64-to-file` | **Autodescubrimiento por el LLM** vía `description` del frontmatter cuando el contexto matchea | **No** — sería propagar lo mismo en N agentes sin valor |
 
-Ambas categorías siguen las mismas convenciones (frontmatter, body, idioma). Se distinguen por el dominio del entregable, no por la ubicación.
+Todas siguen las mismas convenciones de naming, frontmatter, idioma y `user-invocable: true`. La diferencia está en el contrato de invocación.
 
-### Cómo las invocan los agentes
+### Contrato de las utility-skills (autodescubrimiento)
 
-Igual que cualquier otra skill. El agente lista la skill compartida en su sección `## Skills disponibles` por su nombre canónico:
+Una **utility-skill** cumple los siguientes criterios — si alguno no se cumple, no es utility (es business o meta):
+
+1. **Es una utilidad técnica transversal**, no un entregable de dominio. No produce contenido humano (post, brief, dashboard); produce o transforma un artefacto (decodificar, validar, convertir, hashear, etc.).
+2. **Lleva un script propio** al lado del `SKILL.md` (carpeta de la skill con `SKILL.md` + `<script>.js|.mjs|.sh`). El SKILL.md es la prosa, el script es la ejecución.
+3. **Ningún dept la "posee"** — cualquier agente, en cualquier dept, puede beneficiarse. Listarla en agentes concretos es ruido (propagas la misma referencia en 5 sitios) o es incompleto (falta en el agente 6 que la necesitaba).
+4. **El descubrimiento depende de la `description`**, no de un agente. La `description` del frontmatter debe ser rica en triggers semánticos: vocabulario específico del problema, sinónimos, formatos o sistemas concretos. Si la skill puede aparecer en cualquier conversación, su `description` debe contenerlo para que el LLM la active.
+
+**Implicaciones para el `description`:** las utility-skills son las únicas donde el `description` debe ir más allá de "qué hace": debe incluir explícitamente los **triggers de activación** (palabras, formatos, fuentes de datos típicas). El LLM activa la skill cuando ese vocabulario aparece en el contexto.
+
+**Implicaciones para el `audit`:** una utility-skill **no debería aparecer** en la tabla `## Skills disponibles` de ningún agente. Si aparece, hay que decidir: o la skill no era utility (cambiar categoría) o la referencia en el agente sobra (eliminarla). Mantener referencias inconsistentes es la peor opción.
+
+### Cómo las invocan los agentes (resumen)
+
+- **Business-skill compartida**: el agente la lista en su `## Skills disponibles` y la invoca explícitamente cuando el flujo lo pide. Igual que una skill de dept.
+- **Utility-skill compartida**: no se lista en ningún agente. El LLM la descubre vía `description` y la activa cuando el contexto matchea. Cualquier agente puede usarla sin haberla declarado.
+- **Meta-skill**: la invoca otra meta-skill o un agente compartido del propio framework (`shared-skill-builder`, `shared-prd-agent`); no es habitual que un agente de dept la liste.
+
+Para business-skills, la referencia en el agente sigue siendo simple:
 
 ```markdown
 | Skill | Cuándo usarla |
 |---|---|
-| `competitive-analysis` | Matriz comparativa estructurada de competidores |
-| `case-study` | Caso de éxito con problema → solución → resultados medibles |
+| `shared-competitive-analysis` | Matriz comparativa estructurada de competidores |
+| `shared-case-study` | Caso de éxito con problema → solución → resultados medibles |
 ```
 
 No se referencia la ubicación física en la tabla del agente; el repo sabe dónde encontrarla.

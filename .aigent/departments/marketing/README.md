@@ -25,7 +25,7 @@ Posts de blog, emails, anuncios, comunicados, copy persuasivo de marca.
 > "Necesito un post de blog sobre 'cómo elegir CRM para PYMEs', dirigido a CEOs de empresas 10-50 empleados, tono profesional pero accesible. Keyword principal: 'crm para pyme'. ~1500 palabras."
 
 **Output esperado:**
-- Ruta: carpeta `<proyecto>/marketing/blog-posts/como-elegir-crm-para-pymes/`
+- Ruta: carpeta `<proyecto>/marketing/posts/como-elegir-crm-para-pymes/`
   - `como-elegir-crm-para-pymes.md` — post completo
   - `como-elegir-crm-para-pymes.html` — preview con estilos
   - `_content.html` — fragmento para pegar en WordPress
@@ -194,7 +194,7 @@ Landing pages, contenido WordPress, arquitectura de información, CRO.
 > "Landing page para nuestra nueva feature 'AI Insights' del producto. Objetivo: que el visitante pida demo. Audiencia: heads of analytics de empresas medianas."
 
 **Output esperado:**
-- Ruta: `<proyecto>/marketing/web/landing-ai-insights.md`
+- Ruta: `<proyecto>/marketing/posts/landing-ai-insights/landing-ai-insights.md`
 - Estructura:
   ```markdown
   # Landing: AI Insights
@@ -244,7 +244,7 @@ Carpeta con `.md` + `.html` preview + `_content.html` para CMS + `assets/` + `an
 > "Post de blog sobre 'KPIs de customer success que importan en 2026'. Audiencia: heads of CS. Tono experto pero conversacional. ~1800 palabras."
 
 **Output esperado:**
-- Ruta: `<proyecto>/marketing/blog-posts/kpis-customer-success-2026/`
+- Ruta: `<proyecto>/marketing/posts/kpis-customer-success-2026/`
 - Archivos generados: como en el ejemplo de `marketing-content` arriba.
 - Estructura del post: hook con dato sorprendente, contexto, las 7 KPIs con definición + cómo medir + ejemplo + anti-patrón, sección "lo que NO debería ser un KPI" (gancho contrarian), conclusión con plantilla descargable.
 
@@ -431,6 +431,35 @@ Ver ejemplo en agente `marketing-web` arriba.
 
 ---
 
+### `elementor-content` — Contenido Elementor (JSON `_elementor_data`) para WordPress
+
+Genera la carpeta lista para publicar en WordPress con Elementor: el JSON canónico que va al postmeta `_elementor_data`, el HTML fallback, los metadatos (title, slug, meta description, `_elementor_template_type`), un README con cómo publicar (manual o vía MCP de WordPress conectado al IDE) y, cuando aplique, una subcarpeta `assets/` con los SVGs vectoriales generados (iconos custom, ilustración hero, dividers, blobs, badges, patrones) + sus PNGs @2x. Las fotos reales pendientes se dejan como placeholder externo (`placehold.co`) con brief visual. Cubre páginas, posts de blog, landings de campaña y bloques reutilizables. Solo widgets core de Elementor.
+
+**Prompt:**
+> "Necesito una página de servicio para 'Consultoría de datos' construida en Elementor. Hero a sangre con un blob abstracto verde-azulado de fondo, 3 beneficios con iconos custom (no Font Awesome), sección de testimonios con foto de cliente, FAQ y CTA final. Slug: `consultoria-de-datos`. Audiencia: directores financieros."
+
+**Output esperado:**
+- Ruta: `<proyecto>/marketing/posts/consultoria-de-datos/`
+- Estructura:
+  ```
+  consultoria-de-datos/
+  ├── _elementor_data.json    ← array de secciones para el postmeta
+  ├── content.html            ← fallback HTML semántico
+  ├── metadata.md             ← title, slug, meta description, _elementor_template_type=wp-page,
+  │                             tabla "Assets generados" + tabla "Assets pendientes"
+  ├── README.md               ← cómo publicar (manual o vía MCP WP) + cómo subir los assets
+  └── assets/
+      ├── hero-blob.svg + hero-blob.png       ← blob abstracto del hero
+      ├── icon-data-strategy.svg + .png       ← iconos custom para los 3 beneficios
+      ├── icon-cost-optimization.svg + .png
+      └── icon-real-time-insights.svg + .png
+  ```
+- `_elementor_data.json` con la jerarquía `section → column → widget`, IDs únicos de 7-8 caracteres, widgets core (`heading`, `text-editor`, `image` con `url: "assets/icon-data-strategy.svg"`, `testimonial`, `accordion`, `button`).
+- En la sección de testimonios, la foto del cliente queda como `https://placehold.co/200x200/0F172A/FFFFFF?text=Cliente` con brief en `metadata.md`.
+- `metadata.md` con title SEO ≤60 chars, meta description 140-160 chars, `_elementor_template_type: wp-page`, `_elementor_edit_mode: builder`, inventario de los 4 assets generados y 1 pendiente.
+
+---
+
 ### `marketing-plan` — Plan de marketing anual o trimestral
 
 Ver ejemplo en agente `marketing-strategy` arriba.
@@ -450,10 +479,10 @@ SEO + UX + técnico antes de publicar en WordPress.
 **Caso de uso:** validar post antes de pegarlo en CMS.
 
 **Prompt:**
-> "Aplica `publish-checklist` al post `como-elegir-crm-para-pymes`. Lo tengo listo en `<proyecto>/marketing/blog-posts/`."
+> "Aplica `publish-checklist` al post `como-elegir-crm-para-pymes`. Lo tengo listo en `<proyecto>/marketing/posts/`."
 
 **Output esperado:**
-- Ruta: `<proyecto>/marketing/blog-posts/como-elegir-crm-para-pymes/publish-checklist.md`
+- Ruta: `<proyecto>/marketing/posts/como-elegir-crm-para-pymes/publish-checklist.md`
 - Checklist con resultado:
   ```markdown
   ## SEO

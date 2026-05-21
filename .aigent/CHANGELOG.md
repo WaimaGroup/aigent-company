@@ -4,6 +4,201 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.4.0 — 2026-05-21
+
+### Nueva utility-skill compartida `shared-base64-to-file`
+
+Primera skill v1 transversal cuya función no es generar contenido (business) ni construir el sistema (meta), sino **proporcionar una utilidad técnica reutilizable** con un script propio al lado del SKILL.md. Inaugura la categoría **utility** en `_shared/skills/`, conviviendo con meta y business sin subcarpetas (se distinguen por dominio, no por ubicación).
+
+**Problema que resuelve:** los MCPs que generan imágenes (DALL·E, Stable Diffusion, Bria, etc.) o descargan assets devuelven el contenido en base64 dentro de su respuesta. Hoy cada agente que recibe ese base64 tiene que improvisar la decodificación a fichero, con riesgo de escribir bytes corruptos sin avisar (porque `Buffer.from(..., 'base64')` es silenciosamente tolerante con basura) y sin coherencia entre departments en cuanto a dónde se escribe el fichero. Esta skill centraliza el procedimiento con verificación de magic bytes y respeta la convención universal `.context/.temp/<dept>/` (introducida en 3.2.0).
+
+**Decisión arquitectónica:** el caso de **MCP devolviendo base64** se resuelve con una skill v1 prosa + script Node, **fuera del engine v2**. El engine no ve la respuesta del MCP (la entrega el IDE directo al agente), así que meter esto en `engine.js` sería un rodeo. Cuando llegue el caso paralelo de **APIs propias HTTP que devuelven base64** (output binario de una skill v2), el camino es distinto: extender el contrato `outputs.file` del engine. Ambas vías conviven sin solaparse.
+
+**Contrato del script (`decode.js`):**
+
+```bash
+node .aigent/departments/_shared/skills/shared-base64-to-file/decode.js \
+  --input .context/.temp/<dept>/<purpose>-<timestamp>.b64 \
+  --format <png|jpg|jpeg|gif|webp|svg|pdf|zip> \
+  [--output <path>] [--keep-input]
+```
+
+Comportamiento:
+
+- Solo Node stdlib (`fs`, `path`) — sin dependencias. Compatible con Node 18+.
+- `--input` y `--output` deben estar bajo `.context/.temp/` (rechazo explícito si no — `INPUT_OUT_OF_SCOPE` / `OUTPUT_OUT_OF_SCOPE`); promocionar fuera es responsabilidad del agente caller (mover con `Bash`/`Write`).
+- Default de `--output`: mismo path que `--input` con la extensión cambiada a `<format>`.
+- Valida que el contenido es base64 con regex (`BAD_BASE64` si no), decodifica con `Buffer.from(..., 'base64')`, verifica magic bytes contra `<format>` (`FORMAT_MISMATCH` si no), crea `.context/.temp/<dept>/` y `.context/.temp/.gitignore` con `*` si faltan, escribe el binario, y borra el `.b64` salvo `--keep-input`.
+- SVG se verifica como texto (UTF-8 inicial trim → empieza por `<?xml` o `<svg`); WEBP combina `RIFF` en bytes 0-3 + `WEBP` en bytes 8-11; resto, magic bytes clásicos.
+- Output JSON a stdout (`{ ok, path, bytes, mime, format }` o `{ ok, error: { code, message } }`), línea humana a stderr en error, exit 0/1.
+- Códigos de error: `BAD_ARGS`, `INPUT_NOT_FOUND`, `INPUT_OUT_OF_SCOPE`, `OUTPUT_OUT_OF_SCOPE`, `BAD_BASE64`, `EMPTY_DECODE`, `MISSING_FORMAT`, `FORMAT_MISMATCH`, `WRITE_FAILED`, `INTERNAL`.
+
+**Categoría nueva "utility" en `_shared/skills/`.** Antes había dos categorías documentadas (meta + business). Se añade **utility** para utilidades técnicas con script al lado, conviviendo sin subcarpetas con el resto.
+
+### Regla nueva — utility-skills se autodescubren, no se listan en agentes
+
+Esta es **regla obligatoria del framework desde 3.4.0**. Las utility-skills compartidas son la única categoría de skill donde la asociación skill ↔ agente **no se declara en el agente**: el LLM las activa cuando el contexto matchea con la `description` del frontmatter. Listarlas en `## Skills disponibles` de un agente es redundancia (la skill aplica a cualquier agente que reciba el patrón) y a la vez incompleto (siempre faltará algún agente). La solución es invertir el contrato y delegar el descubrimiento en el modelo, vía una `description` rica en triggers semánticos.
+
+Cambios en `_shared/conventions.md`:
+
+- **§7** — nota de excepción tras la regla "La skill no declara qué agentes la usan". Se aclara que para utility-skills **tampoco el agente declara la skill**; el descubrimiento es por LLM vía description.
+- **§7.1** — la subsección "Coexistencia con las meta-skills" se rehace como "Tres categorías: meta, business, utility" con tabla comparativa (cómo se invoca y si se lista en agentes). Se añade una nueva subsección "Contrato de las utility-skills (autodescubrimiento)" con los 4 criterios para clasificar una skill como utility, e implicaciones para el `description` y el `audit`.
+- **§7.1** — la subsección "Cómo las invocan los agentes" se reescribe para distinguir los tres casos.
+
+**Implicación para `description` de utility-skills:** debe incluir explícitamente vocabulario de activación — palabras gatillo, sinónimos, formatos concretos, MCPs/APIs típicos de origen. No basta con "qué hace la skill"; el LLM la cargará solo si encuentra los términos del problema en su contexto. Aplicado ya a `shared-base64-to-file/SKILL.md` (description reforzada con triggers explícitos como "base64", "b64", "data URI", "MCP returned base64", "save base64 as file", PNG/JPG/SVG/PDF/ZIP, etc.).
+
+**Implicación para `audit`:** una utility-skill **no debe aparecer** en la tabla `## Skills disponibles` de ningún agente. Si aparece, hay drift: o la categoría era equivocada o la referencia sobra.
+
+### Marketing — fixes al orchestrator (drift de 3.2.0 + readiness de 1.5.0)
+
+El `marketing-orchestrator.md` arrastraba dos drifts respecto al estado del repo. Ambos arreglados sin tocar lógica funcional, alineándolo con `_shared/orchestrator-template.md` y con el README del dept (que ya estaban migrados):
+
+- **Convención unificada de `posts/`** (introducida en 3.2.0 y aplicada en el resto del dept). El orchestrator seguía proponiendo `landing-pages/` como carpeta separada en el Paso 0.5.A, en el árbol ASCII de "Estructura de outputs" y en la tabla "Carpeta destino por agente". Migrado: `marketing-web` apunta ahora a `posts/<slug>/` (con prefijos `page-`, `landing-`, `block-` en el slug), igual que `marketing-content` (con prefijo `post-`). Añadida también `seo/` (auditorías SEO independientes y keyword research) que faltaba en la propuesta del Paso 0.5.A.
+- **Sección obligatoria "Manejo de skills v2 — readiness"** (introducida en 1.5.0, exigida por `conventions.md` §6 a todos los orquestadores). El orchestrator no la tenía. Añadida textual del template: precheck con `doctor` antes de `run`, red de seguridad reactiva tras `CONFIG_ERROR` / `SECRETS_ERROR` con `details.next`, delegación en `shared-skill-builder configure`, y reglas innegociables sobre secrets nunca por chat y nunca editar `.context/config.json` ni `.context/.secrets.json` a mano.
+
+Ficheros tocados:
+- `.aigent/departments/_shared/skills/shared-base64-to-file/SKILL.md` (nuevo + description reforzada con triggers)
+- `.aigent/departments/_shared/skills/shared-base64-to-file/decode.js` (nuevo, sin deps)
+- `.aigent/departments/_shared/conventions.md` (§7 excepción de utility-skills + §7.1 rehecha con tres categorías + contrato utility)
+- `.aigent/departments/marketing/marketing-orchestrator.md` (drift posts/ unificado + sección readiness añadida + tabla agentes ajustada)
+- `.aigent/README.md` (estadísticas de `_shared`, tabla de skills compartidas en sección detallada, tabla resumen de skills compartidas — todas actualizadas a 11 = 2 meta + 8 business + 1 utility, y nueva sección "Utility-skills compartidas")
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
+## 3.3.0 — 2026-05-20
+
+### Marketing — flujo encadenado `blog-post` → `elementor-content` + validador específico de `_elementor_data.json`
+
+**Quitada la ambigüedad entre `marketing-blog-post` y `marketing-elementor-content`.** Para evitar que un agente o el orquestador dudara qué skill ejecutar primero al pedir un blog post, se fija la regla de forma explícita en cuatro ubicaciones:
+
+- **`marketing-blog-post/SKILL.md`** — añadida sección "Encadenamiento con Elementor": esta skill es **siempre el primer paso** para contenido editorial; tras completarla, si `style.elementor` existe en el config del proyecto, el agente caller invoca `marketing-elementor-content` modo `post` sobre la misma carpeta (sin duplicar el slug folder, sin reescribir el copy). Si el sitio no usa Elementor, blog-post termina ahí.
+- **`marketing-elementor-content/SKILL.md`** — la sección "Cuándo usar" ahora abre con una tabla anti-ambigüedad por modo (`post`/`page`/`landing`/`block`) y declara explícitamente que el modo `post` se ejecuta siempre **después** de blog-post leyendo su `.md`. Nunca antes.
+- **`marketing-content.md` (agente)** — nueva subsección "Flujo encadenado para contenido editorial" con los 3 pasos canónicos (1: blog-post → 2: detectar Elementor en config → 3: encadenar elementor-content). La skill `marketing-elementor-content` se añade a la tabla "Skills disponibles" con la nota "solo se invoca después de blog-post".
+- **`marketing-web.md` (agente)** — nueva tabla "Cómo decidir qué skill usar (sin ambigüedad)" que enumera petición → flujo: pages/landings/blocks van por `marketing-elementor-content` directo; blog posts NO son trabajo de `marketing-web` y se delegan a `marketing-content`.
+
+Resultado: tres archivos de prosa convergen en la misma regla. No hay forma de leer el repo y dudar cuál skill ejecutar primero.
+
+### Nuevo validador específico `scripts/validate-elementor-data.mjs`
+
+Validador Node 18+ sin dependencias que comprueba la estructura del `_elementor_data.json` generado. Vive **dentro de la skill** (`marketing-elementor-content/scripts/`) porque el contrato es 100% específico de Elementor — catálogo de widgets core, jerarquía `section→column→widget`, `isInner` consistency, columnas que suman 100, `icon-list` con `_id` por item, IDs únicos en todo el árbol. No es un validador de JSON genérico (eso ya lo hace `JSON.parse`). Si más adelante varios departments necesitan validadores de outputs estructurados, se promueve al engine v2 con un comando `engine.js validate-output <type> <file>`.
+
+Qué detecta el validador:
+
+| Caso | Severidad |
+|---|---|
+| JSON inválido / raíz no es array de sections | error |
+| Nodo sin `id`/`elType`/`settings`/`elements` (o widget sin `widgetType`) | error |
+| IDs duplicados en el árbol | error |
+| Columnas de una sección que no suman 100 en `_column_size` | error |
+| `widgetType` no está en el catálogo core (rechaza Pro: `form`, `posts`, `slides`, etc.) | error |
+| `isInner: true` inconsistente entre section padre y columns hijas | error |
+| `isInner: true` en widget (solo aplica a sections y columns) | error |
+| Item de `icon-list` sin `_id` único o usando `icon` legacy en lugar de `selected_icon` | error |
+| ID que no sigue el patrón habitual (7-8 chars `[a-f0-9]`) | warning |
+| Widget `html` con `<script>` (la mayoría de sitios lo strippean) | warning |
+| `_column_size` ausente o no numérico | warning |
+
+Contrato CLI:
+
+```bash
+node .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.mjs \
+  <path/to/_elementor_data.json> [--strict] [--quiet]
+```
+
+- Exit `0` = válido; `1` = errores (o warnings con `--strict`); `2` = uso incorrecto.
+- Output JSON: `{ ok, errors: [...], warnings: [...], stats: { sections, columns, widgets, inner_sections, ids }, file }`.
+- Paths JSON-like (`$[0].elements[1].elements[0]`) para localizar cada problema.
+
+Smoke test pasado: 2 fixtures válidos exit 0; 5 fixtures inválidos (IDs duplicados, columnas a 80%, widget `form` Pro, isInner inconsistente, icon-list sin `_id`) exit 1 con mensajes específicos de cada error.
+
+**Integración en el SKILL.md:** Paso 7 del proceso reescrito — ya no dice "Validar el JSON con `JSON.parse`" sino "ejecutar `validate-elementor-data.mjs` y solo continuar si `ok: true`". Añadido al checklist de calidad y a las restricciones (no saltarse el validador, no comentar su exit code). Estructura de archivos de la skill documentada al inicio del body.
+
+Ficheros tocados:
+- `.aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.mjs` (nuevo, 333 líneas)
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` (Paso 7 reescrito, sección "Cuándo usar" con tabla anti-ambigüedad, estructura de archivos documentada, checklist + restricciones ampliados)
+- `.aigent/departments/marketing/skills/marketing-blog-post/SKILL.md` (sección "Encadenamiento con Elementor")
+- `.aigent/departments/marketing/agents/marketing-content.md` (skill añadida a la tabla + sección "Flujo encadenado")
+- `.aigent/departments/marketing/agents/marketing-web.md` (descripción de la skill ampliada + tabla "Cómo decidir qué skill usar")
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
+## 3.2.0 — 2026-05-20
+
+### Marketing — unificación de outputs en `posts/` y mejoras en publicación Elementor
+
+**Convención unificada `marketing/posts/`.** Todo el contenido publicable de los agentes `marketing-web` y `marketing-content` (blog posts, páginas WP, landings, contenido Elementor y bloques reutilizables) vive a partir de ahora en una **única carpeta `<proyecto>/marketing/posts/<slug>/`**. Se eliminan/consolidan:
+
+- `marketing/contenido/<YYYY-MM>/<tipo>-<slug>/` (en español, introducida en la skill Elementor) → `marketing/posts/<slug>/`.
+- `marketing/blog-posts/` (en `README.md` del dept) → `marketing/posts/`.
+- `marketing/landing-pages/` (en el orquestador) y `marketing/web/<file>.md` (en el README) → `marketing/posts/<slug>/`.
+
+Motivación: la distinción `blog-posts` / `landing-pages` / `contenido` era ruido — todos son "post o página publicable" con el mismo árbol de archivos (`.md` + `.html` + opcional `_elementor_data.json` + `assets/`). El `<slug>` describe el tipo cuando ayuda (`landing-launch-q3`, `page-about`, `block-hero-default`, `post-como-elegir-crm`). Otras subcarpetas funcionalmente distintas (`emails/`, `ads/`, `social/`, `press/`, `strategy/`, `seo/`) se mantienen.
+
+Ficheros tocados:
+- `.aigent/departments/marketing/marketing-orchestrator.md` — estructura de outputs reescrita; columna "Carpeta destino" de `marketing-web` ahora apunta a `posts/<slug>/`; mapa del árbol incluye los archivos típicos del modo Elementor.
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` — Paso 0.1 default actualizado; plantilla del entregable reapuntada.
+- `.aigent/departments/marketing/README.md` — todas las rutas migradas (`blog-posts/` → `posts/`, `web/<file>.md` → `posts/<slug>/<file>.md`).
+
+### Convención universal: `.context/.temp/<dept>/`
+
+Promovida a `_shared/output-rules.md`. Las skills que generan archivos transitorios (buffers de JSON escapado para llamadas MCP, payloads grandes, exports binarios) los guardan en `.context/.temp/<dept>/<purpose>-<timestamp>.<ext>`. Reglas: subdir por dept, naming kebab-case con timestamp Unix, borrado obligatorio tras uso, `.context/.temp/.gitignore` con `*` para que todo el árbol esté excluido de git, nunca usar para outputs (eso va a la ruta del proyecto). Antes la skill Elementor escribía en `.context/.temp/` raíz — corregido a `.context/.temp/marketing/`.
+
+Ficheros tocados:
+- `.aigent/departments/_shared/output-rules.md` — nueva sección "Archivos temporales (`.context/.temp/<dept>/`)" con reglas y cuándo evitar `.temp/`.
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` — paths internos actualizados; sección "Archivos temporales" ahora delega a la regla universal.
+
+### Marketing — fixes técnicos al publicar `_elementor_data` vía MCP/REST
+
+La sección "Publicación" de `marketing-elementor-content/SKILL.md` se reescribe entera con los matices que rompen habitualmente la publicación de contenido Elementor:
+
+- **Storage como string JSON, no array.** Documentado el porqué: si se pasa un objeto/array como `value` del meta, WP lo serializa con `serialize()` PHP (`a:1:{...}`) y Elementor lo rechaza. Hay que aplicar `JSON.stringify` explícito y verificar tras escribir que el meta leído empieza por `[`.
+- **Slashes / `wp_slash()`.** Algunos MCPs aplican `wp_slash` automáticamente, otros no. La skill ahora pide que cada `"` interna quede como `\"` y cada `\` como `\\` antes de pasarlo al tool, y verifica con `wp_get_post_meta` que el valor leído coincide con el origen.
+- **Caché `_elementor_css`** invalidada tras cada update — antes faltaba; sin ello el front renderiza HTML viejo.
+- **Los 4 postmetas siempre presentes** (`_elementor_data`, `_elementor_edit_mode = "builder"`, `_elementor_template_type`, `_elementor_version`) — antes faltaba la versión.
+- **Comprobaciones de integridad** tras escribir el meta: empieza por `[`, parsea como JSON, primer `id` coincide, no truncado. Si el meta excede el tamaño del campo BD, se detecta inmediatamente.
+- **`isInner` consistency** entre section padre y columns hijas.
+- **Vía alternativa REST API** (`POST /wp/v2/pages/<id>` con `meta`) documentada como fallback cuando el MCP no expone `wp_update_post_meta` — incluye precheck (`GET ?context=edit`) para confirmar que el meta `_elementor_data` está expuesto.
+- **Tabla de troubleshooting** con 9 síntomas → causa → fix (PHP serialize, slashes, truncado, caché, isInner, revisiones, Unicode, edits humanas, key vs meta_key).
+
+Eliminada la mención específica al nombre "royal-mcp" en la descripción del frontmatter; ahora la skill habla genéricamente del "WordPress MCP available in the IDE", siguiendo la regla §8 de `_shared/conventions.md` (no mencionar MCPs concretos).
+
+Ficheros tocados:
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md`
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
+## 3.1.0 — 2026-05-20
+
+### Marketing — nueva skill `marketing-elementor-content`
+
+Nueva skill v1 prosa para producir contenido maquetado con Elementor en WordPress. Cubre la necesidad real de que Elementor guarda el contenido como **JSON estructurado en el postmeta `_elementor_data`**, no como HTML. La skill genera la carpeta entregable con cuatro archivos:
+
+- `_elementor_data.json` — array canónico de secciones/columnas/widgets listo para pegar en el postmeta.
+- `content.html` — HTML semántico de fallback para `post_content`.
+- `metadata.md` — title, slug, meta description, `_elementor_template_type`, postmetas auxiliares.
+- `README.md` — instrucciones de publicación (manual desde el panel WP / vía MCP de WordPress si el IDE lo tiene conectado).
+
+Cobertura: 4 tipos de contenido (page, post, landing, block reutilizable) × widgets core de Elementor (sin Pro): `heading`, `text-editor`, `image`, `button`, `icon-box`, `image-box`, `icon-list`, `spacer`, `divider`, `video`, `testimonial`, `tabs`, `accordion`, `toggle`, `social-icons`, `counter`, `progress`, `alert`, `html`, `shortcode`, `google_maps`.
+
+Estrategia de generación: best-effort con ejemplos canónicos copy-paste (hero, 3-beneficios, FAQ accordion, testimonial, CTA final) tomados de estructuras observadas en exports reales de Elementor 3.x. La skill obliga a IDs únicos de 7-8 caracteres, columnas que sumen 100 en `_column_size` por sección, y validación `JSON.parse` antes de entregar.
+
+**Decisión de no publicar vía engine v2.** Se evaluó añadir una skill v2 ejecutable contra la REST API de WordPress (`/wp-json/wp/v2/pages` + `meta._elementor_data`), pero se descartó porque el usuario ya tiene un MCP de WordPress conectado al IDE — aplica la regla `_shared/conventions.md` §12.1 ("si ya existe un MCP fiable para la herramienta → MCP, no v2"). El SKILL.md y el README documentan la opción de publicación vía MCP además del flujo manual.
+
+**Generación de assets vectoriales.** La skill incluye una sección dedicada para generar **SVGs custom** (iconos fuera de Font Awesome, ilustraciones planas, dividers, blobs, badges, patrones) directamente como markup XML siguiendo convenciones del repo (viewBox explícito, fuentes agnósticas, IDs de gradient prefijados, sin scripts, sin metadatos de editor). Cada SVG se rasteriza por defecto a **PNG @2x** con `convert -background none -density 192 ...` para sitios donde el upload de SVG está deshabilitado. Decisión: SVG cuando el asset es decorativo/icónico/vectorial; **placeholder externo** (`placehold.co/<W>x<H>/<bg>/<fg>?text=...`) + brief visual en `metadata.md` cuando se necesita foto real o render fotorrealistas. Los assets viven en `assets/` dentro del entregable y se referencian en el JSON con `url` relativa; el upload final lo hace el MCP de WordPress (si soporta `media` con escritura) o el usuario manualmente.
+
+El SKILL.md amplía: `Información a recopilar` con campos `assets_a_generar` y `estilo_visual`; nueva sección `## Generación de assets` con catálogo de casos, convenciones SVG, 5 ejemplos canónicos (icono mono-line, hero blob, divider en ola, badge, patrón de puntos) y comando estándar de rasterización; estructura del entregable con subcarpeta `assets/`; plantilla `metadata.md` con tablas "Assets generados" / "Assets pendientes"; plantilla `README.md` con sección "Cómo subir los assets"; proceso con paso 3 dedicado a generación + paso 9 con sanity check de existencia en disco; checklist con verificaciones específicas (PNG par del SVG, sin scripts, sin metadatos de editor, URLs apuntando a archivos reales); restricciones con prohibición explícita de SVGs fotorrealistas y de scripts/metadatos en el markup.
+
+**Agente consumidor:** `marketing-web` añade `marketing-elementor-content` a su tabla `## Skills disponibles`. No se mencionan MCPs concretos en su system prompt (regla §8).
+
+Ficheros editados/creados:
+
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` (nuevo)
+- `.aigent/departments/marketing/agents/marketing-web.md` (skill añadida a la tabla)
+- `.aigent/departments/marketing/README.md` (caso de uso de la skill)
+- `.aigent/README.md` (índice maestro: contador a 14 skills, fila en agente `marketing-web`, fila en catálogo dept-específicas, fila en sección detalle)
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
 ## 3.0.4 — 2026-05-19
 
 ### Corrección de ficheros corruptos del engine v2

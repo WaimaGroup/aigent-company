@@ -23,6 +23,21 @@ Cuando el usuario necesite redactar un post de blog o artículo completo, listo 
 
 ---
 
+## Encadenamiento con Elementor (regla del dept Marketing)
+
+**`marketing-blog-post` es SIEMPRE el primer paso para cualquier contenido editorial.** Genera el contenido base (`.md` + `.html` + `_content.html` + `assets/` + `analytics/`) en `<proyecto>/marketing/posts/<slug>/`.
+
+Tras completar la carpeta, el agente caller comprueba si el sitio destino usa Elementor:
+
+- **Sí usa Elementor** (existe `.context/<proyecto>/config.json → style.elementor`, o el usuario lo confirma) → invocar a continuación `marketing-elementor-content` modo `post` **sobre la misma carpeta** para añadir `_elementor_data.json`, `content.html` (versión Elementor del fallback), `metadata.md` (postmetas + inventario), `README.md` (cómo publicar) y, si proceden, los SVGs de `assets/`. El `.md` y el `.html` originales de `marketing-blog-post` se conservan como fuente del copy; `_elementor_data.json` es lo que se publica como postmeta.
+- **No usa Elementor** (Gutenberg puro, otro builder) → esta skill termina aquí. El `_content.html` ya es lo que se pega en WordPress.
+
+> **No invocar `marketing-elementor-content` antes que `marketing-blog-post` para contenido editorial.** El flujo para posts es siempre primero copy, después maquetación. La skill Elementor depende del `.md` generado aquí: lo lee como input para construir las secciones del builder con las decisiones de tono, SEO y estructura ya tomadas.
+>
+> Para **páginas, landings y bloques reutilizables** (no editoriales) el flujo es distinto: `marketing-elementor-content` se invoca directamente en modo `page`/`landing`/`block` sin pasar por blog-post.
+
+---
+
 ## Regla absoluta: todo se guarda en archivos
 
 **Esta skill SIEMPRE crea archivos reales usando la herramienta `Write`.** Nunca entregar el contenido solo como texto en el chat. El contenido no existe hasta que está escrito en disco.

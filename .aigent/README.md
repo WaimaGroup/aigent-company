@@ -32,7 +32,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 | Departamento | Estado | Orquestador | Agentes | Skills |
 |---|---|---|---|---|
-| Marketing | ✅ implementado | completo | 5 / 5 | 13 (v1 prosa) |
+| Marketing | ✅ implementado | completo | 5 / 5 | 14 (v1 prosa) |
 | Sales | ✅ implementado | completo | 4 / 4 | 11 (v1 prosa) |
 | Software | ✅ implementado | completo | 4 / 4 | 19 (v1 prosa) |
 | HR | ✅ implementado | completo | 4 / 4 | 7 (v1 prosa) |
@@ -42,7 +42,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | Design | ✅ implementado | completo | 4 / 4 | 6 (v1 prosa) |
 | Operations | ✅ parcial | completo (Redmine) | 0 / 4 implementados (4 stubs) | 1 (`operations-redmine` v2 ejecutable) |
 | DevOps | 🚧 TODO | stub honesto | 0 / 4 stub | 0 |
-| _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`shared-skill-scaffold`, `shared-agent-scaffold`) + 8 business compartidas (v1 prosa) |
+| _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`shared-skill-scaffold`, `shared-agent-scaffold`) + 8 business compartidas + 1 utility (`shared-base64-to-file`) — todas v1 prosa |
 
 **Stub honesto:** orquestador y agentes existen pero su body indica explícitamente que no deben delegar ni ejecutar. Evita que un cliente seleccione un agente vacío. Cuando el dept se active, se sustituye usando `_shared/orchestrator-template.md` y la skill `shared-agent-scaffold`.
 
@@ -61,7 +61,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 **Skills:**
 
-`_shared/skills/` aloja dos categorías de skills conviviendo sin subcarpetas, distinguidas por dominio (no por ubicación):
+`_shared/skills/` aloja tres categorías de skills conviviendo sin subcarpetas, distinguidas por dominio (no por ubicación):
 
 **Meta-skills** — para construir el sistema:
 
@@ -83,6 +83,12 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | `shared-journey-map` | Journey map con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | `design-ux-research`, `product-discovery` |
 | `shared-deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia (instant/canary/blue-green/progressive) | `software-architecture`, `software-coding` (devops cuando se active) |
 
+**Utility-skills compartidas** — utilidades técnicas con script propio que cualquier agente puede invocar:
+
+| Skill | Cuándo usarla | Agentes consumidores documentados |
+|---|---|---|
+| `shared-base64-to-file` | Decodificar un base64 (típicamente de un MCP de imágenes / descarga de assets) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes y formatos soportados: PNG, JPG, GIF, WEBP, SVG, PDF, ZIP. Incluye `decode.js` (Node 18+, sin deps) | cualquier agente que reciba base64 de un MCP (marketing-content, marketing-web, design-ui, etc. cuando lo integren) |
+
 > **Criterios para `_shared/skills/`:** ver `conventions.md` §7.1. Resumen: ≥2 depts la usan + entregable genuinamente idéntico + sin matices fuertes por dept. Si una compartida empieza a divergir entre depts, se duplica en los depts (no se fuerza lo compartido).
 
 > **Distribución:** `_shared/skills/` se propaga automáticamente con cualquier dept que el usuario seleccione en `install.sh` / `install.ps1`. No hay que tocar el installer al añadir una skill compartida nueva.
@@ -101,19 +107,22 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | `marketing-strategy` | Planes de marketing, briefings de campaña, análisis competitivo, KPIs, lanzamientos | `marketing-marketing-plan`, `marketing-campaign-brief` |
 | `marketing-seo` | Keyword research, optimización on-page, auditoría SEO, lectura de Analytics/Search Console | `marketing-keyword-research`, `marketing-seo-on-page` |
 | `marketing-social` | Copies por plataforma (LinkedIn, Instagram, X, TikTok, FB), calendarios, hashtag strategy | `marketing-editorial-calendar`, `marketing-platform-adapter` |
-| `marketing-web` | Landing pages, páginas de WordPress, arquitectura de información, CRO | `marketing-landing-page`, `marketing-publish-checklist` |
+| `marketing-web` | Landing pages, páginas de WordPress, arquitectura de información, CRO | `marketing-landing-page`, `marketing-elementor-content`, `marketing-publish-checklist` |
 
-**Skills (11, todas v1 prosa):**
+**Skills (14, todas v1 prosa):**
 
 | Skill | Entregable |
 |---|---|
 | `marketing-blog-post` | Carpeta completa del post: `.md` + `.html` preview + `_content.html` para CMS + `assets/` + `analytics/` |
 | `marketing-ad-copy` | Copy publicitario para Google/Meta/LinkedIn Ads con variantes A/B y respeto de límites por plataforma |
+| `marketing-brand-voice-guide` | Guía canónica de voz de marca con atributos de tono, vocabulario do/don't y adaptación por canal |
 | `marketing-campaign-brief` | Briefing de campaña completo (objetivo, audiencia, canales, presupuesto, riesgos) |
 | `marketing-editorial-calendar` | Calendario editorial mensual o semanal de redes sociales con pilares y mix |
+| `marketing-elementor-content` | Contenido para Elementor: JSON canónico de `_elementor_data` + HTML fallback + metadata + `assets/` con SVGs vectoriales generados (icons custom, blobs, dividers, badges, patrones) y sus PNGs @2x. Cubre page/post/landing/block reutilizable (solo widgets core) |
 | `marketing-email-campaign` | Email de marketing con asunto (3 variantes), preheader, cuerpo y CTA |
 | `marketing-keyword-research` | Tabla priorizada de keywords con intención, volumen, dificultad y página destino |
 | `marketing-landing-page` | Estructura + copy completo de landing de conversión |
+| `marketing-linkedin-audit` | Análisis y optimización de un post de LinkedIn con copy plain-text listo para pegar |
 | `marketing-marketing-plan` | Plan de marketing (anual o trimestral) con análisis, objetivos, canales, presupuesto y calendario |
 | `marketing-platform-adapter` | Versiones de un mismo contenido adaptadas a cada red social |
 | `marketing-publish-checklist` | Checklist completo SEO + UX + técnico antes de publicar en WordPress |
@@ -461,7 +470,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `design-design-system` | Mantener el Design System: tokens, foundations, documentación canónica de componentes y versionado |
 | `design-accessibility` | Auditar WCAG 2.2 AA, producir remediation plans y patrones accesibles (keyboard, ARIA, screen readers) |
 
-### Skills compartidas (10 = 2 meta + 8 business) — `_shared/skills/`
+### Skills compartidas (11 = 2 meta + 8 business + 1 utility) — `_shared/skills/`
 
 | Skill | Para qué | Tipo |
 |---|---|---|
@@ -475,10 +484,11 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `shared-okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo con scoring | business |
 | `shared-journey-map` | Journey con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | business |
 | `shared-deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia | business |
+| `shared-base64-to-file` | Decodificar base64 (típicamente de un MCP) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes (PNG/JPG/GIF/WEBP/SVG/PDF/ZIP). Incluye `decode.js` (Node 18+, sin deps) | utility |
 
 ### Skills dept-específicas (75)
 
-**Marketing (13)**
+**Marketing (14)**
 
 | Skill | Para qué |
 |---|---|
@@ -486,6 +496,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `marketing-ad-copy` | Copy publicitario para Google/Meta/LinkedIn Ads con variantes A/B y respeto de límites de plataforma |
 | `marketing-campaign-brief` | Briefing de campaña con objetivo, audiencia, canales, presupuesto, KPIs y riesgos |
 | `marketing-editorial-calendar` | Calendario editorial mensual/semanal de redes sociales con pilares y mix de contenido |
+| `marketing-elementor-content` | Contenido Elementor para WordPress: JSON canónico de `_elementor_data` + HTML fallback + metadata + `assets/` con SVGs (icons, blobs, dividers, badges, patrones) y PNG @2x. Cubre page/post/landing/block (widgets core) |
 | `marketing-email-campaign` | Email de marketing con asunto (3 variantes), preheader, cuerpo y CTA |
 | `marketing-keyword-research` | Tabla priorizada de keywords con intención, volumen, dificultad y página destino |
 | `marketing-landing-page` | Estructura + copy de landing page de conversión |
