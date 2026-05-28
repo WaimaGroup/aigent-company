@@ -4,6 +4,61 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.7.0 — 2026-05-28
+
+### BOSS.md: bootstrap automático en estado virgen
+
+Nueva rama del flujo de auditoría de BOSS para resolver el caso "primer arranque del proyecto": cuando `.context/` no tiene ninguna carpeta de proyecto **y** `.context/config.json` no existe o está vacío (plantilla por defecto sin `company.name`), BOSS ya no abre el menú de 3 modos (auto/manual/omitir). En su lugar:
+
+1. Anuncia que es la primera ejecución del bootstrap.
+2. Pide en un solo mensaje las **dos** cosas que no puede inventar: nombre de la empresa y nombre del primer proyecto (kebab-case).
+3. Ejecuta los pasos 1-7 del checklist sin más preguntas (crea `.context/`, `.gitignore`, `.secrets.json`, `config.json` con `company.name` rellenado, `<proyecto>/`, y `<proyecto>/config.json` con plantilla mínima).
+4. Resume al usuario exactamente qué se creó y qué quedó pendiente (industria, tono, audiencia, value proposition, paths por dept, MCPs, tools).
+5. Pregunta si quiere cambiar algo antes de continuar con su petición.
+
+Si el usuario contesta "no" / "continúa", BOSS procede con la petición original que disparó la sesión.
+
+**Por qué cambiar de comportamiento en virgen:** el menú de 3 modos asume que el usuario *podría* querer omitir el bootstrap. En estado virgen no hay nada que omitir — no hay decisiones previas que respetar — así que ofrecer la opción "omitir" solo añade fricción. La rama nueva entra y sale automáticamente, dejando el sistema utilizable en un mensaje en lugar de dos.
+
+**Archivos editados:**
+- `.aigent/BOSS.md` — nueva sección "Si falta TODO (estado virgen)" entre "Si todo está completo → silencio" y "Si falta algo (no virgen) → comunicar y ofrecer 3 modos". Actualizada la regla de oro correspondiente para listar las 3 ramas posibles.
+
+### IDE: plantillas de permisos `allow / ask / deny` para Claude Code y OpenCode
+
+Nueva plantilla `.aigent/IDE/settings.local.json` para Claude Code y bloque `permission` añadido a `.aigent/IDE/opencode.json`. Ambos arrancan con una política sensata:
+
+- **`allow`** — herramientas habituales que no destruyen nada: `bash`, `sh`, `node`, `npm`, `npx`, `yarn`, `pnpm`, `python`, `python3`, `pip`, `pipx`, `uv`, `poetry`, `powershell`, `pwsh`, lectores (`ls`, `cat`, `head`, `tail`, `wc`, `find`, `grep`, `rg`, `tree`, `stat`, `diff`), editores de texto (`sed`, `awk`, `tr`), compresores (`tar`, `zip`, `unzip`), red de lectura (`curl`, `wget`), git read-only + add + commit, y específicamente todos los `.cjs` del engine v2 (incluyendo la skill `shared-base64-to-file/decode.cjs`).
+- **`ask`** — acciones potencialmente destructivas pero a veces legítimas: `rm`, `rmdir`, `sudo`, `su`, `chmod`, `chown`, `git push`, `git push --force`, `git reset --hard`, `git rebase`, `git filter-branch`, `npm publish`, `npm install -g`, `pip uninstall`, `docker rm` / `rmi` / `system prune`, `kubectl delete`, `terraform apply` / `destroy`, `curl|sh` / `wget|sh`, `eval`, `crontab`.
+- **`deny`** — catastróficas, nunca permitidas: `rm -rf /`, `rm -rf ~`, `rm -rf .`, `dd`, `mkfs*`, `format`, `shutdown`, `reboot`, `halt`, `poweroff`.
+
+El usuario edita la lista a gusto — es un punto de partida, no una recomendación dogmática.
+
+### Instalador: paso `install_permissions` / `Install-Permissions`
+
+`install.sh` y `install.ps1` aprenden a copiar la plantilla de permisos al sitio del IDE como parte del flujo completo (no del `--sync`):
+
+- **Claude Code:** `settings.local.json` → `.claude/settings.local.json` del proyecto, o `%APPDATA%\Claude\settings.local.json` / `~/.claude/settings.local.json` en scope global. **Si ya existe en destino, no se sobreescribe** (el usuario manda — solo se anuncia).
+- **OpenCode:** los permisos viven embebidos en `opencode.json` bajo `"permission"`. El instalador solo lo recuerda con un `log_info`; el archivo en sí se instala (cuando se pasa `--mcp` / `-Mcp`) vía `install_mcp` / `Install-McpConfig`.
+
+`install_mcp` (sh) también acepta ahora el flag `--mode global` para OpenCode y copia a `~/.config/opencode/opencode.json` cuando corresponde, alineándose con cómo lo hace `install.ps1`.
+
+**Archivos editados:**
+- `.aigent/IDE/install.sh` — nueva función `install_permissions`, llamada en la fase post-MCP del flow completo.
+- `.aigent/IDE/install.ps1` — nueva función `Install-Permissions`, llamada en la fase equivalente.
+- `.aigent/IDE/settings.local.json` — nuevo fichero (plantilla).
+- `.aigent/IDE/opencode.json` — bloque `permission` añadido (y schema ajustado a v3+ de OpenCode: `mcp.<name>` directo en lugar de `mcp.servers.<name>`, `command` como array, `environment` en lugar de `env`).
+- `.aigent/IDE/README.md` — tabla de archivos y descripción del flujo actualizadas.
+
+### Por qué MINOR y no PATCH
+
+Dos motivos:
+
+1. **Nueva regla obligatoria en BOSS.md** — el bootstrap automático en virgen cambia cómo se comporta BOSS en primera ejecución. Deployments existentes ya tienen `config.json` y proyectos creados, así que no les afecta, pero la regla está documentada y entra en el contrato del system prompt.
+2. **Nuevo paso de instalación** — el instalador ahora copia `settings.local.json` por defecto en el flow completo. Un usuario que reinstale verá un archivo nuevo en su `.claude/` que antes no estaba. La política de "no sobreescribir si existe" garantiza que no se pierde nada del usuario.
+
+Ningún cambio en el contrato de skills v2 (frontmatter, templating, error codes) → no MAJOR.
+
+---
 ## 3.6.0 — 2026-05-28
 
 ### Engine v2 y scripts auxiliares: rename `.js` → `.cjs`

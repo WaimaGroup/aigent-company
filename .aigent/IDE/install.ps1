@@ -485,6 +485,33 @@ function Install-McpConfig($ideName, $configDir) {
   }
 }
 
+# Permisos del IDE (allow / ask / deny). Para Claude se copia settings.local.json
+# a $configDir (.claude\ proyecto o %APPDATA%\Claude\ global). Para OpenCode los
+# permisos viven embebidos en el propio opencode.json — aquí solo se informa.
+function Install-Permissions($ideName, $configDir) {
+  Write-Host ""
+  Write-Host "  🛡  Permisos → $ideName" -ForegroundColor White
+  Divider
+  switch ($ideName) {
+    "claude" {
+      $src = Join-Path $ScriptDir "settings.local.json"
+      if (-not (Test-Path $src)) {
+        Log-Warn "IDE\settings.local.json no encontrado — saltando permisos"
+        return
+      }
+      $dest = Join-Path $configDir "settings.local.json"
+      if (Test-Path $dest) {
+        Log-Info "settings.local.json ya existe en $configDir — no se sobreescribe (edítalo a mano)"
+      } else {
+        Copy-AgentFile $src $configDir "settings.local.json"
+      }
+    }
+    "opencode" {
+      Log-Info "Permisos opencode embebidos en opencode.json (sección `"permission`")"
+    }
+  }
+}
+
 # ── Bootstrap: crea referencia dinámica a BOSS.md en el IDE ──────────────────
 # CLAUDE.md        → "@.aigent/BOSS.md"              (Claude Code importa en cada sesión)
 # opencode.json    → instructions: [".aigent/BOSS.md"] (OpenCode lee el fichero dinámicamente)
@@ -926,12 +953,14 @@ if ($Clean) {
   }
 }
 
-# MCP templates, BOSS bootstrap y scaffold de secretos — saltados en -Sync
+# MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en -Sync
 if (-not $Sync) {
   if ($Mcp) {
     if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-McpConfig "claude"   $claudeConfig }
     if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-McpConfig "opencode" $ocConfig }
   }
+  if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-Permissions "claude"   $claudeConfig }
+  if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-Permissions "opencode" $ocConfig }
   if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-Boss "claude" }
   if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-Boss "opencode" }
   Install-ContextSecrets

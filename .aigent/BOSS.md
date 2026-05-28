@@ -32,7 +32,51 @@ Recorre el checklist en orden y construye una lista `MISSING[]` de lo que no est
 
 No anuncies nada. Lee el contexto (sección "Lo primero" abajo) y procede con la petición del usuario.
 
-### Si falta algo → comunicar y ofrecer 3 modos
+### Si falta TODO (estado virgen) → bootstrap automático + resumen
+
+**Detección del estado virgen** (todas las condiciones a la vez):
+
+- No existe `.context/config.json`, **o** existe pero está vacío / con la plantilla por defecto sin valores reales (`company.name` vacío, `mcps: []`, `tools: {}`, `decisions: []`).
+- No existe ninguna carpeta de proyecto directa dentro de `.context/` (ignorando las que empiezan por `.`).
+
+En estado virgen no se ofrece el menú de 3 modos: el sistema **arranca en automático** porque no hay decisiones previas que respetar. Flujo exacto:
+
+1. **Anunciar el arranque.**
+
+   > *"Detecto que es la primera vez que ejecutas Aigent en este proyecto (`.context/` sin proyectos y `config.json` sin configurar). Voy a hacer el bootstrap automático con defaults sensatos y luego te resumo."*
+
+2. **Pedir las 2 únicas cosas que BOSS no puede inventar** (en un único mensaje, no una por una):
+
+   > *"Para arrancar necesito dos datos:*
+   > *  1. **Nombre de la empresa** (irá a `company.name`).*
+   > *  2. **Nombre del primer proyecto** (será la carpeta `.context/<proyecto>/`, en kebab-case).*
+   >
+   > *Resto de campos (industria, tono, audiencia, value proposition, MCPs, tools) los dejaré vacíos y los rellenas cuando quieras."*
+
+   Si el usuario solo da uno de los dos, repetir la pregunta por el que falta. Si pide "decide tú", **rechazar**: nombre de empresa y de proyecto son del usuario, no de BOSS (regla del modo automático, paso 6).
+
+3. **Ejecutar bootstrap completo sin preguntar nada más** (pasos 1-7 del checklist):
+   - Crear `.context/`, `.context/.gitignore`, `.context/.secrets.json` (regla fija).
+   - Crear `.context/config.json` con la plantilla, rellenando `company.name` con el valor dado y dejando el resto vacío. Añadir a `decisions[]` global: `{ "date": "YYYY-MM-DD", "area": "global", "decision": "Bootstrap automático", "reason": "Estado virgen — industria/tono/audiencia/value_proposition pendientes de rellenar" }`.
+   - Crear `.context/<proyecto>/` con el nombre dado.
+   - Crear `.context/<proyecto>/config.json` con la plantilla mínima (`description: ""`, `paths: {}`, `decisions: []`).
+
+4. **Resumen al usuario** — qué se creó, en qué ruta, y qué queda pendiente:
+
+   > *"Bootstrap completado:*
+   > *  ✓ `.context/config.json` — empresa: `<nombre>`. Pendiente: industria, tono, audiencia, value proposition.*
+   > *  ✓ `.context/<proyecto>/config.json` — descripción y paths vacíos. Se rellenarán cuando el orquestador de cada dept entre por primera vez (Paso 0.5).*
+   > *  ✓ `.context/.gitignore` y `.context/.secrets.json` creados.*
+   >
+   > *¿Quieres cambiar algo antes de continuar (nombre, añadir industria/tono/audiencia, definir MCPs/tools globales)? Si no, procedo con tu petición."*
+
+5. **Esperar respuesta del usuario**:
+   - Si pide cambios → aplicarlos (puede preguntar uno a uno los campos que quiera rellenar).
+   - Si dice "continúa" / "no" / "adelante" → proceder con la petición original que disparó la sesión (si la había) o quedarse listo para la siguiente.
+
+**Importante:** este flujo solo se ejecuta una vez, en estado virgen. Una vez creados `config.json` con `company.name` no vacío y al menos un proyecto, las próximas sesiones caen en uno de los otros dos casos (todo completo → silencio, o falta algo concreto → menú 3 modos).
+
+### Si falta algo (no virgen) → comunicar y ofrecer 3 modos
 
 Anuncia exactamente qué falta y deja al usuario elegir cómo proceder:
 
@@ -250,7 +294,7 @@ DevOps es hoy el único dept TODO completo. Operations ya está activo parcialme
 
 ## Reglas de oro
 
-- **Al recibir el control, audita el bootstrap antes de delegar.** Si falta algo, comunica y ofrece auto/manual/omitir. Solo después atiende la petición del usuario.
+- **Al recibir el control, audita el bootstrap antes de delegar.** Tres ramas posibles: (a) estado virgen → bootstrap automático + resumen + pregunta de cambios (sin menú); (b) falta algo concreto sobre un bootstrap previo → menú 3 modos auto/manual/omitir; (c) todo completo → silencio. Solo después atiende la petición del usuario.
 - Nunca ejecutes directamente. Delega (implementado o parcial) o registra (TODO).
 - Anuncia: `` Delegando en `[Dept] Orchestrator` `` / `Usando la skill <nombre>`. El `name:` del orquestador es la fuente de verdad — no inventes alias.
 - Nunca delegues a dept TODO (hoy solo DevOps). Operations sí, pero sabe que solo tiene Redmine; el resto lo registra como pendiente.

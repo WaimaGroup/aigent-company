@@ -590,7 +590,55 @@ install_mcp() {
       ;;
     opencode)
       local src="$SCRIPT_DIR/opencode.json"
-      [ -f "$src" ] && copy_file "$src" "$PROJECT_ROOT" "opencode.json" || log_warn "opencode.json no encontrado en IDE/"
+      if [ -f "$src" ]; then
+        if [ "$MODE" = "global" ]; then
+          copy_file "$src" "$HOME/.config/opencode" "opencode.json"
+        else
+          copy_file "$src" "$PROJECT_ROOT" "opencode.json"
+        fi
+      else
+        log_warn "opencode.json no encontrado en IDE/"
+      fi
+      ;;
+  esac
+}
+
+# ── Permisos del IDE (allow/ask/deny) ─────────────────────────────────────────
+# Plantilla con permisos sensatos: allow para herramientas habituales (bash,
+# node, python, powershell, git read-only), ask para acciones potencialmente
+# destructivas (rm, sudo, git push, npm publish, terraform apply…), deny para
+# las catastróficas (rm -rf /, dd, mkfs, shutdown…). El usuario edita después.
+install_permissions() {
+  local ide="$1"
+  echo ""; echo -e "  ${BOLD}🛡  Permisos → $ide${NC}"; divider
+  case "$ide" in
+    claude)
+      local src="$SCRIPT_DIR/settings.local.json"
+      if [ ! -f "$src" ]; then
+        log_warn "settings.local.json no encontrado en IDE/ — saltando permisos"
+        return
+      fi
+      local dest_dir
+      if [ "$MODE" = "global" ]; then
+        dest_dir="$HOME/.claude"
+      else
+        dest_dir="$PROJECT_ROOT/.claude"
+      fi
+      local dest="$dest_dir/settings.local.json"
+      if [ -f "$dest" ]; then
+        if $DRY_RUN; then
+          log_dry "settings.local.json ya existe en $dest_dir/ — no se sobreescribe"
+        else
+          log_info "settings.local.json ya existe en $dest_dir/ — no se sobreescribe (edítalo a mano)"
+        fi
+      else
+        copy_file "$src" "$dest_dir" "settings.local.json"
+      fi
+      ;;
+    opencode)
+      # En opencode los permisos viven en el mismo opencode.json — ya instalado
+      # por install_mcp. Aquí solo recordamos al usuario qué se aplicó.
+      log_info "Permisos opencode embebidos en opencode.json (sección \"permission\")"
       ;;
   esac
 }
@@ -887,12 +935,14 @@ if $CLEAN; then
   fi
 fi
 
-# 2. MCP templates, BOSS bootstrap y scaffold de secretos — saltados en --sync
+# 2. MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en --sync
 if ! $SYNC_ONLY; then
   if $INSTALL_MCP; then
     if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_mcp "claude";   fi
     if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_mcp "opencode"; fi
   fi
+  if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_permissions "claude";   fi
+  if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_permissions "opencode"; fi
   if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_boss "claude";   fi
   if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_boss "opencode"; fi
   install_context_secrets
