@@ -4,6 +4,346 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.7.0 — 2026-05-28
+
+### BOSS.md: bootstrap automático en estado virgen
+
+Nueva rama del flujo de auditoría de BOSS para resolver el caso "primer arranque del proyecto": cuando `.context/` no tiene ninguna carpeta de proyecto **y** `.context/config.json` no existe o está vacío (plantilla por defecto sin `company.name`), BOSS ya no abre el menú de 3 modos (auto/manual/omitir). En su lugar:
+
+1. Anuncia que es la primera ejecución del bootstrap.
+2. Pide en un solo mensaje las **dos** cosas que no puede inventar: nombre de la empresa y nombre del primer proyecto (kebab-case).
+3. Ejecuta los pasos 1-7 del checklist sin más preguntas (crea `.context/`, `.gitignore`, `.secrets.json`, `config.json` con `company.name` rellenado, `<proyecto>/`, y `<proyecto>/config.json` con plantilla mínima).
+4. Resume al usuario exactamente qué se creó y qué quedó pendiente (industria, tono, audiencia, value proposition, paths por dept, MCPs, tools).
+5. Pregunta si quiere cambiar algo antes de continuar con su petición.
+
+Si el usuario contesta "no" / "continúa", BOSS procede con la petición original que disparó la sesión.
+
+**Por qué cambiar de comportamiento en virgen:** el menú de 3 modos asume que el usuario *podría* querer omitir el bootstrap. En estado virgen no hay nada que omitir — no hay decisiones previas que respetar — así que ofrecer la opción "omitir" solo añade fricción. La rama nueva entra y sale automáticamente, dejando el sistema utilizable en un mensaje en lugar de dos.
+
+**Archivos editados:**
+- `.aigent/BOSS.md` — nueva sección "Si falta TODO (estado virgen)" entre "Si todo está completo → silencio" y "Si falta algo (no virgen) → comunicar y ofrecer 3 modos". Actualizada la regla de oro correspondiente para listar las 3 ramas posibles.
+
+### IDE: plantillas de permisos `allow / ask / deny` para Claude Code y OpenCode
+
+Nueva plantilla `.aigent/IDE/settings.local.json` para Claude Code y bloque `permission` añadido a `.aigent/IDE/opencode.json`. Ambos arrancan con una política sensata:
+
+- **`allow`** — herramientas habituales que no destruyen nada: `bash`, `sh`, `node`, `npm`, `npx`, `yarn`, `pnpm`, `python`, `python3`, `pip`, `pipx`, `uv`, `poetry`, `powershell`, `pwsh`, lectores (`ls`, `cat`, `head`, `tail`, `wc`, `find`, `grep`, `rg`, `tree`, `stat`, `diff`), editores de texto (`sed`, `awk`, `tr`), compresores (`tar`, `zip`, `unzip`), red de lectura (`curl`, `wget`), git read-only + add + commit, y específicamente todos los `.cjs` del engine v2 (incluyendo la skill `shared-base64-to-file/decode.cjs`).
+- **`ask`** — acciones potencialmente destructivas pero a veces legítimas: `rm`, `rmdir`, `sudo`, `su`, `chmod`, `chown`, `git push`, `git push --force`, `git reset --hard`, `git rebase`, `git filter-branch`, `npm publish`, `npm install -g`, `pip uninstall`, `docker rm` / `rmi` / `system prune`, `kubectl delete`, `terraform apply` / `destroy`, `curl|sh` / `wget|sh`, `eval`, `crontab`.
+- **`deny`** — catastróficas, nunca permitidas: `rm -rf /`, `rm -rf ~`, `rm -rf .`, `dd`, `mkfs*`, `format`, `shutdown`, `reboot`, `halt`, `poweroff`.
+
+El usuario edita la lista a gusto — es un punto de partida, no una recomendación dogmática.
+
+### Instalador: paso `install_permissions` / `Install-Permissions`
+
+`install.sh` y `install.ps1` aprenden a copiar la plantilla de permisos al sitio del IDE como parte del flujo completo (no del `--sync`):
+
+- **Claude Code:** `settings.local.json` → `.claude/settings.local.json` del proyecto, o `%APPDATA%\Claude\settings.local.json` / `~/.claude/settings.local.json` en scope global. **Si ya existe en destino, no se sobreescribe** (el usuario manda — solo se anuncia).
+- **OpenCode:** los permisos viven embebidos en `opencode.json` bajo `"permission"`. El instalador solo lo recuerda con un `log_info`; el archivo en sí se instala (cuando se pasa `--mcp` / `-Mcp`) vía `install_mcp` / `Install-McpConfig`.
+
+`install_mcp` (sh) también acepta ahora el flag `--mode global` para OpenCode y copia a `~/.config/opencode/opencode.json` cuando corresponde, alineándose con cómo lo hace `install.ps1`.
+
+**Archivos editados:**
+- `.aigent/IDE/install.sh` — nueva función `install_permissions`, llamada en la fase post-MCP del flow completo.
+- `.aigent/IDE/install.ps1` — nueva función `Install-Permissions`, llamada en la fase equivalente.
+- `.aigent/IDE/settings.local.json` — nuevo fichero (plantilla).
+- `.aigent/IDE/opencode.json` — bloque `permission` añadido (y schema ajustado a v3+ de OpenCode: `mcp.<name>` directo en lugar de `mcp.servers.<name>`, `command` como array, `environment` en lugar de `env`).
+- `.aigent/IDE/README.md` — tabla de archivos y descripción del flujo actualizadas.
+
+### Por qué MINOR y no PATCH
+
+Dos motivos:
+
+1. **Nueva regla obligatoria en BOSS.md** — el bootstrap automático en virgen cambia cómo se comporta BOSS en primera ejecución. Deployments existentes ya tienen `config.json` y proyectos creados, así que no les afecta, pero la regla está documentada y entra en el contrato del system prompt.
+2. **Nuevo paso de instalación** — el instalador ahora copia `settings.local.json` por defecto en el flow completo. Un usuario que reinstale verá un archivo nuevo en su `.claude/` que antes no estaba. La política de "no sobreescribir si existe" garantiza que no se pierde nada del usuario.
+
+Ningún cambio en el contrato de skills v2 (frontmatter, templating, error codes) → no MAJOR.
+
+---
+## 3.6.0 — 2026-05-28
+
+### Engine v2 y scripts auxiliares: rename `.js` → `.cjs`
+
+Bug reportado por el usuario: al ejecutar `node .aigent/v2/engine/engine.js ...` en un proyecto host cuyo `package.json` declara `"type": "module"`, Node trata todos los `.js` como ES modules y los `require()` del engine fallan con:
+
+```
+ReferenceError: require is not defined in ES module scope, you can use import instead
+This file is being treated as an ES module because it has a '.js' file extension and
+'C:\workspace\bw\bw-desktop\package.json' contains "type": "module".
+```
+
+**Solución elegida:** renombrar todos los scripts a `.cjs`. Node identifica la extensión `.cjs` como CommonJS sin depender de `package.json`. Es la solución oficial de Node y la única que evita añadir cualquier archivo nuevo al árbol `.aigent/` (sin `package.json`, sin dependencias declaradas, sin `node_modules`).
+
+**Archivos renombrados (12):**
+- `.aigent/v2/engine/audit.js` → `audit.cjs`
+- `.aigent/v2/engine/config.js` → `config.cjs`
+- `.aigent/v2/engine/configure.js` → `configure.cjs`
+- `.aigent/v2/engine/dryrun.js` → `dryrun.cjs`
+- `.aigent/v2/engine/engine.js` → `engine.cjs`
+- `.aigent/v2/engine/http.js` → `http.cjs`
+- `.aigent/v2/engine/lint.js` → `lint.cjs`
+- `.aigent/v2/engine/parser.js` → `parser.cjs`
+- `.aigent/v2/engine/template.js` → `template.cjs`
+- `.aigent/v2/engine/validate.js` → `validate.cjs`
+- `.aigent/v2/engine/yaml.js` → `yaml.cjs`
+- `.aigent/departments/_shared/skills/shared-base64-to-file/decode.js` → `decode.cjs`
+
+**Requires internos actualizados:** Node no resuelve automáticamente `require('./xxx')` a `xxx.cjs` (solo a `.js`, `.json`, `.node`). Por eso todos los requires relativos del engine pasan a ser explícitos: `require('./config.cjs')`, `require('./parser.cjs')`, etc.
+
+**Referencias externas actualizadas (24 archivos):** ayuda del instalador, stubs v2 generados, orquestadores de todos los departamentos, `CLAUDE.md`, `BOSS.md`, `_shared/conventions.md`, `_shared/orchestrator-template.md`, `_shared/agents/shared-skill-builder.md`, `_shared/skills/shared-skill-scaffold/SKILL.md`, README del framework y del engine v2. Todo lo que decía `node .aigent/v2/engine/engine.js` ahora dice `node .aigent/v2/engine/engine.cjs`.
+
+**Verificado en sandbox** con un proyecto host que tiene `package.json` con `"type": "module"`: antes del fix `engine.js` revienta con `ReferenceError`, después del fix `engine.cjs` devuelve los JSON estructurados de siempre (`validate`, `describe`, `doctor`, `list`, `configure`, `prepare-secrets`).
+
+### Bug fix: NUL bytes residuales en `decode.cjs`
+
+Independiente al bug de ESM, el archivo `shared-base64-to-file/decode.js` tenía 68 bytes `\0` (NUL) al final, residuo probablemente de una edición previa con codificación rota. Node los rechazaba con `SyntaxError: Invalid or unexpected token`. Archivo limpiado a binario: cualquier `\0` se elimina y el `try { main() } catch ...` queda como única entrada de ejecución.
+
+### Por qué MINOR y no PATCH
+
+Es un fix de bug, pero **renombrar archivos rompe stubs antiguos**: un deployment existente cuyas skills v2 fueron instaladas con una versión anterior tendrá stubs que apuntan a `engine.js`, que ya no existe. La migración es trivial — basta reinstalar con `./install.sh` para que los stubs se regeneren apuntando a `engine.cjs` — pero exige acción del usuario. Por convención: cambios que obligan a reinstalar = MINOR. Ningún cambio en el contrato de skills v2 (frontmatter, templating, error codes) → no MAJOR.
+
+### Por qué descartado el enfoque `.aigent/package.json` con `"type": "commonjs"`
+
+Funcionaba técnicamente (ancla el árbol a CJS sin renombrar nada), pero introducía un `package.json` dentro de `.aigent/` que sugería falsamente que el framework tiene "dependencias" o que es un proyecto Node. El objetivo del framework es no añadir overhead al proyecto host. La extensión `.cjs` consigue lo mismo sin archivos nuevos.
+
+---
+## 3.5.0 — 2026-05-28
+
+### Instalador: flag `--clean` / `-Clean` para quitar departamentos del destino
+
+Nueva capacidad **retrocompatible** en `install.sh` e `install.ps1` para resolver el caso "tenía marketing instalado, ahora solo quiero operations". Sin el flag, el comportamiento es exactamente el de siempre (aditivo: lo no seleccionado se queda intacto). Con `--clean` / `-Clean`, el listado `--dept` se interpreta como **estado deseado declarativo**: tras instalar los seleccionados, se barre el destino y se eliminan los artefactos de los departamentos del repo que NO aparecen en la selección.
+
+**Qué borra exactamente** (por cada dept no seleccionado):
+- Agentes con prefijo `<dept>-*.md` en la carpeta de agents del IDE (incluido el orquestador).
+- Carpetas de skills con prefijo `<dept>-*/` en la carpeta de skills del IDE.
+
+**Qué NO toca, nunca:**
+- `shared-*` (siempre permanece, lo necesitan todos los departamentos).
+- Archivos/carpetas con prefijos desconocidos (skills de otros sistemas, customs del usuario).
+- Cualquier cosa fuera de las carpetas de agents/skills del IDE.
+
+**Comportamiento operativo:**
+- Sin prompt de confirmación — la decisión está en el flag, no en interactividad. Pensado para uso scripteable.
+- Respeta `--dry-run` / `-DryRun`: muestra qué borraría sin tocar nada.
+- Incompatible con `--sync` / `-Sync`: sync no toca agentes, así que mezclar ambos modos sería incoherente. El instalador rechaza la combinación con exit 1.
+- Se ejecuta sobre cada IDE seleccionado (claude, opencode, ambos), respetando el scope `--mode` / `-Mode` (global vs project).
+
+**Ejemplos de uso:**
+
+```bash
+# Caso típico: tenía marketing + sales, quiero solo marketing
+./install.sh --clean --ide all --dept marketing
+
+# Previsualizar qué se borraría
+./install.sh --clean --ide all --dept operations --dry-run
+.\install.ps1 -Clean -Ide all -Dept marketing,operations -DryRun
+
+# Reinstalar todo y limpiar depts que ya no existen en el repo
+./install.sh --clean --ide all --dept all
+```
+
+**Archivos tocados:**
+- `.aigent/IDE/install.sh` — parámetro `CLEAN`, parseo `--clean`, función `clean_unselected_depts`, banner, validación contra `--sync`, invocación en main, ayuda y atajos rápidos actualizados.
+- `.aigent/IDE/install.ps1` — switch `-Clean`, función `Invoke-CleanUnselectedDepts`, banner, validación contra `-Sync`, invocación en main, ayuda y atajos rápidos actualizados.
+
+**Por qué MINOR y no MAJOR:** el comportamiento por defecto sigue siendo aditivo (idéntico al anterior). El flag es opt-in, así que ningún deployment existente cambia salvo que se le añada `--clean` explícitamente. Sin breaking change → MINOR.
+
+---
+## 3.4.0 — 2026-05-21
+
+### Nueva utility-skill compartida `shared-base64-to-file`
+
+Primera skill v1 transversal cuya función no es generar contenido (business) ni construir el sistema (meta), sino **proporcionar una utilidad técnica reutilizable** con un script propio al lado del SKILL.md. Inaugura la categoría **utility** en `_shared/skills/`, conviviendo con meta y business sin subcarpetas (se distinguen por dominio, no por ubicación).
+
+**Problema que resuelve:** los MCPs que generan imágenes (DALL·E, Stable Diffusion, Bria, etc.) o descargan assets devuelven el contenido en base64 dentro de su respuesta. Hoy cada agente que recibe ese base64 tiene que improvisar la decodificación a fichero, con riesgo de escribir bytes corruptos sin avisar (porque `Buffer.from(..., 'base64')` es silenciosamente tolerante con basura) y sin coherencia entre departments en cuanto a dónde se escribe el fichero. Esta skill centraliza el procedimiento con verificación de magic bytes y respeta la convención universal `.context/.temp/<dept>/` (introducida en 3.2.0).
+
+**Decisión arquitectónica:** el caso de **MCP devolviendo base64** se resuelve con una skill v1 prosa + script Node, **fuera del engine v2**. El engine no ve la respuesta del MCP (la entrega el IDE directo al agente), así que meter esto en `engine.js` sería un rodeo. Cuando llegue el caso paralelo de **APIs propias HTTP que devuelven base64** (output binario de una skill v2), el camino es distinto: extender el contrato `outputs.file` del engine. Ambas vías conviven sin solaparse.
+
+**Contrato del script (`decode.js`):**
+
+```bash
+node .aigent/departments/_shared/skills/shared-base64-to-file/decode.js \
+  --input .context/.temp/<dept>/<purpose>-<timestamp>.b64 \
+  --format <png|jpg|jpeg|gif|webp|svg|pdf|zip> \
+  [--output <path-final-del-depto>] [--keep-input] [--no-b64-copy]
+```
+
+Comportamiento:
+
+- Solo Node stdlib (`fs`, `path`) — sin dependencias. Compatible con Node 18+.
+- `--input` debe estar bajo `.context/.temp/` (rechazo explícito si no — `INPUT_OUT_OF_SCOPE`). `--output` **es libre**: típicamente apunta a la ruta de outputs del depto (p. ej. `posts/<slug>/assets/hero.png`). El script no impone scope al output.
+- Default de `--output`: mismo path que `--input` con la extensión cambiada a `<format>` (queda en `.context/.temp/<dept>/`).
+- **Copia `.b64` alongside por defecto:** tras decodificar, el script copia el `.b64` junto al fichero de salida (mismo basename, extensión `.b64`) para conservar el payload original por si en el futuro hay que re-subirlo a un sistema que solo acepte base64. Se suprime con `--no-b64-copy`. Si el alongside coincide con el `.b64` intermedio (caso de `--output` sin override), el script no duplica y preserva el `.b64` automáticamente.
+- Valida que el contenido es base64 con regex (`BAD_BASE64` si no), decodifica con `Buffer.from(..., 'base64')`, verifica magic bytes contra `<format>` (`FORMAT_MISMATCH` si no), crea los directorios destino, crea `.context/.temp/.gitignore` con `*` si falta, escribe el binario, copia el `.b64` alongside, y borra el `.b64` intermedio salvo `--keep-input` o que coincida con la copia alongside.
+- SVG se verifica como texto (UTF-8 inicial trim → empieza por `<?xml` o `<svg`); WEBP combina `RIFF` en bytes 0-3 + `WEBP` en bytes 8-11; resto, magic bytes clásicos.
+- Output JSON a stdout (`{ ok, path, bytes, mime, format, b64_copy }` o `{ ok, error: { code, message } }`), línea humana a stderr en error, exit 0/1. `b64_copy` es `null` cuando se pasa `--no-b64-copy`.
+- Códigos de error: `BAD_ARGS`, `INPUT_NOT_FOUND`, `INPUT_OUT_OF_SCOPE`, `BAD_BASE64`, `EMPTY_DECODE`, `MISSING_FORMAT`, `FORMAT_MISMATCH`, `WRITE_FAILED`, `INTERNAL`. (`OUTPUT_OUT_OF_SCOPE` retirado en este mismo bump tras pasar de "staging-only" a "staging + entregable final".)
+
+**Categoría nueva "utility" en `_shared/skills/`.** Antes había dos categorías documentadas (meta + business). Se añade **utility** para utilidades técnicas con script al lado, conviviendo sin subcarpetas con el resto.
+
+### Regla nueva — utility-skills se autodescubren, no se listan en agentes
+
+Esta es **regla obligatoria del framework desde 3.4.0**. Las utility-skills compartidas son la única categoría de skill donde la asociación skill ↔ agente **no se declara en el agente**: el LLM las activa cuando el contexto matchea con la `description` del frontmatter. Listarlas en `## Skills disponibles` de un agente es redundancia (la skill aplica a cualquier agente que reciba el patrón) y a la vez incompleto (siempre faltará algún agente). La solución es invertir el contrato y delegar el descubrimiento en el modelo, vía una `description` rica en triggers semánticos.
+
+Cambios en `_shared/conventions.md`:
+
+- **§7** — nota de excepción tras la regla "La skill no declara qué agentes la usan". Se aclara que para utility-skills **tampoco el agente declara la skill**; el descubrimiento es por LLM vía description.
+- **§7.1** — la subsección "Coexistencia con las meta-skills" se rehace como "Tres categorías: meta, business, utility" con tabla comparativa (cómo se invoca y si se lista en agentes). Se añade una nueva subsección "Contrato de las utility-skills (autodescubrimiento)" con los 4 criterios para clasificar una skill como utility, e implicaciones para el `description` y el `audit`.
+- **§7.1** — la subsección "Cómo las invocan los agentes" se reescribe para distinguir los tres casos.
+
+**Implicación para `description` de utility-skills:** debe incluir explícitamente vocabulario de activación — palabras gatillo, sinónimos, formatos concretos, MCPs/APIs típicos de origen. No basta con "qué hace la skill"; el LLM la cargará solo si encuentra los términos del problema en su contexto. Aplicado ya a `shared-base64-to-file/SKILL.md` (description reforzada con triggers explícitos como "base64", "b64", "data URI", "MCP returned base64", "save base64 as file", PNG/JPG/SVG/PDF/ZIP, etc.).
+
+**Implicación para `audit`:** una utility-skill **no debe aparecer** en la tabla `## Skills disponibles` de ningún agente. Si aparece, hay drift: o la categoría era equivocada o la referencia sobra.
+
+### Marketing — fixes al orchestrator (drift de 3.2.0 + readiness de 1.5.0)
+
+El `marketing-orchestrator.md` arrastraba dos drifts respecto al estado del repo. Ambos arreglados sin tocar lógica funcional, alineándolo con `_shared/orchestrator-template.md` y con el README del dept (que ya estaban migrados):
+
+- **Convención unificada de `posts/`** (introducida en 3.2.0 y aplicada en el resto del dept). El orchestrator seguía proponiendo `landing-pages/` como carpeta separada en el Paso 0.5.A, en el árbol ASCII de "Estructura de outputs" y en la tabla "Carpeta destino por agente". Migrado: `marketing-web` apunta ahora a `posts/<slug>/` (con prefijos `page-`, `landing-`, `block-` en el slug), igual que `marketing-content` (con prefijo `post-`). Añadida también `seo/` (auditorías SEO independientes y keyword research) que faltaba en la propuesta del Paso 0.5.A.
+- **Sección obligatoria "Manejo de skills v2 — readiness"** (introducida en 1.5.0, exigida por `conventions.md` §6 a todos los orquestadores). El orchestrator no la tenía. Añadida textual del template: precheck con `doctor` antes de `run`, red de seguridad reactiva tras `CONFIG_ERROR` / `SECRETS_ERROR` con `details.next`, delegación en `shared-skill-builder configure`, y reglas innegociables sobre secrets nunca por chat y nunca editar `.context/config.json` ni `.context/.secrets.json` a mano.
+
+Ficheros tocados:
+- `.aigent/departments/_shared/skills/shared-base64-to-file/SKILL.md` (nuevo + description reforzada con triggers)
+- `.aigent/departments/_shared/skills/shared-base64-to-file/decode.js` (nuevo, sin deps)
+- `.aigent/departments/_shared/conventions.md` (§7 excepción de utility-skills + §7.1 rehecha con tres categorías + contrato utility)
+- `.aigent/departments/marketing/marketing-orchestrator.md` (drift posts/ unificado + sección readiness añadida + tabla agentes ajustada)
+- `.aigent/README.md` (estadísticas de `_shared`, tabla de skills compartidas en sección detallada, tabla resumen de skills compartidas — todas actualizadas a 11 = 2 meta + 8 business + 1 utility, y nueva sección "Utility-skills compartidas")
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
+## 3.3.0 — 2026-05-20
+
+### Marketing — flujo encadenado `blog-post` → `elementor-content` + validador específico de `_elementor_data.json`
+
+**Quitada la ambigüedad entre `marketing-blog-post` y `marketing-elementor-content`.** Para evitar que un agente o el orquestador dudara qué skill ejecutar primero al pedir un blog post, se fija la regla de forma explícita en cuatro ubicaciones:
+
+- **`marketing-blog-post/SKILL.md`** — añadida sección "Encadenamiento con Elementor": esta skill es **siempre el primer paso** para contenido editorial; tras completarla, si `style.elementor` existe en el config del proyecto, el agente caller invoca `marketing-elementor-content` modo `post` sobre la misma carpeta (sin duplicar el slug folder, sin reescribir el copy). Si el sitio no usa Elementor, blog-post termina ahí.
+- **`marketing-elementor-content/SKILL.md`** — la sección "Cuándo usar" ahora abre con una tabla anti-ambigüedad por modo (`post`/`page`/`landing`/`block`) y declara explícitamente que el modo `post` se ejecuta siempre **después** de blog-post leyendo su `.md`. Nunca antes.
+- **`marketing-content.md` (agente)** — nueva subsección "Flujo encadenado para contenido editorial" con los 3 pasos canónicos (1: blog-post → 2: detectar Elementor en config → 3: encadenar elementor-content). La skill `marketing-elementor-content` se añade a la tabla "Skills disponibles" con la nota "solo se invoca después de blog-post".
+- **`marketing-web.md` (agente)** — nueva tabla "Cómo decidir qué skill usar (sin ambigüedad)" que enumera petición → flujo: pages/landings/blocks van por `marketing-elementor-content` directo; blog posts NO son trabajo de `marketing-web` y se delegan a `marketing-content`.
+
+Resultado: tres archivos de prosa convergen en la misma regla. No hay forma de leer el repo y dudar cuál skill ejecutar primero.
+
+### Nuevo validador específico `scripts/validate-elementor-data.mjs`
+
+Validador Node 18+ sin dependencias que comprueba la estructura del `_elementor_data.json` generado. Vive **dentro de la skill** (`marketing-elementor-content/scripts/`) porque el contrato es 100% específico de Elementor — catálogo de widgets core, jerarquía `section→column→widget`, `isInner` consistency, columnas que suman 100, `icon-list` con `_id` por item, IDs únicos en todo el árbol. No es un validador de JSON genérico (eso ya lo hace `JSON.parse`). Si más adelante varios departments necesitan validadores de outputs estructurados, se promueve al engine v2 con un comando `engine.js validate-output <type> <file>`.
+
+Qué detecta el validador:
+
+| Caso | Severidad |
+|---|---|
+| JSON inválido / raíz no es array de sections | error |
+| Nodo sin `id`/`elType`/`settings`/`elements` (o widget sin `widgetType`) | error |
+| IDs duplicados en el árbol | error |
+| Columnas de una sección que no suman 100 en `_column_size` | error |
+| `widgetType` no está en el catálogo core (rechaza Pro: `form`, `posts`, `slides`, etc.) | error |
+| `isInner: true` inconsistente entre section padre y columns hijas | error |
+| `isInner: true` en widget (solo aplica a sections y columns) | error |
+| Item de `icon-list` sin `_id` único o usando `icon` legacy en lugar de `selected_icon` | error |
+| ID que no sigue el patrón habitual (7-8 chars `[a-f0-9]`) | warning |
+| Widget `html` con `<script>` (la mayoría de sitios lo strippean) | warning |
+| `_column_size` ausente o no numérico | warning |
+
+Contrato CLI:
+
+```bash
+node .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.mjs \
+  <path/to/_elementor_data.json> [--strict] [--quiet]
+```
+
+- Exit `0` = válido; `1` = errores (o warnings con `--strict`); `2` = uso incorrecto.
+- Output JSON: `{ ok, errors: [...], warnings: [...], stats: { sections, columns, widgets, inner_sections, ids }, file }`.
+- Paths JSON-like (`$[0].elements[1].elements[0]`) para localizar cada problema.
+
+Smoke test pasado: 2 fixtures válidos exit 0; 5 fixtures inválidos (IDs duplicados, columnas a 80%, widget `form` Pro, isInner inconsistente, icon-list sin `_id`) exit 1 con mensajes específicos de cada error.
+
+**Integración en el SKILL.md:** Paso 7 del proceso reescrito — ya no dice "Validar el JSON con `JSON.parse`" sino "ejecutar `validate-elementor-data.mjs` y solo continuar si `ok: true`". Añadido al checklist de calidad y a las restricciones (no saltarse el validador, no comentar su exit code). Estructura de archivos de la skill documentada al inicio del body.
+
+Ficheros tocados:
+- `.aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.mjs` (nuevo, 333 líneas)
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` (Paso 7 reescrito, sección "Cuándo usar" con tabla anti-ambigüedad, estructura de archivos documentada, checklist + restricciones ampliados)
+- `.aigent/departments/marketing/skills/marketing-blog-post/SKILL.md` (sección "Encadenamiento con Elementor")
+- `.aigent/departments/marketing/agents/marketing-content.md` (skill añadida a la tabla + sección "Flujo encadenado")
+- `.aigent/departments/marketing/agents/marketing-web.md` (descripción de la skill ampliada + tabla "Cómo decidir qué skill usar")
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
+## 3.2.0 — 2026-05-20
+
+### Marketing — unificación de outputs en `posts/` y mejoras en publicación Elementor
+
+**Convención unificada `marketing/posts/`.** Todo el contenido publicable de los agentes `marketing-web` y `marketing-content` (blog posts, páginas WP, landings, contenido Elementor y bloques reutilizables) vive a partir de ahora en una **única carpeta `<proyecto>/marketing/posts/<slug>/`**. Se eliminan/consolidan:
+
+- `marketing/contenido/<YYYY-MM>/<tipo>-<slug>/` (en español, introducida en la skill Elementor) → `marketing/posts/<slug>/`.
+- `marketing/blog-posts/` (en `README.md` del dept) → `marketing/posts/`.
+- `marketing/landing-pages/` (en el orquestador) y `marketing/web/<file>.md` (en el README) → `marketing/posts/<slug>/`.
+
+Motivación: la distinción `blog-posts` / `landing-pages` / `contenido` era ruido — todos son "post o página publicable" con el mismo árbol de archivos (`.md` + `.html` + opcional `_elementor_data.json` + `assets/`). El `<slug>` describe el tipo cuando ayuda (`landing-launch-q3`, `page-about`, `block-hero-default`, `post-como-elegir-crm`). Otras subcarpetas funcionalmente distintas (`emails/`, `ads/`, `social/`, `press/`, `strategy/`, `seo/`) se mantienen.
+
+Ficheros tocados:
+- `.aigent/departments/marketing/marketing-orchestrator.md` — estructura de outputs reescrita; columna "Carpeta destino" de `marketing-web` ahora apunta a `posts/<slug>/`; mapa del árbol incluye los archivos típicos del modo Elementor.
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` — Paso 0.1 default actualizado; plantilla del entregable reapuntada.
+- `.aigent/departments/marketing/README.md` — todas las rutas migradas (`blog-posts/` → `posts/`, `web/<file>.md` → `posts/<slug>/<file>.md`).
+
+### Convención universal: `.context/.temp/<dept>/`
+
+Promovida a `_shared/output-rules.md`. Las skills que generan archivos transitorios (buffers de JSON escapado para llamadas MCP, payloads grandes, exports binarios) los guardan en `.context/.temp/<dept>/<purpose>-<timestamp>.<ext>`. Reglas: subdir por dept, naming kebab-case con timestamp Unix, borrado obligatorio tras uso, `.context/.temp/.gitignore` con `*` para que todo el árbol esté excluido de git, nunca usar para outputs (eso va a la ruta del proyecto). Antes la skill Elementor escribía en `.context/.temp/` raíz — corregido a `.context/.temp/marketing/`.
+
+Ficheros tocados:
+- `.aigent/departments/_shared/output-rules.md` — nueva sección "Archivos temporales (`.context/.temp/<dept>/`)" con reglas y cuándo evitar `.temp/`.
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` — paths internos actualizados; sección "Archivos temporales" ahora delega a la regla universal.
+
+### Marketing — fixes técnicos al publicar `_elementor_data` vía MCP/REST
+
+La sección "Publicación" de `marketing-elementor-content/SKILL.md` se reescribe entera con los matices que rompen habitualmente la publicación de contenido Elementor:
+
+- **Storage como string JSON, no array.** Documentado el porqué: si se pasa un objeto/array como `value` del meta, WP lo serializa con `serialize()` PHP (`a:1:{...}`) y Elementor lo rechaza. Hay que aplicar `JSON.stringify` explícito y verificar tras escribir que el meta leído empieza por `[`.
+- **Slashes / `wp_slash()`.** Algunos MCPs aplican `wp_slash` automáticamente, otros no. La skill ahora pide que cada `"` interna quede como `\"` y cada `\` como `\\` antes de pasarlo al tool, y verifica con `wp_get_post_meta` que el valor leído coincide con el origen.
+- **Caché `_elementor_css`** invalidada tras cada update — antes faltaba; sin ello el front renderiza HTML viejo.
+- **Los 4 postmetas siempre presentes** (`_elementor_data`, `_elementor_edit_mode = "builder"`, `_elementor_template_type`, `_elementor_version`) — antes faltaba la versión.
+- **Comprobaciones de integridad** tras escribir el meta: empieza por `[`, parsea como JSON, primer `id` coincide, no truncado. Si el meta excede el tamaño del campo BD, se detecta inmediatamente.
+- **`isInner` consistency** entre section padre y columns hijas.
+- **Vía alternativa REST API** (`POST /wp/v2/pages/<id>` con `meta`) documentada como fallback cuando el MCP no expone `wp_update_post_meta` — incluye precheck (`GET ?context=edit`) para confirmar que el meta `_elementor_data` está expuesto.
+- **Tabla de troubleshooting** con 9 síntomas → causa → fix (PHP serialize, slashes, truncado, caché, isInner, revisiones, Unicode, edits humanas, key vs meta_key).
+
+Eliminada la mención específica al nombre "royal-mcp" en la descripción del frontmatter; ahora la skill habla genéricamente del "WordPress MCP available in the IDE", siguiendo la regla §8 de `_shared/conventions.md` (no mencionar MCPs concretos).
+
+Ficheros tocados:
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md`
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
+## 3.1.0 — 2026-05-20
+
+### Marketing — nueva skill `marketing-elementor-content`
+
+Nueva skill v1 prosa para producir contenido maquetado con Elementor en WordPress. Cubre la necesidad real de que Elementor guarda el contenido como **JSON estructurado en el postmeta `_elementor_data`**, no como HTML. La skill genera la carpeta entregable con cuatro archivos:
+
+- `_elementor_data.json` — array canónico de secciones/columnas/widgets listo para pegar en el postmeta.
+- `content.html` — HTML semántico de fallback para `post_content`.
+- `metadata.md` — title, slug, meta description, `_elementor_template_type`, postmetas auxiliares.
+- `README.md` — instrucciones de publicación (manual desde el panel WP / vía MCP de WordPress si el IDE lo tiene conectado).
+
+Cobertura: 4 tipos de contenido (page, post, landing, block reutilizable) × widgets core de Elementor (sin Pro): `heading`, `text-editor`, `image`, `button`, `icon-box`, `image-box`, `icon-list`, `spacer`, `divider`, `video`, `testimonial`, `tabs`, `accordion`, `toggle`, `social-icons`, `counter`, `progress`, `alert`, `html`, `shortcode`, `google_maps`.
+
+Estrategia de generación: best-effort con ejemplos canónicos copy-paste (hero, 3-beneficios, FAQ accordion, testimonial, CTA final) tomados de estructuras observadas en exports reales de Elementor 3.x. La skill obliga a IDs únicos de 7-8 caracteres, columnas que sumen 100 en `_column_size` por sección, y validación `JSON.parse` antes de entregar.
+
+**Decisión de no publicar vía engine v2.** Se evaluó añadir una skill v2 ejecutable contra la REST API de WordPress (`/wp-json/wp/v2/pages` + `meta._elementor_data`), pero se descartó porque el usuario ya tiene un MCP de WordPress conectado al IDE — aplica la regla `_shared/conventions.md` §12.1 ("si ya existe un MCP fiable para la herramienta → MCP, no v2"). El SKILL.md y el README documentan la opción de publicación vía MCP además del flujo manual.
+
+**Generación de assets vectoriales.** La skill incluye una sección dedicada para generar **SVGs custom** (iconos fuera de Font Awesome, ilustraciones planas, dividers, blobs, badges, patrones) directamente como markup XML siguiendo convenciones del repo (viewBox explícito, fuentes agnósticas, IDs de gradient prefijados, sin scripts, sin metadatos de editor). Cada SVG se rasteriza por defecto a **PNG @2x** con `convert -background none -density 192 ...` para sitios donde el upload de SVG está deshabilitado. Decisión: SVG cuando el asset es decorativo/icónico/vectorial; **placeholder externo** (`placehold.co/<W>x<H>/<bg>/<fg>?text=...`) + brief visual en `metadata.md` cuando se necesita foto real o render fotorrealistas. Los assets viven en `assets/` dentro del entregable y se referencian en el JSON con `url` relativa; el upload final lo hace el MCP de WordPress (si soporta `media` con escritura) o el usuario manualmente.
+
+El SKILL.md amplía: `Información a recopilar` con campos `assets_a_generar` y `estilo_visual`; nueva sección `## Generación de assets` con catálogo de casos, convenciones SVG, 5 ejemplos canónicos (icono mono-line, hero blob, divider en ola, badge, patrón de puntos) y comando estándar de rasterización; estructura del entregable con subcarpeta `assets/`; plantilla `metadata.md` con tablas "Assets generados" / "Assets pendientes"; plantilla `README.md` con sección "Cómo subir los assets"; proceso con paso 3 dedicado a generación + paso 9 con sanity check de existencia en disco; checklist con verificaciones específicas (PNG par del SVG, sin scripts, sin metadatos de editor, URLs apuntando a archivos reales); restricciones con prohibición explícita de SVGs fotorrealistas y de scripts/metadatos en el markup.
+
+**Agente consumidor:** `marketing-web` añade `marketing-elementor-content` a su tabla `## Skills disponibles`. No se mencionan MCPs concretos en su system prompt (regla §8).
+
+Ficheros editados/creados:
+
+- `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` (nuevo)
+- `.aigent/departments/marketing/agents/marketing-web.md` (skill añadida a la tabla)
+- `.aigent/departments/marketing/README.md` (caso de uso de la skill)
+- `.aigent/README.md` (índice maestro: contador a 14 skills, fila en agente `marketing-web`, fila en catálogo dept-específicas, fila en sección detalle)
+- `.aigent/VERSION` · `.aigent/CHANGELOG.md`
+
+---
 ## 3.0.4 — 2026-05-19
 
 ### Corrección de ficheros corruptos del engine v2

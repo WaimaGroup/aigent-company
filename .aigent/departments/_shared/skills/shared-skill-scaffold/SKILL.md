@@ -254,7 +254,7 @@ Skill ejecutable contra la API REST de <herramienta>. Cubre <resumen>.
 Antes de llamar a `run` por primera vez en una sesión, ejecuta el precheck:
 
 ```bash
-node .aigent/v2/engine/engine.js doctor <skill-name>
+node .aigent/v2/engine/engine.cjs doctor <skill-name>
 ```
 
 - Si `data.skills[0].ready === true` → adelante, ejecuta `run`.
@@ -271,7 +271,7 @@ node .aigent/v2/engine/engine.js doctor <skill-name>
 Todas se ejecutan vía:
 
 ```
-node .aigent/v2/engine/engine.js run <skill-name> <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run <skill-name> <action> --inputs '{"...": "..."}'
 ```
 
 ### <action-1>
@@ -358,14 +358,14 @@ Accept: application/json
 
 1. **Validar:**
    ```bash
-   node .aigent/v2/engine/engine.js validate <name>
+   node .aigent/v2/engine/engine.cjs validate <name>
    ```
    - Si `ok: false` → leer `error.details.errors`, corregir el SKILL.md, re-validar. Iterar hasta `ok: true`.
    - Si `ok: true` con `data.warnings` no vacío → mostrarlos al usuario y proponer corrección si son sustanciales (descripciones faltantes, inputs declarados pero no usados…).
 
 2. **Dry-run** de cada acción con inputs realistas:
    ```bash
-   node .aigent/v2/engine/engine.js dry-run <name> <action> --inputs '{...}'
+   node .aigent/v2/engine/engine.cjs dry-run <name> <action> --inputs '{...}'
    ```
    Comprobar visualmente que `method`, `url`, `headers` y `body` se renderizan correctamente. Los secrets aparecen como `***SECRET:NAME***` (real) o `***SECRET:NAME:UNSET***` (placeholder, normal hasta configurar).
 
@@ -379,7 +379,7 @@ Accept: application/json
 
 4. **Smoke test (opcional, requiere confirmación explícita):** una acción de sólo lectura (`list-*`, `get-*`) contra el endpoint real:
    ```bash
-   node .aigent/v2/engine/engine.js run <name> <safe-read-action> --inputs '{...}'
+   node .aigent/v2/engine/engine.cjs run <name> <safe-read-action> --inputs '{...}'
    ```
 
 ### Referencias canónicas v2
@@ -401,12 +401,12 @@ Accept: application/json
 6. **Escribir** `<name>/SKILL.md` con la plantilla del modo elegido, sustituyendo todos los `<...>`.
 7. **Verificar:**
    - v1 → checklist estructural.
-   - v2 → bucle `engine.js validate` + `dry-run`.
+   - v2 → bucle `engine.cjs validate` + `dry-run`.
 8. **Si es compartida**, identificar los agentes consumidores conocidos y avisar al usuario para que la añada a su sección `## Skills disponibles`. La skill no se documenta a sí misma con la lista de consumidores (regla §7); el agente conoce a la skill, no al revés.
 9. **Reportar** al usuario:
    - Ruta del archivo creado (con la indicación clara de si vive en un dept o en `_shared/`).
    - (v2) Acciones disponibles.
-   - (v2) Resultado de `engine.js validate`.
+   - (v2) Resultado de `engine.cjs validate`.
    - Comando de propagación al IDE: `bash .aigent/IDE/install.sh --sync --ide all --dept <dept>` (si es compartida, basta con `--ide all` porque `_shared/` se propaga siempre).
    - (v2) Próximo paso: configurar `.context/config.json` y env var del secret.
    - (compartida) Lista de agentes consumidores que conviene actualizar para que la listen en `## Skills disponibles`.

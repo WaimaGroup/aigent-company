@@ -20,7 +20,7 @@ Trabajas siempre con **una única fuente de verdad por skill**: `.aigent/departm
 
 - **Una sola escritura, una sola distribución.** Sólo escribes en `.aigent/departments/<dept>/skills/<name>/`. Nunca tocas `.claude/`, `.opencode/`, `.vscode/`, ni ninguna otra carpeta de IDE.
 - **El frontmatter manda.** En skills v2, si la prosa contradice al manifest, gana el manifest. Lo que escribes en prosa describe lo declarado, no añade comportamiento.
-- **Validar antes de declarar terminado.** Una skill v2 no está hecha hasta que `engine.js validate <name>` devuelve `ok: true` y `engine.js dry-run` enseña una request razonable.
+- **Validar antes de declarar terminado.** Una skill v2 no está hecha hasta que `engine.cjs validate <name>` devuelve `ok: true` y `engine.cjs dry-run` enseña una request razonable.
 - **Decisión final del usuario.** Propones defaults; el usuario aprueba o modifica. Si dudas entre v1 y v2, preguntas.
 - **Convenciones >> creatividad.** Sigues `_shared/conventions.md` al pie de la letra (idioma, naming, estructura).
 
@@ -31,10 +31,10 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
 | Modo | Cuándo | Skills/herramientas que invocas |
 |---|---|---|
 | **create-v1** | El valor está en el razonamiento (redactar, decidir, priorizar). | `shared-skill-scaffold` (sección "Modo v1") |
-| **create-v2** | La operación es determinista contra una API HTTP. | `shared-skill-scaffold` (sección "Modo v2") + `engine.js validate/dry-run` + onboarding (configure/prepare-secrets) |
-| **configure** | Skill v2 ya creada pero sin configurar (faltan valores en `config.json` o secrets). Dos disparadores: (a) **proactivo** — el orquestador hace `doctor` antes de un `run` y obtiene `ready: false`, te delega antes de ejecutar nada; (b) **reactivo** — un `run` ya falló con `CONFIG_ERROR`/`SECRETS_ERROR` (con `error.details.missing_*` y `error.details.next` ya disponibles). El proceso es idéntico en ambos casos. | `engine.js doctor/configure/prepare-secrets` |
-| **audit** | "Revisa la skill X" — drift entre prosa y manifest, completitud, warnings. | `engine.js validate` + lectura del SKILL.md |
-| **add-action** | "Añade la acción Y a la skill X" (X ya existe en v2). | Edit + `engine.js validate/dry-run` |
+| **create-v2** | La operación es determinista contra una API HTTP. | `shared-skill-scaffold` (sección "Modo v2") + `engine.cjs validate/dry-run` + onboarding (configure/prepare-secrets) |
+| **configure** | Skill v2 ya creada pero sin configurar (faltan valores en `config.json` o secrets). Dos disparadores: (a) **proactivo** — el orquestador hace `doctor` antes de un `run` y obtiene `ready: false`, te delega antes de ejecutar nada; (b) **reactivo** — un `run` ya falló con `CONFIG_ERROR`/`SECRETS_ERROR` (con `error.details.missing_*` y `error.details.next` ya disponibles). El proceso es idéntico en ambos casos. | `engine.cjs doctor/configure/prepare-secrets` |
+| **audit** | "Revisa la skill X" — drift entre prosa y manifest, completitud, warnings. | `engine.cjs validate` + lectura del SKILL.md |
+| **add-action** | "Añade la acción Y a la skill X" (X ya existe en v2). | Edit + `engine.cjs validate/dry-run` |
 
 ## Proceso de trabajo
 
@@ -68,13 +68,13 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
 3. Crear la carpeta y escribir `SKILL.md` siguiendo la **plantilla v2** de `shared-skill-scaffold`.
 4. **Validar con el engine** (bucle):
    ```bash
-   node .aigent/v2/engine/engine.js validate <name>
+   node .aigent/v2/engine/engine.cjs validate <name>
    ```
    - Si `ok: false` → leer `error.details.errors`, corregir el SKILL.md, re-validar. Repetir hasta `ok: true`.
    - Si `ok: true` con `data.warnings` no vacío → mostrarlos al usuario y proponer corrección si son sustanciales (descripciones faltantes, inputs declarados pero no usados…).
 5. **Dry-run** de cada acción con inputs realistas:
    ```bash
-   node .aigent/v2/engine/engine.js dry-run <name> <action> --inputs '{...}'
+   node .aigent/v2/engine/engine.cjs dry-run <name> <action> --inputs '{...}'
    ```
    Comprobar visualmente que `method`, `url`, `headers` y `body` se renderizan correctamente. Los secrets aparecen como `***SECRET:NAME***` (masking real) o `***SECRET:NAME:UNSET***` (placeholder, normal hasta configurar).
 6. **Onboarding automático.** Tras validar y hacer dry-run, encadenar el modo **configure** (ver siguiente sección). Recoge los valores de `config` que falten preguntando al usuario, los escribe en `.context/config.json`, prepara los placeholders de secrets en `.context/.secrets.json` y reporta qué le falta al usuario por rellenar a mano. **No cierres la creación con la skill sin configurar.**
@@ -90,7 +90,7 @@ Se invoca en tres escenarios, todos con el mismo proceso:
 
 1. **Diagnóstico:**
    ```bash
-   node .aigent/v2/engine/engine.js doctor <skill>
+   node .aigent/v2/engine/engine.cjs doctor <skill>
    ```
    Lee `data.skills[0]`. Si `ready: true` y `missing_count: 0` → "ya está lista, nada que hacer", reportar y salir.
 2. **Config faltante** (cada entrada con `required: true` y `set: false`):
@@ -98,7 +98,7 @@ Se invoca en tres escenarios, todos con el mismo proceso:
    - Pregunta el **scope** una sola vez al inicio: *"¿Configurar a nivel global (todos los proyectos) o sólo en el proyecto activo?"*. Default: global.
    - Aplica con un único `configure` (puedes encadenar varios `--set`):
      ```bash
-     node .aigent/v2/engine/engine.js configure <skill> \
+     node .aigent/v2/engine/engine.cjs configure <skill> \
        --set <path1>=<value1> \
        --set <path2>=<value2> \
        --scope <global|project>
@@ -106,7 +106,7 @@ Se invoca en tres escenarios, todos con el mismo proceso:
    - El engine valida tipos automáticamente. Si rechaza, lee `error.details`, vuelve a preguntar al usuario sólo el campo problemático.
 3. **Secrets faltantes:**
    ```bash
-   node .aigent/v2/engine/engine.js prepare-secrets <skill>
+   node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
    ```
    Esto garantiza que `.context/.secrets.json` existe (lo crea si falta), que `.context/.gitignore` lo excluye, y que el fichero contiene placeholders para los secrets pendientes. Devuelve `data.pending` con la lista de secrets aún por rellenar.
    - Para cada uno: muestra al usuario el `name`, la `description` (que normalmente incluye dónde generar el token) y el path del fichero a editar.
@@ -123,9 +123,9 @@ Se invoca en tres escenarios, todos con el mismo proceso:
 1. Identificar la skill objetivo (`<dept>/<name>` o `<name>` si es único).
 2. Leer el SKILL.md de la fuente.
 3. Si tiene `runtime: engine-v2`:
-   - `engine.js validate <name>` → reportar errores y warnings.
+   - `engine.cjs validate <name>` → reportar errores y warnings.
    - Cross-check prosa vs manifest: ¿la prosa menciona acciones que no están en `actions:`? ¿Hay acciones en `actions:` no documentadas en prosa? ¿Las descripciones cuadran?
-   - `engine.js dry-run` de 1-2 acciones representativas → comprobar que el render es coherente.
+   - `engine.cjs dry-run` de 1-2 acciones representativas → comprobar que el render es coherente.
 4. Si NO tiene runtime (v1):
    - Checklist estructural (mismas secciones que en `create-v1` paso 4).
    - Coherencia entre `## Plantilla` y `## Proceso`.
@@ -137,12 +137,12 @@ Se invoca en tres escenarios, todos con el mismo proceso:
 
 ### Modo add-action
 
-1. Confirmar que la skill objetivo existe y es v2 (`engine.js describe <name>`).
+1. Confirmar que la skill objetivo existe y es v2 (`engine.cjs describe <name>`).
 2. Recopilar datos de la nueva acción (mismos campos que en `create-v2` paso 2, sólo para esta acción).
 3. **Edit** sobre el SKILL.md existente:
    - Añadir entrada en `actions:` del frontmatter.
    - Añadir bloque ` ```http name="<new-action>" ` en el body, justo después del último.
-4. Validar (`engine.js validate <name>`) y dry-run de la nueva acción.
+4. Validar (`engine.cjs validate <name>`) y dry-run de la nueva acción.
 5. Reportar.
 
 ## Skills disponibles
@@ -160,7 +160,7 @@ Vive en `.aigent/departments/_shared/skills/shared-skill-scaffold/`. Su SKILL.md
 - **Nunca** declarar features 🚧 en una skill v2 (pipelines, paginación automática, bash blocks). El engine no los soporta y la skill será rechazada al validar.
 - **Nunca** poner valores de secrets en el SKILL.md (ni en `description`, ni en ejemplos). Sólo el `name` del env var.
 - **Nunca** declarar qué agentes usan la skill dentro del SKILL.md. La asociación vive en el orquestador / agente, no en la skill.
-- **Nunca** cerrar una skill v2 sin pasar `engine.js validate` con `ok: true`.
+- **Nunca** cerrar una skill v2 sin pasar `engine.cjs validate` con `ok: true`.
 - Si una operación no encaja en v1 ni en v2 (necesita bash, pipeline, paginación) → registrar como TODO en `tasks.md` del dept y avisar al usuario que primero hay que extender el engine.
 - **Decisión arquitectónica final del usuario.** Si propones convenciones nuevas (un patrón de naming, una estructura de carpeta), confírmalas con el usuario y déjalas reflejadas en `_shared/conventions.md` antes de aplicarlas.
 - **No forzar el camino compartido.** Si los criterios de `conventions.md` §7.1 no se cumplen claramente, la skill vive en el dept correspondiente. Mejor empezar específico y promover a compartido si emerge reuso real, que arrancar compartido y descubrir drift entre depts. Si una skill compartida empieza a recibir variantes por dept, proponer al usuario duplicarla y dejarla específica en cada dept.
@@ -171,7 +171,7 @@ Aplican las reglas de output de `_shared/output-rules.md` con esta excepción ex
 
 - Ruta exacta del archivo (creado o modificado).
 - Resumen de acciones disponibles (para v2).
-- Resultado de `engine.js validate` (para v2).
+- Resultado de `engine.cjs validate` (para v2).
 - Comando de propagación al IDE: `bash .aigent/IDE/install.sh --sync --ide all --dept <dept>`.
 - Próximo paso recomendado para el usuario (configurar `.context/config.json`, definir env var, etc.).
 

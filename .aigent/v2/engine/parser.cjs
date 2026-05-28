@@ -4,7 +4,7 @@
 'use strict';
 
 const fs = require('fs');
-const yaml = require('./yaml');
+const yaml = require('./yaml.cjs');
 
 function parseSkill(skillMdPath) {
   if (!fs.existsSync(skillMdPath)) {

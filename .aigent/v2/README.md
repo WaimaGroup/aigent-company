@@ -44,12 +44,12 @@ Pendiente: probar `run` contra una instancia real de Redmine; añadir runner `ba
 .aigent/v2/
 ├── README.md                       ← este archivo
 ├── engine/
-│   ├── engine.js                   ← CLI principal (list / describe / validate / dry-run / run)
+│   ├── engine.cjs                   ← CLI principal (list / describe / validate / dry-run / run)
 │   ├── parser.js                   ← parsea SKILL.md → manifest + bloques
 │   ├── yaml.js                     ← parser YAML del subset (sin deps)
 │   ├── template.js                 ← render con {{config.x}} / {{inputs.x?}} / {{secrets.X}}
 │   ├── validate.js                 ← types, enum, required, defaults
-│   ├── lint.js                     ← validación profunda del manifest (engine.js validate)
+│   ├── lint.js                     ← validación profunda del manifest (engine.cjs validate)
 │   ├── dryrun.js                   ← render de la request HTTP sin ejecutar
 │   ├── config.js                   ← carga config.json + secretos (env > file)
 │   └── http.js                     ← runner HTTP (fetch nativo Node 18+)
@@ -70,12 +70,12 @@ Solo requiere Node 18+ (fetch nativo). **No hay `npm install`.**
 
 ```bash
 # 1. Config: añadir tools.<skill>.<...> en .context/config.json
-#    (ver .context/config.example.json como plantilla, o usar `engine.js configure`)
+#    (ver .context/config.example.json como plantilla, o usar `engine.cjs configure`)
 $EDITOR .context/config.json
 
 # 2. Secretos: ejecutar prepare-secrets (crea .context/.secrets.json + .context/.gitignore
 #    automáticamente con placeholders para los secrets que la skill declare)
-node .aigent/v2/engine/engine.js prepare-secrets <skill>
+node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
 $EDITOR .context/.secrets.json   # rellenar los placeholders <replace_me_*>
 
 # 3. Generar stubs en el IDE
@@ -93,13 +93,13 @@ export REDMINE_API_KEY="..."
 
 ```bash
 # Listar skills cargables (de todos los departamentos con runtime: engine-v2)
-node .aigent/v2/engine/engine.js list
+node .aigent/v2/engine/engine.cjs list
 
 # Ver el contrato de una skill (acciones, inputs, outputs) — sin leer la fuente
-node .aigent/v2/engine/engine.js describe operations-redmine
+node .aigent/v2/engine/engine.cjs describe operations-redmine
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.js run operations-redmine list-issues \
+node .aigent/v2/engine/engine.cjs run operations-redmine list-issues \
   --inputs '{"project_id":"internal-tools","limit":10}'
 ```
 

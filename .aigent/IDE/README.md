@@ -11,7 +11,8 @@ Este directorio contiene los **scripts de instalación** y las **plantillas téc
 | `install.sh` | Instalador para Unix / macOS. Copia agentes y skills al IDE elegido y cablea `BOSS.md` como punto de entrada. |
 | `install.ps1` | Lo mismo para Windows (PowerShell). |
 | `.mcp.json` | **Plantilla** de configuración MCP para Claude Code. Muestra el formato del archivo, no es una recomendación de qué MCPs usar. |
-| `opencode.json` | **Plantilla** de configuración para OpenCode (MCP + modelo). Misma idea. |
+| `opencode.json` | **Plantilla** de configuración para OpenCode (MCP + modelo + permisos `allow/ask/deny`). |
+| `settings.local.json` | **Plantilla** de permisos para Claude Code. Se copia a `.claude/settings.local.json` del proyecto (o del usuario, en scope global). Lista por defecto los binarios habituales (bash, node, python, powershell, git read-only) como `allow`, las acciones destructivas (rm, sudo, git push, npm publish, terraform apply…) como `ask`, y las catastróficas (rm -rf /, dd, mkfs, shutdown…) como `deny`. |
 
 ---
 
@@ -22,6 +23,9 @@ Este directorio contiene los **scripts de instalación** y las **plantillas téc
    - **Claude Code:** crea `<root>/CLAUDE.md` con `@.aigent/BOSS.md` (referencia dinámica). Cualquier cambio en BOSS se refleja en la siguiente sesión sin reinstalar.
    - **OpenCode:** configura `instructions: [".aigent/BOSS.md"]` en `opencode.json` (también referencia dinámica).
 3. Opcionalmente copia las plantillas `.mcp.json` u `opencode.json` al sitio que el IDE espera, para que el usuario las edite con sus propios MCPs.
+4. Copia la plantilla de permisos al IDE elegido:
+   - **Claude Code:** `settings.local.json` → `.claude/settings.local.json` (proyecto) o `%APPDATA%\Claude\settings.local.json` / `~/.claude/settings.local.json` (global). Si ya existe en destino, **no se sobreescribe** (el usuario manda).
+   - **OpenCode:** los permisos viven embebidos en `opencode.json` bajo `"permission"`. Si se instaló la plantilla de OpenCode en el paso 3, los permisos vienen ya incluidos.
 
 ---
 

@@ -138,13 +138,24 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `marketing-blog-post` | Redactar un post de blog completo con SEO, .md + .html y estructura `assets/` |
+| `marketing-blog-post` | Redactar un post de blog completo con SEO, .md + .html y estructura `assets/`. **Siempre el primer paso para contenido editorial** (ver "Flujo encadenado" abajo) |
+| `marketing-elementor-content` | Maquetar el contenido del blog post en Elementor (genera `_elementor_data.json`). Solo se invoca **después de** `marketing-blog-post` cuando el sitio destino usa Elementor |
 | `marketing-email-campaign` | Redactar emails de marketing (promocional, nurturing, onboarding, newsletter) |
 | `marketing-ad-copy` | Redactar copy publicitario para Google Ads, Meta Ads, LinkedIn Ads, banners |
 | `shared-case-study` | Caso de éxito de cliente con problema → solución → resultados medibles + citas verbatim. Compartida — vive en `_shared/skills/` |
 | `marketing-brand-voice-guide` | Guía canónica de voz de marca: atributos de tono, vocabulario do/don't, adaptación por canal. Documento de referencia para mantener tono consistente |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
+
+### Flujo encadenado para contenido editorial (regla para evitar ambigüedad)
+
+Para **blog posts y artículos** el flujo es siempre el mismo, sin excepciones:
+
+1. **Paso 1 — `marketing-blog-post`** genera la carpeta `<proyecto>/marketing/posts/<slug>/` con el copy completo (`.md`, `.html`, `_content.html`, `assets/`, `analytics/`).
+2. **Paso 2 — Detectar Elementor.** Comprobar si `.context/<proyecto>/config.json → style.elementor` existe (o preguntar al usuario si dudas).
+3. **Paso 3 — `marketing-elementor-content` modo `post`** (solo si Elementor está activo): añadir a la **misma carpeta** `_elementor_data.json`, `content.html` (versión Elementor del fallback), `metadata.md` (postmetas + inventario) y `README.md` (cómo publicar). Si hace falta, también SVGs decorativos en `assets/`.
+
+> **Nunca invocar `marketing-elementor-content` antes que `marketing-blog-post` para contenido editorial.** El copy se decide primero (tono, SEO, estructura) y luego se maqueta. Para páginas/landings/bloques (no editoriales), el flujo es distinto: lo gestiona `marketing-web` invocando `marketing-elementor-content` directamente en modo `page`/`landing`/`block`.
 
 ## Restricciones
 

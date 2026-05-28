@@ -94,3 +94,37 @@ No es necesario escribir un archivo cuando:
 - El usuario pide explícitamente "solo dímelo en el chat".
 
 En cualquier otro caso: archivo.
+
+---
+
+## Archivos temporales (`.context/.temp/<dept>/`)
+
+Algunas skills necesitan archivos transitorios durante su ejecución — buffers de JSON escapado para llamadas MCP, payloads grandes, plantillas intermedias, descargas que se procesan y se descartan. La convención del repo:
+
+```
+.context/
+└── .temp/
+    ├── .gitignore               ← contiene "*" para excluir todo el árbol
+    ├── marketing/               ← uno por departamento que lo necesite
+    │   └── elementor-eldata-1715900000.tmp
+    ├── sales/
+    └── software/
+```
+
+### Reglas
+
+- **Path canónico:** `.context/.temp/<dept>/<purpose>-<timestamp>.<ext>`. Siempre dentro del subdirectorio del departamento, nunca en la raíz de `.context/.temp/`.
+- **Crear el subdirectorio del dept si no existe** antes del primer archivo. Crear también `.context/.temp/.gitignore` con `*` la primera vez para que todo el árbol esté ignorado por git.
+- **Naming:** kebab-case + propósito explícito + timestamp Unix. Ej: `elementor-eldata-1715900000.tmp`, `csv-buffer-1715900042.csv`, `screenshot-1715900099.png`.
+- **Borrado obligatorio tras uso.** El archivo `.tmp` debe eliminarse antes de cerrar la skill. Si la skill falla a mitad, el siguiente intento puede sobreescribir, pero **nunca dejar `.tmp` huérfanos**.
+- **Limpieza periódica:** `.context/.temp/` se asume *transitorio* — cualquier proceso (o el propio motor) puede limpiarlo. No guardar nada que importe ahí.
+- **Nunca commitear** archivos de `.context/.temp/`. El `.gitignore` del directorio se encarga.
+- **No usar para outputs.** Si el archivo es parte del entregable, va a la ruta de output del proyecto (sección anterior). `.temp/` es exclusivamente para residuos de trabajo.
+
+### Cuándo evitar `.temp/`
+
+Si el dato cabe holgadamente en memoria (un objeto JSON < 100KB), pasarlo por argumento o variable es preferible. `.temp/` solo cuando:
+
+- El tamaño obliga (payloads de Elementor, exports CSV grandes, blobs binarios).
+- Hay que invocar un proceso externo (CLI tool) que solo lee de disco.
+- Hay que serializar/escapar de forma específica antes de pasarlo a otro tool (MCP que requiere un string ya quoted).

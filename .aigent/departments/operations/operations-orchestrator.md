@@ -47,7 +47,7 @@ Presentar al usuario, aceptar cambios, persistir en `config.json del proyecto �
 
 **0.5.B — MCPs disponibles:** Operations no recomienda MCPs específicos (la integración con Redmine va por skill v2). MCPs transversales del usuario, persistirlos en `config global → mcps`.
 
-**0.5.C — Readiness de la skill:** comprobar `node .aigent/v2/engine/engine.js doctor operations-redmine`. Si `ready: false`, delegar en `shared-skill-builder` modo `configure`. Secrets nunca por chat.
+**0.5.C — Readiness de la skill:** comprobar `node .aigent/v2/engine/engine.cjs doctor operations-redmine`. Si `ready: false`, delegar en `shared-skill-builder` modo `configure`. Secrets nunca por chat.
 
 ### Ficheros a leer al inicio de cada sesión
 
@@ -105,7 +105,7 @@ Integración HTTP con Redmine, 10 acciones. **Invocación directa por el orquest
 **Patrón de invocación:**
 
 ```bash
-node .aigent/v2/engine/engine.js run operations-redmine <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run operations-redmine <action> --inputs '{"...": "..."}'
 ```
 
 Antes de la primera `run` en una sesión, precheck con `doctor`. Para `CONFIG_ERROR` / `SECRETS_ERROR`, leer `error.details.next`.
@@ -139,7 +139,7 @@ Si la petición es de su dominio, **no delegues**. Registra en `tasks.md` y avis
 Modos:
 
 ```
-SIMPLE        → 1 acción Redmine     → engine.js run
+SIMPLE        → 1 acción Redmine     → engine.cjs run
 COMPUESTA     → varias acciones       → en orden, transfiere outputs
 DOMINIO FUERA → ninguno activo        → registrar TODO + comunicar
 AMBIGUA       → falta info crítica    → 1 pregunta antes de ejecutar
@@ -186,7 +186,7 @@ Cuando una tarea encadena varias acciones (ej. *"lista mis tickets, imputa 1h al
 
 Patrón estándar (`_shared/conventions.md` §12).
 
-**Precheck proactivo:** `engine.js doctor operations-redmine` antes de la primera `run`. Si `ready: false`, delegar en `shared-skill-builder configure` y reintentar.
+**Precheck proactivo:** `engine.cjs doctor operations-redmine` antes de la primera `run`. Si `ready: false`, delegar en `shared-skill-builder configure` y reintentar.
 
 **Red de seguridad reactiva:** si `run` falla con `CONFIG_ERROR` / `SECRETS_ERROR`, leer `error.details.next`, delegar `configure`, reintentar.
 

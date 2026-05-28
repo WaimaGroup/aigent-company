@@ -19,7 +19,7 @@ const {
   getByPath,
   GLOBAL_CONFIG,
   CONTEXT_DIR,
-} = require('./config');
+} = require('./config.cjs');
 
 const SECRETS_PATH = path.join(CONTEXT_DIR, '.secrets.json');
 const CONTEXT_GITIGNORE = path.join(CONTEXT_DIR, '.gitignore');

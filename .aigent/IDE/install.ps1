@@ -21,6 +21,7 @@ param(
   [switch]$Mcp,
   [switch]$Sync,         # solo regenera skills (omite agentes, MCP y BOSS bootstrap)
   [switch]$Prune,        # borra en destino las carpetas de skills sin source en el repo
+  [switch]$Clean,        # modo declarativo: borra depts del repo NO listados en -Dept
   [switch]$Update,       # git pull del repo remoto antes de instalar
   [switch]$DryRun,
   [switch]$Help
@@ -183,10 +184,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ``````bash
 # Ver acciones disponibles, sus inputs y sus outputs
-node .aigent/v2/engine/engine.js describe $skillName
+node .aigent/v2/engine/engine.cjs describe $skillName
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.js run $skillName <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run $skillName <action> --inputs '{"...": "..."}'
 ``````
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.
@@ -348,6 +349,81 @@ function Invoke-PruneOrphans($skillsBase) {
   }
 }
 
+# ── Clean: borrar depts NO seleccionados (modo declarativo -Clean) ───────────
+# Activado por -Clean. Tras instalar lo seleccionado, recorre el repo, identifica
+# los departamentos NO listados en -Dept y borra en destino:
+#   - Agentes con prefijo "<dept>-" (incluido el orquestador) en $agentsBase
+#   - Carpetas con prefijo "<dept>-" en $skillsBase
+# NUNCA toca shared-* ni archivos/carpetas con prefijos desconocidos.
+function Invoke-CleanUnselectedDepts {
+  param(
+    [string]$IdeLabel,
+    [string]$AgentsBase,
+    [string]$SkillsBase,
+    [string[]]$SelectedDepts
+  )
+
+  $repoDepts = @(Get-Departments)
+  if ($repoDepts.Count -eq 0) { return }
+
+  # Depts del repo que NO están en SelectedDepts → candidatos a limpiar
+  $toClean = @()
+  foreach ($rd in $repoDepts) {
+    if ($SelectedDepts -notcontains $rd) { $toClean += $rd }
+  }
+  if ($toClean.Count -eq 0) { return }
+
+  Write-Host ""
+  Write-Host "  🧹 Clean → $IdeLabel  (depts no seleccionados: $($toClean -join ', '))" -ForegroundColor White
+  Divider
+
+  $totalRemoved = 0
+  foreach ($dept in $toClean) {
+    $removed = 0
+
+    # Agentes: AgentsBase\<dept>-*.md
+    if (Test-Path $AgentsBase) {
+      foreach ($f in (Get-ChildItem -Path $AgentsBase -Filter "$dept-*.md" -File -ErrorAction SilentlyContinue)) {
+        $short = $f.FullName -replace [regex]::Escape($env:APPDATA), "%APPDATA%"
+        $short = $short -replace [regex]::Escape((Get-Location).Path), "."
+        if ($DryRun) {
+          Log-Dry "clean → $short"
+        } else {
+          Remove-Item -Path $f.FullName -Force
+          Log-Ok "removed → $short"
+        }
+        $removed++
+      }
+    }
+
+    # Skills: SkillsBase\<dept>-*\
+    if (Test-Path $SkillsBase) {
+      foreach ($entry in (Get-ChildItem -Path $SkillsBase -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name.StartsWith("$dept-") })) {
+        $short = $entry.FullName -replace [regex]::Escape($env:APPDATA), "%APPDATA%"
+        $short = $short -replace [regex]::Escape((Get-Location).Path), "."
+        if ($DryRun) {
+          Log-Dry "clean → $short\"
+        } else {
+          Remove-Item -Path $entry.FullName -Recurse -Force
+          Log-Ok "removed → $short\"
+        }
+        $removed++
+      }
+    }
+
+    if ($removed -eq 0) {
+      Write-Host "    · $dept`: nada que limpiar en este IDE" -ForegroundColor DarkGray
+    } else {
+      Write-Host "    · $dept`: $removed artefacto(s) eliminado(s)" -ForegroundColor Yellow
+    }
+    $totalRemoved += $removed
+  }
+
+  if ($totalRemoved -eq 0) {
+    Write-Host "  Nada que limpiar." -ForegroundColor DarkGray
+  }
+}
+
 function Install-ContextSecrets {
   Write-Host ""
   Write-Host "  🔒 Scaffold de secretos → .context/" -ForegroundColor White
@@ -405,6 +481,33 @@ function Install-McpConfig($ideName, $configDir) {
       $src = Join-Path $ScriptDir "opencode.json"
       if (Test-Path $src) { Copy-AgentFile $src $configDir "opencode.json" }
       else { Log-Warn "IDE\opencode.json not found" }
+    }
+  }
+}
+
+# Permisos del IDE (allow / ask / deny). Para Claude se copia settings.local.json
+# a $configDir (.claude\ proyecto o %APPDATA%\Claude\ global). Para OpenCode los
+# permisos viven embebidos en el propio opencode.json — aquí solo se informa.
+function Install-Permissions($ideName, $configDir) {
+  Write-Host ""
+  Write-Host "  🛡  Permisos → $ideName" -ForegroundColor White
+  Divider
+  switch ($ideName) {
+    "claude" {
+      $src = Join-Path $ScriptDir "settings.local.json"
+      if (-not (Test-Path $src)) {
+        Log-Warn "IDE\settings.local.json no encontrado — saltando permisos"
+        return
+      }
+      $dest = Join-Path $configDir "settings.local.json"
+      if (Test-Path $dest) {
+        Log-Info "settings.local.json ya existe en $configDir — no se sobreescribe (edítalo a mano)"
+      } else {
+        Copy-AgentFile $src $configDir "settings.local.json"
+      }
+    }
+    "opencode" {
+      Log-Info "Permisos opencode embebidos en opencode.json (sección `"permission`")"
     }
   }
 }
@@ -724,6 +827,10 @@ function Print-Usage {
   Write-Host "    -Dept          lista separada por comas (ej: marketing,operations) o 'all'"
   Write-Host "    -Mcp           copia los templates de configuración MCP al proyecto"
   Write-Host "    -Sync          solo regenera skills (omite agentes, MCP y BOSS)"
+  Write-Host "    -Prune         al terminar, borra en destino las carpetas de skills sin source en el repo"
+  Write-Host "    -Clean         modo declarativo: borra en destino los depts del repo NO listados en -Dept"
+  Write-Host "                   (agentes y skills con prefijo <dept>-). Útil para 'quitar' un dept ya instalado."
+  Write-Host "                   shared-* y customs del usuario NUNCA se tocan. Incompatible con -Sync."
   Write-Host "    -Update        git pull del repo remoto antes de instalar"
   Write-Host "    -DryRun        muestra lo que haría sin escribir nada"
   Write-Host "    -Help          esta ayuda"
@@ -734,6 +841,8 @@ function Print-Usage {
   Write-Host "    .\install.ps1 -Sync -Ide claude -Dept all                  # refresca todos los stubs"
   Write-Host "    .\install.ps1 -Sync -Ide all -Dept operations              # refresca solo redmine"
   Write-Host "    .\install.ps1 -Sync -Dept marketing -DryRun                # ver qué tocaría"
+  Write-Host "    .\install.ps1 -Clean -Ide all -Dept marketing              # deja solo marketing (borra el resto)"
+  Write-Host "    .\install.ps1 -Clean -Ide all -Dept marketing,operations -DryRun  # ver qué borraría"
   Write-Host "    .\install.ps1 -Update                                      # actualizar desde GitHub + reinstalar"
   Write-Host "    .\install.ps1 -Update -Sync -Ide claude -Dept all          # actualizar y sync rápido"
   Write-Host ""
@@ -784,7 +893,14 @@ if ($Help) {
 if ($DryRun) { Write-Host "  ⚠  Modo DRY-RUN activado — no se realizarán cambios`n" -ForegroundColor Yellow }
 if ($Sync)   { Write-Host "  ⟳  SYNC — solo se procesan skills (omite agentes, MCP, BOSS)`n" -ForegroundColor Cyan }
 if ($Prune)  { Write-Host "  ♻  PRUNE — al terminar se eliminarán las skills huérfanas en destino`n" -ForegroundColor Yellow }
+if ($Clean)  { Write-Host "  🧹 CLEAN — modo declarativo: se borrarán los depts no listados en -Dept`n" -ForegroundColor Yellow }
 if ($Update) { Invoke-Update }
+
+# -Clean + -Sync no tienen sentido juntos: -Sync solo toca skills.
+if ($Clean -and $Sync) {
+  Log-Error "-Clean es incompatible con -Sync (no toca agentes). Quita uno de los dos."
+  exit 1
+}
 
 # En -Sync, Mode default = project
 if ($Sync -and [string]::IsNullOrWhiteSpace($Mode)) { $Mode = "project" }
@@ -826,12 +942,25 @@ if ($Prune) {
   if ($Ide -eq "opencode" -or $Ide -eq "all") { Invoke-PruneOrphans $ocSkills }
 }
 
-# MCP templates, BOSS bootstrap y scaffold de secretos — saltados en -Sync
+# Clean: solo si -Clean. Borra agentes + carpetas de skills de depts del repo
+# que NO están en $selectedDepts. shared-* y customs del usuario nunca se tocan.
+if ($Clean) {
+  if ($Ide -eq "claude"   -or $Ide -eq "all") {
+    Invoke-CleanUnselectedDepts -IdeLabel "Claude Code" -AgentsBase $claudeAgents -SkillsBase $claudeSkills -SelectedDepts $selectedDepts
+  }
+  if ($Ide -eq "opencode" -or $Ide -eq "all") {
+    Invoke-CleanUnselectedDepts -IdeLabel "OpenCode" -AgentsBase $ocAgents -SkillsBase $ocSkills -SelectedDepts $selectedDepts
+  }
+}
+
+# MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en -Sync
 if (-not $Sync) {
   if ($Mcp) {
     if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-McpConfig "claude"   $claudeConfig }
     if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-McpConfig "opencode" $ocConfig }
   }
+  if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-Permissions "claude"   $claudeConfig }
+  if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-Permissions "opencode" $ocConfig }
   if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-Boss "claude" }
   if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-Boss "opencode" }
   Install-ContextSecrets
@@ -852,7 +981,8 @@ Write-Host ""
 if (-not $DryRun) {
   Log-Info "Departamentos: $($selectedDepts -join ', ') + _shared"
   Log-Info "Scope:         $Mode"
-  if ($Sync) { Log-Info "Modo:          -Sync (solo skills)" }
+  if ($Sync)  { Log-Info "Modo:          -Sync (solo skills)" }
+  if ($Clean) { Log-Info "Modo:          -Clean activado (depts no seleccionados se han limpiado)" }
   if ($Ide -eq "claude"   -or $Ide -eq "all") {
     if (-not $Sync) { Log-Info "Claude agents: $claudeAgents\" }
     Log-Info "Claude skills: $claudeSkills\"

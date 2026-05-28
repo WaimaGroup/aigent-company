@@ -2,7 +2,7 @@
 
 'use strict';
 
-const { renderGeneric, renderQuery, renderJson } = require('./template');
+const { renderGeneric, renderQuery, renderJson } = require('./template.cjs');
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 

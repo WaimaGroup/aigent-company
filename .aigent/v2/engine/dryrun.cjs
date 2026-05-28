@@ -15,8 +15,8 @@
 
 'use strict';
 
-const { renderGeneric, renderQuery, renderJson } = require('./template');
-const { parseHttpBlock } = require('./http');
+const { renderGeneric, renderQuery, renderJson } = require('./template.cjs');
+const { parseHttpBlock } = require('./http.cjs');
 
 /**
  * Reemplaza cada valor real de secret por un marcador legible.

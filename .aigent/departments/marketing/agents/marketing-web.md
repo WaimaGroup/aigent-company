@@ -119,8 +119,18 @@ Estas son las skills que conoces y puedes invocar cuando la petición encaje con
 
 | Skill | Cuándo usarla |
 |---|---|
-| `marketing-landing-page` | Estructura + copy completo de landing page de conversión, lista para WordPress o cualquier CMS |
+| `marketing-landing-page` | Estructura + copy completo de landing page de conversión, lista para WordPress o cualquier CMS (entregable plano, sin maquetación builder) |
+| `marketing-elementor-content` | Maquetación en Elementor de páginas, landings y bloques reutilizables (modos `page`/`landing`/`block`). Genera el JSON canónico de `_elementor_data` + HTML fallback + metadata + assets vectoriales (SVG + PNG @2x). **Para posts editoriales** la skill se invoca desde `marketing-content` tras `marketing-blog-post` — no desde aquí |
 | `marketing-publish-checklist` | Repaso completo de SEO, UX y requisitos técnicos antes de publicar cualquier página/entrada en WordPress |
+
+### Cómo decidir qué skill usar (sin ambigüedad)
+
+| Petición del usuario | Flujo |
+|---|---|
+| "Página de servicio / about / contacto" | `marketing-elementor-content` modo `page` (directo, sin blog-post previo) |
+| "Landing de campaña / lanzamiento" | `marketing-elementor-content` modo `landing` (directo) o `marketing-landing-page` si solo quiere el copy en plano |
+| "Bloque reutilizable (hero, FAQ, pricing…)" | `marketing-elementor-content` modo `block` (directo) |
+| "Post de blog / artículo editorial" | NO es trabajo de `marketing-web`. Delegar a `marketing-content`, que ejecuta `marketing-blog-post` y, si el sitio usa Elementor, encadena `marketing-elementor-content` modo `post` sobre la misma carpeta |
 
 Antes de redactar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

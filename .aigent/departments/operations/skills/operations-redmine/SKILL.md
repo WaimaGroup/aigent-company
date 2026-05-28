@@ -275,7 +275,7 @@ Skill ejecutable contra la API REST de Redmine. Cubre operaciones deterministas 
 Antes de llamar a `run` por primera vez en una sesión, ejecuta el precheck:
 
 ```bash
-node .aigent/v2/engine/engine.js doctor operations-redmine
+node .aigent/v2/engine/engine.cjs doctor operations-redmine
 ```
 
 - Si `data.skills[0].ready === true` → adelante, ejecuta `run`.
@@ -292,7 +292,7 @@ node .aigent/v2/engine/engine.js doctor operations-redmine
 Todas se ejecutan vía:
 
 ```
-node .aigent/v2/engine/engine.js run operations-redmine <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run operations-redmine <action> --inputs '{"...": "..."}'
 ```
 
 ### list-issues

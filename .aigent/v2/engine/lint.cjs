@@ -2,11 +2,11 @@
 // estructural que ya hace parser.js → validateSkill). Devuelve errores
 // (bloquean) y warnings (no bloquean pero conviene corregir).
 //
-// Se usa desde el comando `engine.js validate <skill>`.
+// Se usa desde el comando `engine.cjs validate <skill>`.
 
 'use strict';
 
-const { checkType } = require('./validate');
+const { checkType } = require('./validate.cjs');
 
 const VALID_INPUT_TYPES = ['string', 'integer', 'number', 'boolean', 'array'];
 const VALID_OUTPUT_TYPES = ['json', 'text'];

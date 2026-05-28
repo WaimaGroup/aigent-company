@@ -48,6 +48,7 @@ DRY_RUN=false
 SYNC_ONLY=false       # --sync: solo skills (omite agentes, MCP, BOSS)
 UPDATE=false          # --update: git pull antes de instalar
 PRUNE=false           # --prune: borrar carpetas en destino que no tengan source en el repo
+CLEAN=false           # --clean: modo declarativo — borrar depts del repo NO seleccionados en --dept
 CLAUDE_SKILLS=""
 OC_SKILLS=""
 
@@ -120,6 +121,9 @@ print_usage() {
   echo "    --mcp          copia los templates de configuración MCP al proyecto"
   echo "    --sync         solo regenera skills (omite agentes, MCP y BOSS)"
   echo "    --prune        al terminar, borra en destino las carpetas de skills sin source en el repo"
+  echo "    --clean        modo declarativo: borra en destino los depts del repo NO listados en --dept"
+  echo "                   (agentes y skills con prefijo <dept>-). Útil para 'quitar' un dept ya instalado."
+  echo "                   shared-* y customs del usuario NUNCA se tocan. Incompatible con --sync."
   echo "    --update       git pull del repo remoto antes de instalar"
   echo "    --dry-run      muestra lo que haría sin escribir nada"
   echo "    --help, -h     esta ayuda"
@@ -131,6 +135,8 @@ print_usage() {
   echo "    ./install.sh --sync --prune --ide all --dept all          # refresca + limpia huérfanas"
   echo "    ./install.sh --sync --ide all --dept operations           # refresca solo redmine"
   echo "    ./install.sh --sync --dept marketing --dry-run            # ver qué tocaría"
+  echo "    ./install.sh --clean --ide all --dept marketing           # deja solo marketing (borra el resto)"
+  echo "    ./install.sh --clean --ide all --dept marketing,operations --dry-run  # ver qué borraría"
   echo "    ./install.sh --update                                     # actualizar desde GitHub + reinstalar"
   echo "    ./install.sh --update --sync --ide claude --dept all      # actualizar y sync rápido"
   echo ""
@@ -234,10 +240,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ```bash
 # Ver acciones disponibles, sus inputs y sus outputs
-node .aigent/v2/engine/engine.js describe __SKILL__
+node .aigent/v2/engine/engine.cjs describe __SKILL__
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.js run __SKILL__ <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run __SKILL__ <action> --inputs '{"...": "..."}'
 ```
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.
@@ -407,6 +413,86 @@ prune_orphans() {
   fi
 }
 
+# ── Clean: borrar depts NO seleccionados (modo declarativo --clean) ──────────
+# Activado por --clean. Tras instalar lo seleccionado, recorre el repo, identifica
+# los departamentos NO listados en --dept y borra en destino:
+#   - Agentes con prefijo "<dept>-" (incluido el orquestador) en $agents_base
+#   - Carpetas con prefijo "<dept>-" en $skills_base
+# NUNCA toca shared-* (siempre se quedan) ni archivos/carpetas con prefijos
+# desconocidos (customs del usuario, skills de otros sistemas).
+clean_unselected_depts() {
+  local ide_label="$1" agents_base="$2" skills_base="$3"; shift 3
+  local selected_depts=("$@")
+
+  # Set de depts del repo (todos menos _shared)
+  local repo_depts=()
+  while IFS= read -r d; do repo_depts+=("$d"); done < <(list_departments)
+  [ ${#repo_depts[@]} -eq 0 ] && return 0
+
+  # Identificar depts del repo que NO están seleccionados → candidatos a limpiar
+  local to_clean=()
+  for rd in "${repo_depts[@]}"; do
+    local found=false
+    for sd in "${selected_depts[@]}"; do
+      if [ "$rd" == "$sd" ]; then found=true; break; fi
+    done
+    $found || to_clean+=("$rd")
+  done
+
+  [ ${#to_clean[@]} -eq 0 ] && return 0
+
+  echo ""
+  echo -e "  ${BOLD}🧹 Clean → $ide_label${NC}  ${DIM}(depts no seleccionados: ${to_clean[*]})${NC}"
+  divider
+
+  local total_removed=0
+  for dept in "${to_clean[@]}"; do
+    local removed=0
+
+    # Agentes: agents_base/<dept>-*.md
+    if [ -d "$agents_base" ]; then
+      while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        local short="${f/#$HOME/~}"
+        if $DRY_RUN; then
+          log_dry "clean → $short"
+        else
+          rm -f "$f"
+          log_ok "removed → $short"
+        fi
+        removed=$((removed+1))
+      done < <(find "$agents_base" -maxdepth 1 -type f -name "${dept}-*.md" 2>/dev/null)
+    fi
+
+    # Skills: skills_base/<dept>-*/
+    if [ -d "$skills_base" ]; then
+      for entry in "$skills_base"/${dept}-*/; do
+        [ -d "$entry" ] || continue
+        local short="${entry%/}"
+        short="${short/#$HOME/~}"
+        if $DRY_RUN; then
+          log_dry "clean → $short/"
+        else
+          rm -rf "$entry"
+          log_ok "removed → $short/"
+        fi
+        removed=$((removed+1))
+      done
+    fi
+
+    if [ $removed -eq 0 ]; then
+      echo -e "  ${DIM}  · $dept: nada que limpiar en este IDE${NC}"
+    else
+      echo -e "  ${YELLOW}  · $dept: $removed artefacto(s) eliminado(s)${NC}"
+    fi
+    total_removed=$((total_removed+removed))
+  done
+
+  if [ $total_removed -eq 0 ]; then
+    echo -e "  ${DIM}Nada que limpiar.${NC}"
+  fi
+}
+
 # ── Bootstrap BOSS ────────────────────────────────────────────────────────────
 install_boss() {
   local ide="$1"
@@ -504,7 +590,55 @@ install_mcp() {
       ;;
     opencode)
       local src="$SCRIPT_DIR/opencode.json"
-      [ -f "$src" ] && copy_file "$src" "$PROJECT_ROOT" "opencode.json" || log_warn "opencode.json no encontrado en IDE/"
+      if [ -f "$src" ]; then
+        if [ "$MODE" = "global" ]; then
+          copy_file "$src" "$HOME/.config/opencode" "opencode.json"
+        else
+          copy_file "$src" "$PROJECT_ROOT" "opencode.json"
+        fi
+      else
+        log_warn "opencode.json no encontrado en IDE/"
+      fi
+      ;;
+  esac
+}
+
+# ── Permisos del IDE (allow/ask/deny) ─────────────────────────────────────────
+# Plantilla con permisos sensatos: allow para herramientas habituales (bash,
+# node, python, powershell, git read-only), ask para acciones potencialmente
+# destructivas (rm, sudo, git push, npm publish, terraform apply…), deny para
+# las catastróficas (rm -rf /, dd, mkfs, shutdown…). El usuario edita después.
+install_permissions() {
+  local ide="$1"
+  echo ""; echo -e "  ${BOLD}🛡  Permisos → $ide${NC}"; divider
+  case "$ide" in
+    claude)
+      local src="$SCRIPT_DIR/settings.local.json"
+      if [ ! -f "$src" ]; then
+        log_warn "settings.local.json no encontrado en IDE/ — saltando permisos"
+        return
+      fi
+      local dest_dir
+      if [ "$MODE" = "global" ]; then
+        dest_dir="$HOME/.claude"
+      else
+        dest_dir="$PROJECT_ROOT/.claude"
+      fi
+      local dest="$dest_dir/settings.local.json"
+      if [ -f "$dest" ]; then
+        if $DRY_RUN; then
+          log_dry "settings.local.json ya existe en $dest_dir/ — no se sobreescribe"
+        else
+          log_info "settings.local.json ya existe en $dest_dir/ — no se sobreescribe (edítalo a mano)"
+        fi
+      else
+        copy_file "$src" "$dest_dir" "settings.local.json"
+      fi
+      ;;
+    opencode)
+      # En opencode los permisos viven en el mismo opencode.json — ya instalado
+      # por install_mcp. Aquí solo recordamos al usuario qué se aplicó.
+      log_info "Permisos opencode embebidos en opencode.json (sección \"permission\")"
       ;;
   esac
 }
@@ -724,6 +858,7 @@ while [[ $# -gt 0 ]]; do
     --mcp)         INSTALL_MCP=true; shift   ;;
     --sync)        SYNC_ONLY=true;   shift   ;;
     --prune)       PRUNE=true;       shift   ;;
+    --clean)       CLEAN=true;       shift   ;;
     --update)      UPDATE=true;      shift   ;;
     --dry-run)     DRY_RUN=true;     shift   ;;
     --help|-h)     print_header; print_usage; exit 0 ;;
@@ -736,7 +871,15 @@ print_header
 $DRY_RUN   && echo -e "  ${YELLOW}⚠  DRY-RUN — no se realizarán cambios${NC}\n"
 $SYNC_ONLY && echo -e "  ${CYAN}⟳  SYNC — solo se procesan skills (omite agentes, MCP, BOSS)${NC}\n"
 $PRUNE     && echo -e "  ${YELLOW}♻  PRUNE — al terminar se eliminarán las skills huérfanas en destino${NC}\n"
+$CLEAN     && echo -e "  ${YELLOW}🧹 CLEAN — modo declarativo: se borrarán los depts no listados en --dept${NC}\n"
 $UPDATE    && run_update
+
+# --clean + --sync no tienen sentido juntos: --sync ya solo toca skills y
+# evita los agentes; el modo declarativo necesita la pasada completa.
+if $CLEAN && $SYNC_ONLY; then
+  log_error "--clean es incompatible con --sync (no toca agentes). Quita uno de los dos."
+  exit 1
+fi
 
 # En sync, mode default = project (lo más común al refrescar stubs)
 if $SYNC_ONLY && [ -z "$MODE" ]; then MODE="project"; fi
@@ -780,12 +923,26 @@ if $PRUNE; then
   if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then prune_orphans "$OC_SKILLS";     fi
 fi
 
-# 2. MCP templates, BOSS bootstrap y scaffold de secretos — saltados en --sync
+# 1.6 Clean: solo si --clean. Borra agentes + carpetas de skills de depts del
+# repo que NO están en SELECTED_DEPTS. Pensado para "quitar" un dept ya
+# instalado. shared-* y customs del usuario nunca se tocan.
+if $CLEAN; then
+  if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then
+    clean_unselected_depts "Claude Code" "$CLAUDE_AGENTS" "$CLAUDE_SKILLS" "${SELECTED_DEPTS[@]}"
+  fi
+  if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then
+    clean_unselected_depts "OpenCode" "$OC_AGENTS" "$OC_SKILLS" "${SELECTED_DEPTS[@]}"
+  fi
+fi
+
+# 2. MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en --sync
 if ! $SYNC_ONLY; then
   if $INSTALL_MCP; then
     if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_mcp "claude";   fi
     if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_mcp "opencode"; fi
   fi
+  if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_permissions "claude";   fi
+  if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_permissions "opencode"; fi
   if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_boss "claude";   fi
   if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_boss "opencode"; fi
   install_context_secrets
@@ -807,6 +964,7 @@ if ! $DRY_RUN; then
   log_info "Departamentos: ${SELECTED_DEPTS[*]} + _shared"
   log_info "Scope:         $MODE"
   if $SYNC_ONLY; then log_info "Modo:          --sync (solo skills)"; fi
+  if $CLEAN;     then log_info "Modo:          --clean activado (depts no seleccionados se han limpiado)"; fi
   if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then
     $SYNC_ONLY || log_info "Claude agents: ${CLAUDE_AGENTS##"$HOME"}/"
     log_info "Claude skills: ${CLAUDE_SKILLS##"$HOME"}/"

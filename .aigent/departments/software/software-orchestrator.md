@@ -269,14 +269,14 @@ Cuando coordinas múltiples agentes, **siempre**:
 
 ## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.js run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
+Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
 
 ### Camino principal — precheck proactivo (preferido)
 
-Antes de delegar una acción de una skill v2, o antes de invocar `engine.js run` directamente, **ejecuta primero el precheck**:
+Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
 
 ```bash
-node .aigent/v2/engine/engine.js doctor <skill>
+node .aigent/v2/engine/engine.cjs doctor <skill>
 ```
 
 - Si el output es `data.skills[0].ready: true` → adelante, ejecuta `run` con normalidad.
