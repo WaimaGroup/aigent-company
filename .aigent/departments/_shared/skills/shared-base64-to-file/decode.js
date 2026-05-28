@@ -2,9 +2,9 @@
 /**
  * shared-base64-to-file/decode.js
  *
- * Decode a base64 file into a binary/textual asset under `.context/.temp/<dept>/`,
- * verifying that the decoded bytes match the requested format via magic-bytes
- * inspection (or initial UTF-8 content for SVG).
+ * Decode a base64 file into a binary/textual asset, verifying that the decoded
+ * bytes match the requested format via magic-bytes inspection (or initial UTF-8
+ * content for SVG).
  *
  * Contract documented in SKILL.md alongside this file. If behavior here and prose
  * there diverge, the script is the source of truth — adjust the prose.
@@ -12,7 +12,18 @@
  * No dependencies beyond Node stdlib. Compatible with Node 18+.
  *
  * Usage:
- *   node decode.js --input <path> [--format <fmt>] [--output <path>] [--keep-input]
+ *   node decode.js --input <path> [--format <fmt>] [--output <path>]
+ *                  [--keep-input] [--no-b64-copy]
+ *
+ * Behavior:
+ *   - --input MUST live under `.context/.temp/` (staging convention).
+ *   - --output is unrestricted: typically a deliverable path under the project
+ *     output directory (e.g. `posts/<slug>/assets/hero.png`). If --output is
+ *     under `.context/.temp/`, the staging gitignore is still managed.
+ *   - By default a `.b64` copy is left next to the output (same basename, `.b64`
+ *     extension), so the original payload can be re-uploaded later. Suppress with
+ *     `--no-b64-copy`. If the alongside path equals the input path, no copy is
+ *     made and the input is preserved (regardless of --keep-input).
  *
  * Exit codes:
  *   0 = success (JSON `{ ok: true, ... }` on stdout)
@@ -63,13 +74,16 @@ function emitOk(data) {
 function help() {
   const text = [
     'Usage:',
-    '  node decode.js --input <path> [--format <fmt>] [--output <path>] [--keep-input]',
+    '  node decode.js --input <path> [--format <fmt>] [--output <path>]',
+    '                 [--keep-input] [--no-b64-copy]',
     '',
     'Args:',
     '  --input <path>     Path to the .b64 file. Must be under .context/.temp/.',
     '  --format <fmt>     png|jpg|jpeg|gif|webp|svg|pdf|zip. Required unless --output has a known extension.',
-    '  --output <path>    Destination path. Must be under .context/.temp/. Default: --input with extension changed to <format>.',
+    '  --output <path>    Destination path. Unrestricted (typically a deliverable path).',
+    '                     Default: --input with extension changed to <format> (stays in temp).',
     '  --keep-input       Do not delete the .b64 after a successful decode.',
+    '  --no-b64-copy      Do not leave a .b64 copy next to the output.',
     '  --help, -h         Show this help.',
     '',
     'Output: JSON to stdout. Exit 0 on success, 1 on error.',
@@ -80,11 +94,12 @@ function help() {
 }
 
 function parseArgs(argv) {
-  const out = { keepInput: false };
+  const out = { keepInput: false, noB64Copy: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--help' || a === '-h') { out.help = true; continue; }
     if (a === '--keep-input') { out.keepInput = true; continue; }
+    if (a === '--no-b64-copy') { out.noB64Copy = true; continue; }
     if (!a.startsWith('--')) {
       emitError('BAD_ARGS', "Unexpected positional argument: '" + a + "'");
     }
@@ -127,10 +142,13 @@ function tempRootFromAbs(absPath) {
   return path.normalize(fwd.substring(0, idx + marker.length - 1));
 }
 
-function ensureDirAndGitignore(absOutput) {
-  fs.mkdirSync(path.dirname(absOutput), { recursive: true });
-  const tempRoot = tempRootFromAbs(absOutput);
-  if (!tempRoot) return; // should never happen (already scope-checked)
+function ensureDirRecursive(absPath) {
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
+}
+
+function ensureTempGitignoreFor(absAnyPath) {
+  const tempRoot = tempRootFromAbs(absAnyPath);
+  if (!tempRoot) return; // path is not under .context/.temp/, nothing to do
   const gitignorePath = path.join(tempRoot, '.gitignore');
   if (!fs.existsSync(gitignorePath)) {
     fs.writeFileSync(gitignorePath, '*\n');
@@ -193,12 +211,19 @@ function main() {
     emitError('INPUT_NOT_FOUND', 'Input file does not exist: ' + args.input);
   }
 
-  // Resolve output path (explicit --output wins; otherwise derive from input)
+  // Resolve output path (explicit --output wins; otherwise derive from input).
+  // Output scope is unrestricted: typically the deliverable folder of the dept.
   const outputUserPath = args.output ? args.output : deriveOutputUserPath(args.input, format);
   const outputAbs = path.resolve(outputUserPath);
-  if (!isUnderTempScope(outputAbs)) {
-    emitError('OUTPUT_OUT_OF_SCOPE', 'Output must be under .context/.temp/: ' + outputUserPath);
-  }
+
+  // Derive the alongside .b64 user path (same basename as output, .b64 extension).
+  const outputUserExt = path.extname(outputUserPath);
+  const outputUserBase = outputUserExt
+    ? outputUserPath.substring(0, outputUserPath.length - outputUserExt.length)
+    : outputUserPath;
+  const alongsideB64UserPath = outputUserBase + '.b64';
+  const alongsideB64Abs = path.resolve(alongsideB64UserPath);
+  const alongsideEqualsInput = alongsideB64Abs === inputAbs;
 
   // Read base64
   let raw;
@@ -235,14 +260,37 @@ function main() {
 
   // Write output
   try {
-    ensureDirAndGitignore(outputAbs);
+    ensureDirRecursive(outputAbs);
+    // Always manage the staging gitignore (input is under .context/.temp/ by contract).
+    ensureTempGitignoreFor(inputAbs);
     fs.writeFileSync(outputAbs, buf);
   } catch (e) {
     emitError('WRITE_FAILED', 'Failed to write output: ' + (e && e.message ? e.message : String(e)));
   }
 
-  // Delete input unless --keep-input
-  if (!args.keepInput) {
+  // Copy .b64 alongside the output (default ON). Suppressed by --no-b64-copy.
+  // If alongside path equals input, no copy is made (input already IS the
+  // alongside — and below we skip deletion to preserve it).
+  let b64CopyUserPath = null;
+  if (!args.noB64Copy) {
+    if (alongsideEqualsInput) {
+      b64CopyUserPath = alongsideB64UserPath;
+    } else {
+      try {
+        ensureDirRecursive(alongsideB64Abs);
+        fs.copyFileSync(inputAbs, alongsideB64Abs);
+        b64CopyUserPath = alongsideB64UserPath;
+      } catch (e) {
+        emitError('WRITE_FAILED', 'Failed to write .b64 alongside copy: ' + (e && e.message ? e.message : String(e)));
+      }
+    }
+  }
+
+  // Delete input unless --keep-input.
+  // Exception: if the alongside .b64 IS the input (same path), never delete —
+  // doing so would wipe the alongside copy we just promised.
+  const inputIsAlongside = !args.noB64Copy && alongsideEqualsInput;
+  if (!args.keepInput && !inputIsAlongside) {
     try {
       fs.unlinkSync(inputAbs);
     } catch (e) {
@@ -256,11 +304,15 @@ function main() {
     bytes: buf.length,
     mime: MIME[format],
     format: format,
+    b64_copy: b64CopyUserPath,
   });
 }
 
 try {
   main();
 } catch (e) {
+  emitError('INTERNAL', e && e.message ? e.message : String(e));
+}
+
   emitError('INTERNAL', e && e.message ? e.message : String(e));
 }

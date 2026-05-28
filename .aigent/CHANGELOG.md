@@ -4,6 +4,48 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.5.0 — 2026-05-28
+
+### Instalador: flag `--clean` / `-Clean` para quitar departamentos del destino
+
+Nueva capacidad **retrocompatible** en `install.sh` e `install.ps1` para resolver el caso "tenía marketing instalado, ahora solo quiero operations". Sin el flag, el comportamiento es exactamente el de siempre (aditivo: lo no seleccionado se queda intacto). Con `--clean` / `-Clean`, el listado `--dept` se interpreta como **estado deseado declarativo**: tras instalar los seleccionados, se barre el destino y se eliminan los artefactos de los departamentos del repo que NO aparecen en la selección.
+
+**Qué borra exactamente** (por cada dept no seleccionado):
+- Agentes con prefijo `<dept>-*.md` en la carpeta de agents del IDE (incluido el orquestador).
+- Carpetas de skills con prefijo `<dept>-*/` en la carpeta de skills del IDE.
+
+**Qué NO toca, nunca:**
+- `shared-*` (siempre permanece, lo necesitan todos los departamentos).
+- Archivos/carpetas con prefijos desconocidos (skills de otros sistemas, customs del usuario).
+- Cualquier cosa fuera de las carpetas de agents/skills del IDE.
+
+**Comportamiento operativo:**
+- Sin prompt de confirmación — la decisión está en el flag, no en interactividad. Pensado para uso scripteable.
+- Respeta `--dry-run` / `-DryRun`: muestra qué borraría sin tocar nada.
+- Incompatible con `--sync` / `-Sync`: sync no toca agentes, así que mezclar ambos modos sería incoherente. El instalador rechaza la combinación con exit 1.
+- Se ejecuta sobre cada IDE seleccionado (claude, opencode, ambos), respetando el scope `--mode` / `-Mode` (global vs project).
+
+**Ejemplos de uso:**
+
+```bash
+# Caso típico: tenía marketing + sales, quiero solo marketing
+./install.sh --clean --ide all --dept marketing
+
+# Previsualizar qué se borraría
+./install.sh --clean --ide all --dept operations --dry-run
+.\install.ps1 -Clean -Ide all -Dept marketing,operations -DryRun
+
+# Reinstalar todo y limpiar depts que ya no existen en el repo
+./install.sh --clean --ide all --dept all
+```
+
+**Archivos tocados:**
+- `.aigent/IDE/install.sh` — parámetro `CLEAN`, parseo `--clean`, función `clean_unselected_depts`, banner, validación contra `--sync`, invocación en main, ayuda y atajos rápidos actualizados.
+- `.aigent/IDE/install.ps1` — switch `-Clean`, función `Invoke-CleanUnselectedDepts`, banner, validación contra `-Sync`, invocación en main, ayuda y atajos rápidos actualizados.
+
+**Por qué MINOR y no MAJOR:** el comportamiento por defecto sigue siendo aditivo (idéntico al anterior). El flag es opt-in, así que ningún deployment existente cambia salvo que se le añada `--clean` explícitamente. Sin breaking change → MINOR.
+
+---
 ## 3.4.0 — 2026-05-21
 
 ### Nueva utility-skill compartida `shared-base64-to-file`
@@ -20,18 +62,19 @@ Primera skill v1 transversal cuya función no es generar contenido (business) ni
 node .aigent/departments/_shared/skills/shared-base64-to-file/decode.js \
   --input .context/.temp/<dept>/<purpose>-<timestamp>.b64 \
   --format <png|jpg|jpeg|gif|webp|svg|pdf|zip> \
-  [--output <path>] [--keep-input]
+  [--output <path-final-del-depto>] [--keep-input] [--no-b64-copy]
 ```
 
 Comportamiento:
 
 - Solo Node stdlib (`fs`, `path`) — sin dependencias. Compatible con Node 18+.
-- `--input` y `--output` deben estar bajo `.context/.temp/` (rechazo explícito si no — `INPUT_OUT_OF_SCOPE` / `OUTPUT_OUT_OF_SCOPE`); promocionar fuera es responsabilidad del agente caller (mover con `Bash`/`Write`).
-- Default de `--output`: mismo path que `--input` con la extensión cambiada a `<format>`.
-- Valida que el contenido es base64 con regex (`BAD_BASE64` si no), decodifica con `Buffer.from(..., 'base64')`, verifica magic bytes contra `<format>` (`FORMAT_MISMATCH` si no), crea `.context/.temp/<dept>/` y `.context/.temp/.gitignore` con `*` si faltan, escribe el binario, y borra el `.b64` salvo `--keep-input`.
+- `--input` debe estar bajo `.context/.temp/` (rechazo explícito si no — `INPUT_OUT_OF_SCOPE`). `--output` **es libre**: típicamente apunta a la ruta de outputs del depto (p. ej. `posts/<slug>/assets/hero.png`). El script no impone scope al output.
+- Default de `--output`: mismo path que `--input` con la extensión cambiada a `<format>` (queda en `.context/.temp/<dept>/`).
+- **Copia `.b64` alongside por defecto:** tras decodificar, el script copia el `.b64` junto al fichero de salida (mismo basename, extensión `.b64`) para conservar el payload original por si en el futuro hay que re-subirlo a un sistema que solo acepte base64. Se suprime con `--no-b64-copy`. Si el alongside coincide con el `.b64` intermedio (caso de `--output` sin override), el script no duplica y preserva el `.b64` automáticamente.
+- Valida que el contenido es base64 con regex (`BAD_BASE64` si no), decodifica con `Buffer.from(..., 'base64')`, verifica magic bytes contra `<format>` (`FORMAT_MISMATCH` si no), crea los directorios destino, crea `.context/.temp/.gitignore` con `*` si falta, escribe el binario, copia el `.b64` alongside, y borra el `.b64` intermedio salvo `--keep-input` o que coincida con la copia alongside.
 - SVG se verifica como texto (UTF-8 inicial trim → empieza por `<?xml` o `<svg`); WEBP combina `RIFF` en bytes 0-3 + `WEBP` en bytes 8-11; resto, magic bytes clásicos.
-- Output JSON a stdout (`{ ok, path, bytes, mime, format }` o `{ ok, error: { code, message } }`), línea humana a stderr en error, exit 0/1.
-- Códigos de error: `BAD_ARGS`, `INPUT_NOT_FOUND`, `INPUT_OUT_OF_SCOPE`, `OUTPUT_OUT_OF_SCOPE`, `BAD_BASE64`, `EMPTY_DECODE`, `MISSING_FORMAT`, `FORMAT_MISMATCH`, `WRITE_FAILED`, `INTERNAL`.
+- Output JSON a stdout (`{ ok, path, bytes, mime, format, b64_copy }` o `{ ok, error: { code, message } }`), línea humana a stderr en error, exit 0/1. `b64_copy` es `null` cuando se pasa `--no-b64-copy`.
+- Códigos de error: `BAD_ARGS`, `INPUT_NOT_FOUND`, `INPUT_OUT_OF_SCOPE`, `BAD_BASE64`, `EMPTY_DECODE`, `MISSING_FORMAT`, `FORMAT_MISMATCH`, `WRITE_FAILED`, `INTERNAL`. (`OUTPUT_OUT_OF_SCOPE` retirado en este mismo bump tras pasar de "staging-only" a "staging + entregable final".)
 
 **Categoría nueva "utility" en `_shared/skills/`.** Antes había dos categorías documentadas (meta + business). Se añade **utility** para utilidades técnicas con script al lado, conviviendo sin subcarpetas con el resto.
 
