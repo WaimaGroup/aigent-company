@@ -4,6 +4,53 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.6.0 — 2026-05-28
+
+### Engine v2 y scripts auxiliares: rename `.js` → `.cjs`
+
+Bug reportado por el usuario: al ejecutar `node .aigent/v2/engine/engine.js ...` en un proyecto host cuyo `package.json` declara `"type": "module"`, Node trata todos los `.js` como ES modules y los `require()` del engine fallan con:
+
+```
+ReferenceError: require is not defined in ES module scope, you can use import instead
+This file is being treated as an ES module because it has a '.js' file extension and
+'C:\workspace\bw\bw-desktop\package.json' contains "type": "module".
+```
+
+**Solución elegida:** renombrar todos los scripts a `.cjs`. Node identifica la extensión `.cjs` como CommonJS sin depender de `package.json`. Es la solución oficial de Node y la única que evita añadir cualquier archivo nuevo al árbol `.aigent/` (sin `package.json`, sin dependencias declaradas, sin `node_modules`).
+
+**Archivos renombrados (12):**
+- `.aigent/v2/engine/audit.js` → `audit.cjs`
+- `.aigent/v2/engine/config.js` → `config.cjs`
+- `.aigent/v2/engine/configure.js` → `configure.cjs`
+- `.aigent/v2/engine/dryrun.js` → `dryrun.cjs`
+- `.aigent/v2/engine/engine.js` → `engine.cjs`
+- `.aigent/v2/engine/http.js` → `http.cjs`
+- `.aigent/v2/engine/lint.js` → `lint.cjs`
+- `.aigent/v2/engine/parser.js` → `parser.cjs`
+- `.aigent/v2/engine/template.js` → `template.cjs`
+- `.aigent/v2/engine/validate.js` → `validate.cjs`
+- `.aigent/v2/engine/yaml.js` → `yaml.cjs`
+- `.aigent/departments/_shared/skills/shared-base64-to-file/decode.js` → `decode.cjs`
+
+**Requires internos actualizados:** Node no resuelve automáticamente `require('./xxx')` a `xxx.cjs` (solo a `.js`, `.json`, `.node`). Por eso todos los requires relativos del engine pasan a ser explícitos: `require('./config.cjs')`, `require('./parser.cjs')`, etc.
+
+**Referencias externas actualizadas (24 archivos):** ayuda del instalador, stubs v2 generados, orquestadores de todos los departamentos, `CLAUDE.md`, `BOSS.md`, `_shared/conventions.md`, `_shared/orchestrator-template.md`, `_shared/agents/shared-skill-builder.md`, `_shared/skills/shared-skill-scaffold/SKILL.md`, README del framework y del engine v2. Todo lo que decía `node .aigent/v2/engine/engine.js` ahora dice `node .aigent/v2/engine/engine.cjs`.
+
+**Verificado en sandbox** con un proyecto host que tiene `package.json` con `"type": "module"`: antes del fix `engine.js` revienta con `ReferenceError`, después del fix `engine.cjs` devuelve los JSON estructurados de siempre (`validate`, `describe`, `doctor`, `list`, `configure`, `prepare-secrets`).
+
+### Bug fix: NUL bytes residuales en `decode.cjs`
+
+Independiente al bug de ESM, el archivo `shared-base64-to-file/decode.js` tenía 68 bytes `\0` (NUL) al final, residuo probablemente de una edición previa con codificación rota. Node los rechazaba con `SyntaxError: Invalid or unexpected token`. Archivo limpiado a binario: cualquier `\0` se elimina y el `try { main() } catch ...` queda como única entrada de ejecución.
+
+### Por qué MINOR y no PATCH
+
+Es un fix de bug, pero **renombrar archivos rompe stubs antiguos**: un deployment existente cuyas skills v2 fueron instaladas con una versión anterior tendrá stubs que apuntan a `engine.js`, que ya no existe. La migración es trivial — basta reinstalar con `./install.sh` para que los stubs se regeneren apuntando a `engine.cjs` — pero exige acción del usuario. Por convención: cambios que obligan a reinstalar = MINOR. Ningún cambio en el contrato de skills v2 (frontmatter, templating, error codes) → no MAJOR.
+
+### Por qué descartado el enfoque `.aigent/package.json` con `"type": "commonjs"`
+
+Funcionaba técnicamente (ancla el árbol a CJS sin renombrar nada), pero introducía un `package.json` dentro de `.aigent/` que sugería falsamente que el framework tiene "dependencias" o que es un proyecto Node. El objetivo del framework es no añadir overhead al proyecto host. La extensión `.cjs` consigue lo mismo sin archivos nuevos.
+
+---
 ## 3.5.0 — 2026-05-28
 
 ### Instalador: flag `--clean` / `-Clean` para quitar departamentos del destino

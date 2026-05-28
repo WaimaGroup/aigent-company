@@ -4,7 +4,7 @@
 // Comprueba que cada archivo cumple las convenciones de _shared/conventions.md.
 // Devuelve errores (bloqueantes) y warnings (no bloquean, pero conviene corregir).
 //
-// Se usa desde el comando `engine.js audit-repo`.
+// Se usa desde el comando `engine.cjs audit-repo`.
 
 'use strict';
 
@@ -112,9 +112,9 @@ function auditSkill(filePath, dept, folder) {
 
   // 3) Body — secciones obligatorias
   if (isV2) {
-    // v2 lo valida el lint del engine (engine.js validate), aquí solo chequeo mínimo
+    // v2 lo valida el lint del engine (engine.cjs validate), aquí solo chequeo mínimo
     if (!/```http\s+name=/.test(body)) {
-      warnings.push('v2 skill: no http blocks found in body — engine.js validate will catch this');
+      warnings.push('v2 skill: no http blocks found in body — engine.cjs validate will catch this');
     }
   } else {
     for (const re of SKILL_V1_REQUIRED_SECTIONS) {

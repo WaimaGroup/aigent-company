@@ -258,14 +258,14 @@ Cuando coordinas múltiples agentes, **siempre**:
 
 Sales no tiene skills v2 ejecutables propias en este momento — todas son skills v1 de prosa. Esta sección queda activa de cara al futuro: si en algún momento se añaden skills v2 al departamento (p.ej. una skill ejecutable contra un CRM como HubSpot o Salesforce), aplica este protocolo. Es la versión sincronizada con `_shared/orchestrator-template.md`.
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.js run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
+Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
 
 ### Camino principal — precheck proactivo (preferido)
 
-Antes de delegar una acción de una skill v2, o antes de invocar `engine.js run` directamente, **ejecuta primero el precheck**:
+Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
 
 ```bash
-node .aigent/v2/engine/engine.js doctor <skill>
+node .aigent/v2/engine/engine.cjs doctor <skill>
 ```
 
 - Si `data.skills[0].ready: true` → adelante, ejecuta `run`.
@@ -285,7 +285,7 @@ Si por algún motivo se llamó a `run` sin precheck y devuelve `CONFIG_ERROR` / 
    onboarding antes de ejecutarse.
    ```
 
-   El skill-builder hará: `engine.js doctor` → preguntará al usuario los valores de **config** faltantes (no son secretos) → ejecutará `engine.js configure` → ejecutará `engine.js prepare-secrets` → indicará al usuario qué **secrets** rellenar manualmente y dónde, **sin pedir el valor por chat**.
+   El skill-builder hará: `engine.cjs doctor` → preguntará al usuario los valores de **config** faltantes (no son secretos) → ejecutará `engine.cjs configure` → ejecutará `engine.cjs prepare-secrets` → indicará al usuario qué **secrets** rellenar manualmente y dónde, **sin pedir el valor por chat**.
 3. **Espera el "ready: true"** del skill-builder. Si quedan secrets pendientes que el usuario debe rellenar a mano, espera la confirmación explícita del usuario antes de continuar.
 4. **Reintenta el `run` original** una vez la skill esté configurada. Si vuelve a fallar con `CONFIG_ERROR` / `SECRETS_ERROR` (raro), repite el ciclo. Si falla con otro código (`HTTP_4xx`, `HTTP_5xx`, `NETWORK_ERROR`, `INVALID_BODY_JSON`, etc.), eso es un problema operativo: reporta al usuario sin llamar a configure.
 5. **Continúa la tarea original** desde donde estabas.

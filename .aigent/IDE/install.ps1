@@ -184,10 +184,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ``````bash
 # Ver acciones disponibles, sus inputs y sus outputs
-node .aigent/v2/engine/engine.js describe $skillName
+node .aigent/v2/engine/engine.cjs describe $skillName
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.js run $skillName <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run $skillName <action> --inputs '{"...": "..."}'
 ``````
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.

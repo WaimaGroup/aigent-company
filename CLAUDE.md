@@ -43,7 +43,7 @@ Conflicto entre un dept implementado y los archivos de `_shared/` → ganan los 
 | Crear o auditar una **skill** | Agente `shared-skill-builder` (usa la skill `skill-scaffold`). Modos: `create-v1`, `create-v2`, `configure`, `audit`, `add-action`. |
 | Crear o modificar un **orquestador** | Copiar `_shared/orchestrator-template.md`, rellenar marcas `<...>`, listar agentes reales del dept y reflejar la estructura de outputs en la sección final. |
 | Cambiar **convenciones** del repo | Editar `_shared/conventions.md` (NO replicar la decisión en system prompts de agentes). |
-| Validar una skill v2 | `node .aigent/v2/engine/engine.js validate <skill>` → corregir hasta `ok: true`. Después `dry-run <action>` con inputs realistas. |
+| Validar una skill v2 | `node .aigent/v2/engine/engine.cjs validate <skill>` → corregir hasta `ok: true`. Después `dry-run <action>` con inputs realistas. |
 | Activar un departamento TODO | Sustituir orquestador stub usando `orchestrator-template.md` + sustituir agentes stub usando `agent-scaffold` modo `create-specialist`. **Cuestionar si los 4 agentes stub son realmente necesarios o si parte de su trabajo es mejor una skill.** |
 
 ## Reglas de oro (este repo, no las de BOSS)
@@ -83,7 +83,7 @@ Outputs **fuera** de `.aigent/`:
 │   ├── operations/  (🚧 parcial: stubs + skill v2 `redmine`)
 │   └── design, devops, finance, hr, legal, product, software/  (🚧 TODO: stubs honestos)
 ├── v2/
-│   ├── engine/                          ← engine.js, parser, yaml, http, validate, dryrun
+│   ├── engine/                          ← engine.cjs, parser, yaml, http, validate, dryrun
 │   └── README.md
 └── IDE/
     ├── install.sh · install.ps1         ← instaladores con marcador ##OPTIONS:[...]##
@@ -98,14 +98,14 @@ CLAUDE.md (este archivo)                 ← system prompt para mantener el fram
 ## Engine v2 — comandos útiles
 
 ```bash
-node .aigent/v2/engine/engine.js list                          # skills v2 cargables
-node .aigent/v2/engine/engine.js describe <skill>              # manifest JSON (acciones, inputs, outputs)
-node .aigent/v2/engine/engine.js validate <skill>              # parsea y valida sin ejecutar
-node .aigent/v2/engine/engine.js doctor [<skill>]              # config + secrets pendientes
-node .aigent/v2/engine/engine.js configure <skill> --set <path>=<valor> [--scope global|project]
-node .aigent/v2/engine/engine.js prepare-secrets <skill>       # placeholders en .context/.secrets.json (NUNCA valores)
-node .aigent/v2/engine/engine.js dry-run <skill> <action> --inputs '{...}'
-node .aigent/v2/engine/engine.js run <skill> <action> --inputs '{...}'
+node .aigent/v2/engine/engine.cjs list                          # skills v2 cargables
+node .aigent/v2/engine/engine.cjs describe <skill>              # manifest JSON (acciones, inputs, outputs)
+node .aigent/v2/engine/engine.cjs validate <skill>              # parsea y valida sin ejecutar
+node .aigent/v2/engine/engine.cjs doctor [<skill>]              # config + secrets pendientes
+node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project]
+node .aigent/v2/engine/engine.cjs prepare-secrets <skill>       # placeholders en .context/.secrets.json (NUNCA valores)
+node .aigent/v2/engine/engine.cjs dry-run <skill> <action> --inputs '{...}'
+node .aigent/v2/engine/engine.cjs run <skill> <action> --inputs '{...}'
 ```
 
 Errores estructurales del engine: `BAD_ARGS`, `PARSE_ERROR`, `INVALID_INPUTS`, `CONFIG_ERROR`, `SECRETS_ERROR`, `INVALID_BODY_JSON`, `HTTP_<status>`, `TIMEOUT`, `NETWORK_ERROR`, `UNSUPPORTED_IMPL`, `VALIDATION_FAILED`.
@@ -114,7 +114,7 @@ Errores estructurales del engine: `BAD_ARGS`, `PARSE_ERROR`, `INVALID_INPUTS`, `
 
 Dos reglas de oro al usar (o construir) skills v2:
 
-**1. Precheck proactivo antes de `run`.** Antes de invocar `engine.js run <skill> <action>`, ejecutar `engine.js doctor <skill>`. Si `data.skills[0].ready === false`, no llamar a `run`: lanzar el flujo de configuración (delegar en `shared-skill-builder configure` o ejecutar `configure` + `prepare-secrets` directamente) y reintentar el `run` solo cuando `ready: true`. Llamar a `run` "a ciegas" funciona pero genera un round-trip innecesario y un error que el usuario no debería ver. Toda nueva skill v2 lleva una sección obligatoria **"Antes de ejecutar (precheck para el agente caller)"** entre `Requisitos` y `Acciones` (ver plantilla en `_shared/skills/shared-skill-scaffold/SKILL.md`).
+**1. Precheck proactivo antes de `run`.** Antes de invocar `engine.cjs run <skill> <action>`, ejecutar `engine.cjs doctor <skill>`. Si `data.skills[0].ready === false`, no llamar a `run`: lanzar el flujo de configuración (delegar en `shared-skill-builder configure` o ejecutar `configure` + `prepare-secrets` directamente) y reintentar el `run` solo cuando `ready: true`. Llamar a `run` "a ciegas" funciona pero genera un round-trip innecesario y un error que el usuario no debería ver. Toda nueva skill v2 lleva una sección obligatoria **"Antes de ejecutar (precheck para el agente caller)"** entre `Requisitos` y `Acciones` (ver plantilla en `_shared/skills/shared-skill-scaffold/SKILL.md`).
 
 **2. Secrets nunca por chat.** Los valores de los secretos (API keys, tokens, contraseñas) **NUNCA** se piden al usuario en la conversación. Sólo se le indica qué placeholder editar en `.context/.secrets.json` o qué env var definir. Si el usuario intenta dictar un secreto, rechazar el valor explícitamente — la regla aplica también si insiste o argumenta entorno de desarrollo. El engine no acepta valores de secretos por CLI tampoco.
 
@@ -123,7 +123,7 @@ Dos reglas de oro al usar (o construir) skills v2:
 ## Antes de cerrar una sesión
 
 - Si tocaste un agente o skill: ¿está en `_shared/conventions.md` la sección que aplica? ¿pasa el checklist estructural de `agent-scaffold` / `skill-scaffold`?
-- Si añadiste una skill v2: ¿`engine.js validate` devuelve `ok: true`? ¿probaste un `dry-run`?
+- Si añadiste una skill v2: ¿`engine.cjs validate` devuelve `ok: true`? ¿probaste un `dry-run`?
 - Si tocaste convenciones (`_shared/conventions.md`): ¿coherente con orchestrator-template, output-rules y los SKILL.md de scaffold?
 - Si tocaste el instalador: ¿probado en modo `--dry-run`? ¿el marcador `##OPTIONS:[...]##` aparece en cada menú?
 - Si tocaste `BOSS.md` o `.aigent/README.md`: ¿reflejan el estado real de los departamentos?

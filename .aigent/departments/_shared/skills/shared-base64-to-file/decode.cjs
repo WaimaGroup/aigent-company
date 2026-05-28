@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * shared-base64-to-file/decode.js
+ * shared-base64-to-file/decode.cjs
  *
  * Decode a base64 file into a binary/textual asset, verifying that the decoded
  * bytes match the requested format via magic-bytes inspection (or initial UTF-8
@@ -12,7 +12,7 @@
  * No dependencies beyond Node stdlib. Compatible with Node 18+.
  *
  * Usage:
- *   node decode.js --input <path> [--format <fmt>] [--output <path>]
+ *   node decode.cjs --input <path> [--format <fmt>] [--output <path>]
  *                  [--keep-input] [--no-b64-copy]
  *
  * Behavior:
@@ -74,7 +74,7 @@ function emitOk(data) {
 function help() {
   const text = [
     'Usage:',
-    '  node decode.js --input <path> [--format <fmt>] [--output <path>]',
+    '  node decode.cjs --input <path> [--format <fmt>] [--output <path>]',
     '                 [--keep-input] [--no-b64-copy]',
     '',
     'Args:',
@@ -311,8 +311,5 @@ function main() {
 try {
   main();
 } catch (e) {
-  emitError('INTERNAL', e && e.message ? e.message : String(e));
-}
-
   emitError('INTERNAL', e && e.message ? e.message : String(e));
 }

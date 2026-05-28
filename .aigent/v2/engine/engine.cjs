@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// engine.js — CLI principal del engine v2.
+// engine.cjs — CLI principal del engine v2.
 // Comandos: list | describe | validate | doctor | configure | prepare-secrets | dry-run | run
 // Output: JSON a stdout. Exit 0 si ok, !=0 si error.
 
@@ -8,14 +8,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const { parseSkill, validateSkill } = require('./parser');
-const { validateInputs } = require('./validate');
-const { deepValidateSkill } = require('./lint');
-const { auditRepo } = require('./audit');
-const { loadConfig, loadSecrets, loadConfigLenient, loadSecretsLenient } = require('./config');
-const { executeHttp } = require('./http');
-const { dryRunHttp } = require('./dryrun');
-const { doctor: doctorCmd, configure: configureCmd, prepareSecrets: prepareSecretsCmd, doctorOne, SECRETS_PATH } = require('./configure');
+const { parseSkill, validateSkill } = require('./parser.cjs');
+const { validateInputs } = require('./validate.cjs');
+const { deepValidateSkill } = require('./lint.cjs');
+const { auditRepo } = require('./audit.cjs');
+const { loadConfig, loadSecrets, loadConfigLenient, loadSecretsLenient } = require('./config.cjs');
+const { executeHttp } = require('./http.cjs');
+const { dryRunHttp } = require('./dryrun.cjs');
+const { doctor: doctorCmd, configure: configureCmd, prepareSecrets: prepareSecretsCmd, doctorOne, SECRETS_PATH } = require('./configure.cjs');
 
 const V2_ROOT = path.resolve(__dirname, '..');
 const AIGENT_ROOT = path.resolve(V2_ROOT, '..');
@@ -87,7 +87,7 @@ function listSkills() {
 }
 
 function describeSkill(name) {
-  if (!name) return errorResult('BAD_ARGS', 'Usage: engine.js describe <skill>');
+  if (!name) return errorResult('BAD_ARGS', 'Usage: engine.cjs describe <skill>');
   const found = findSkill(name);
   if (!found) {
     return errorResult('SKILL_NOT_FOUND', `Skill "${name}" not found in any department under ${DEPARTMENTS_DIR}`);
@@ -118,7 +118,7 @@ function describeSkill(name) {
 }
 
 function validateSkillCmd(name) {
-  if (!name) return errorResult('BAD_ARGS', 'Usage: engine.js validate <skill>');
+  if (!name) return errorResult('BAD_ARGS', 'Usage: engine.cjs validate <skill>');
   const found = findSkillRaw(name);
   if (!found) {
     return errorResult('SKILL_NOT_FOUND', `Skill "${name}" not found in any department under ${DEPARTMENTS_DIR}`);
@@ -170,14 +170,14 @@ function doctorSkill(name, projectName) {
 }
 
 function configureSkill(name, sets, scope, projectName) {
-  if (!name) return errorResult('BAD_ARGS', "Usage: engine.js configure <skill> --set <path>=<value> [--scope global|project] [--project <name>]");
+  if (!name) return errorResult('BAD_ARGS', "Usage: engine.cjs configure <skill> --set <path>=<value> [--scope global|project] [--project <name>]");
   const found = findSkill(name);
   if (!found) return errorResult('SKILL_NOT_FOUND', `Skill "${name}" not found in any department`);
   return configureCmd(found, sets, scope || 'global', projectName);
 }
 
 function prepareSecretsSkill(name) {
-  if (!name) return errorResult('BAD_ARGS', 'Usage: engine.js prepare-secrets <skill>');
+  if (!name) return errorResult('BAD_ARGS', 'Usage: engine.cjs prepare-secrets <skill>');
   const found = findSkill(name);
   if (!found) return errorResult('SKILL_NOT_FOUND', `Skill "${name}" not found in any department`);
   return prepareSecretsCmd(found);
@@ -185,7 +185,7 @@ function prepareSecretsSkill(name) {
 
 async function dryRunAction(skillName, actionName, providedInputs, projectName) {
   if (!skillName || !actionName) {
-    return errorResult('BAD_ARGS', "Usage: engine.js dry-run <skill> <action> [--inputs '{...}']");
+    return errorResult('BAD_ARGS', "Usage: engine.cjs dry-run <skill> <action> [--inputs '{...}']");
   }
   const found = findSkill(skillName);
   if (!found) return errorResult('SKILL_NOT_FOUND', `Skill "${skillName}" not found in any department`);
@@ -221,7 +221,7 @@ async function dryRunAction(skillName, actionName, providedInputs, projectName) 
 
 async function runAction(skillName, actionName, providedInputs, projectName) {
   if (!skillName || !actionName) {
-    return errorResult('BAD_ARGS', "Usage: engine.js run <skill> <action> [--inputs '{...}']");
+    return errorResult('BAD_ARGS', "Usage: engine.cjs run <skill> <action> [--inputs '{...}']");
   }
   const found = findSkill(skillName);
   if (!found) return errorResult('SKILL_NOT_FOUND', `Skill "${skillName}" not found in any department`);
@@ -272,7 +272,7 @@ function readinessError(code, message, found, projectName) {
   if (missing_config.length > 0) {
     next.push(
       'Pide al usuario los valores de config faltantes (no son secretos) y aplica con: ' +
-      'node .aigent/v2/engine/engine.js configure ' + skill + ' ' +
+      'node .aigent/v2/engine/engine.cjs configure ' + skill + ' ' +
       missing_config.map(c => '--set ' + c.path + '=<valor>').join(' ') +
       ' --scope <global|project>'
     );
@@ -280,7 +280,7 @@ function readinessError(code, message, found, projectName) {
   if (missing_secrets.length > 0) {
     next.push(
       'Asegura placeholders en .context/.secrets.json con: ' +
-      'node .aigent/v2/engine/engine.js prepare-secrets ' + skill
+      'node .aigent/v2/engine/engine.cjs prepare-secrets ' + skill
     );
     next.push(
       'Indica al usuario qué secretos rellenar a mano (NUNCA pedirlos por chat). ' +
@@ -290,7 +290,7 @@ function readinessError(code, message, found, projectName) {
     );
   }
   next.push(
-    'Verifica readiness con: node .aigent/v2/engine/engine.js doctor ' + skill +
+    'Verifica readiness con: node .aigent/v2/engine/engine.cjs doctor ' + skill +
     ' (espera "ready: true" antes de reintentar el run).'
   );
 
@@ -356,15 +356,15 @@ function parseArgv(argv) {
 function printHelp() {
   process.stdout.write([
     'Usage:',
-    '  engine.js list',
-    '  engine.js describe <skill>',
-    '  engine.js validate <skill>',
-    '  engine.js audit-repo',
-    '  engine.js doctor [<skill>] [--project <name>]',
-    '  engine.js configure <skill> --set <path>=<value> [--set ...] [--scope global|project] [--project <name>]',
-    '  engine.js prepare-secrets <skill>',
-    "  engine.js dry-run <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
-    "  engine.js run      <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
+    '  engine.cjs list',
+    '  engine.cjs describe <skill>',
+    '  engine.cjs validate <skill>',
+    '  engine.cjs audit-repo',
+    '  engine.cjs doctor [<skill>] [--project <name>]',
+    '  engine.cjs configure <skill> --set <path>=<value> [--set ...] [--scope global|project] [--project <name>]',
+    '  engine.cjs prepare-secrets <skill>',
+    "  engine.cjs dry-run <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
+    "  engine.cjs run      <skill> <action> [--inputs '{\"k\":\"v\"}'] [--project <name>]",
     '',
     'Commands:',
     '  list             - list all v2 skills found across departments',

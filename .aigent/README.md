@@ -87,7 +87,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 | Skill | Cuándo usarla | Agentes consumidores documentados |
 |---|---|---|
-| `shared-base64-to-file` | Decodificar un base64 (típicamente de un MCP de imágenes / descarga de assets) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes y formatos soportados: PNG, JPG, GIF, WEBP, SVG, PDF, ZIP. Incluye `decode.js` (Node 18+, sin deps) | cualquier agente que reciba base64 de un MCP (marketing-content, marketing-web, design-ui, etc. cuando lo integren) |
+| `shared-base64-to-file` | Decodificar un base64 (típicamente de un MCP de imágenes / descarga de assets) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes y formatos soportados: PNG, JPG, GIF, WEBP, SVG, PDF, ZIP. Incluye `decode.cjs` (Node 18+, sin deps) | cualquier agente que reciba base64 de un MCP (marketing-content, marketing-web, design-ui, etc. cuando lo integren) |
 
 > **Criterios para `_shared/skills/`:** ver `conventions.md` §7.1. Resumen: ≥2 depts la usan + entregable genuinamente idéntico + sin matices fuertes por dept. Si una compartida empieza a divergir entre depts, se duplica en los depts (no se fuerza lo compartido).
 
@@ -357,7 +357,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 |---|---|
 | `operations-redmine` | Skill ejecutable contra la API REST de Redmine (engine-v2). 10 acciones: `list-issues`, `get-issue`, `create-issue`, `update-issue`, `add-note`, `list-projects`, `log-time`, `list-activities`, `list-time-entries`, `update-time-entry`. |
 
-> La skill `operations-redmine` puede ejecutarse directamente vía `node .aigent/v2/engine/engine.js run operations-redmine <action>` aunque los agentes especialistas del dept no estén implementados todavía.
+> La skill `operations-redmine` puede ejecutarse directamente vía `node .aigent/v2/engine/engine.cjs run operations-redmine <action>` aunque los agentes especialistas del dept no estén implementados todavía.
 
 ---
 
@@ -484,7 +484,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `shared-okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo con scoring | business |
 | `shared-journey-map` | Journey con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | business |
 | `shared-deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia | business |
-| `shared-base64-to-file` | Decodificar base64 (típicamente de un MCP) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes (PNG/JPG/GIF/WEBP/SVG/PDF/ZIP). Incluye `decode.js` (Node 18+, sin deps) | utility |
+| `shared-base64-to-file` | Decodificar base64 (típicamente de un MCP) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes (PNG/JPG/GIF/WEBP/SVG/PDF/ZIP). Incluye `decode.cjs` (Node 18+, sin deps) | utility |
 
 ### Skills dept-específicas (75)
 

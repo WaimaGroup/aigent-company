@@ -240,10 +240,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ```bash
 # Ver acciones disponibles, sus inputs y sus outputs
-node .aigent/v2/engine/engine.js describe __SKILL__
+node .aigent/v2/engine/engine.cjs describe __SKILL__
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.js run __SKILL__ <action> --inputs '{"...": "..."}'
+node .aigent/v2/engine/engine.cjs run __SKILL__ <action> --inputs '{"...": "..."}'
 ```
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.

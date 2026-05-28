@@ -27,7 +27,7 @@ marketing-elementor-content/
     └── validate-elementor-data.mjs           ← validador específico (Node 18+, sin deps)
 ```
 
-El validador es **parte del contrato de la skill** — la skill se ejecuta siempre con él. Si más adelante varios departments necesitan validadores de outputs estructurados, se promueve al engine v2 con un comando `engine.js validate-output <type> <file>`. Por ahora vive aquí porque el contrato es 100% específico de Elementor (catálogo de widgets, jerarquía section/column/widget, `isInner` consistency, columnas a 100%, `icon-list` con `_id`).
+El validador es **parte del contrato de la skill** — la skill se ejecuta siempre con él. Si más adelante varios departments necesitan validadores de outputs estructurados, se promueve al engine v2 con un comando `engine.cjs validate-output <type> <file>`. Por ahora vive aquí porque el contrato es 100% específico de Elementor (catálogo de widgets, jerarquía section/column/widget, `isInner` consistency, columnas a 100%, `icon-list` con `_id`).
 
 ---
 

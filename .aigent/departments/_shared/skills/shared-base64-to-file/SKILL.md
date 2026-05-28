@@ -14,7 +14,7 @@ description: >
   keywords and patterns: "base64", "b64", "data URI", "data:image/...;base64,",
   "decode base64", "save base64 as file", "materialize base64 to PNG/JPG/SVG/PDF/ZIP",
   "the MCP returned base64", "creativity returned by the image generation tool",
-  "binary blob from API response". Ships with `decode.js` (Node 18+, no
+  "binary blob from API response". Ships with `decode.cjs` (Node 18+, no
   dependencies) that handles validation, decoding, magic-bytes checks, gitignore
   management, alongside `.b64` snapshot, and cleanup.
 ---
@@ -28,7 +28,7 @@ description: >
 ```
 shared-base64-to-file/
 ├── SKILL.md       ← este archivo (prosa + contrato CLI)
-└── decode.js      ← script Node 18+ sin dependencias
+└── decode.cjs      ← script Node 18+ sin dependencias
 ```
 
 El script es **parte del contrato** de la skill. La prosa describe lo que el script hace; si diverge, gana el comportamiento real del script y se ajusta la prosa.
@@ -81,10 +81,10 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
    .context/.temp/<dept>/<purpose>-<TS>.b64
    ```
 
-3. **Invocar `decode.js`** desde la raíz del repo (donde vive `.context/`), pasando `--output` con la ruta final del depto:
+3. **Invocar `decode.cjs`** desde la raíz del repo (donde vive `.context/`), pasando `--output` con la ruta final del depto:
 
    ```bash
-   node .aigent/departments/_shared/skills/shared-base64-to-file/decode.js \
+   node .aigent/departments/_shared/skills/shared-base64-to-file/decode.cjs \
      --input .context/.temp/<dept>/<purpose>-<TS>.b64 \
      --format <format> \
      --output <ruta-final-del-depto>/<basename>.<format>
@@ -110,7 +110,7 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
 ## Contrato CLI
 
 ```
-node .aigent/departments/_shared/skills/shared-base64-to-file/decode.js \
+node .aigent/departments/_shared/skills/shared-base64-to-file/decode.cjs \
   --input <path>           # obligatorio. Path al .b64. Debe estar bajo .context/.temp/.
   --format <fmt>           # obligatorio salvo que --output traiga la extensión.
                            # Valores: png, jpg, jpeg, gif, webp, svg, pdf, zip.
@@ -183,7 +183,7 @@ stderr: `[ERROR FORMAT_MISMATCH] Decoded bytes do not match expected signature f
 | `zip` | bytes `50 4B 03 04` (`PK\x03\x04`) |
 | `svg` | UTF-8 inicial (256 primeros bytes, trim) empieza por `<?xml` o `<svg` |
 
-Añadir un formato nuevo = editar `decode.js` (catálogo `MAGIC` y mapa `MIME`) **y** esta tabla. No se aceptan formatos ad-hoc fuera del catálogo declarado.
+Añadir un formato nuevo = editar `decode.cjs` (catálogo `MAGIC` y mapa `MIME`) **y** esta tabla. No se aceptan formatos ad-hoc fuera del catálogo declarado.
 
 ---
 
@@ -203,7 +203,7 @@ Añadir un formato nuevo = editar `decode.js` (catálogo `MAGIC` y mapa `MIME`) 
 - El script **solo lee base64 desde un fichero**, no por stdin ni por argumento. Esto evita problemas con blobs grandes y mantiene auditabilidad (el `.b64` queda en disco si se usa `--keep-input` o por el alongside).
 - El **input** siempre bajo `.context/.temp/`. El **output** es libre: el script no impone scope en `--output` (lo decide el agente caller, respetando la convención de outputs del depto).
 - El script **no usa dependencias externas**: solo Node stdlib (`fs`, `path`). Compatible con Node 18+.
-- El script **no acepta formatos fuera del catálogo declarado**. Añadir uno nuevo requiere editar `decode.js` y este SKILL.md a la vez.
+- El script **no acepta formatos fuera del catálogo declarado**. Añadir uno nuevo requiere editar `decode.cjs` y este SKILL.md a la vez.
 - **No commitear nada de `.context/.temp/`.** El `.gitignore` del directorio se encarga (lo crea el propio script la primera vez).
 - **La copia `.b64` alongside puede acabar fuera de `.context/.temp/`** y, por tanto, sí ser trackeada por git si el depto así lo decide. Es deliberado: el snapshot acompaña al binario donde quiera que viva.
 

@@ -68,9 +68,9 @@ Tanto la **carpeta** como el **`name:` del frontmatter** de toda skill (v1 y v2)
 
 Motivación: evitar colisiones cuando todas las skills acaban en un único directorio plano del IDE (`.claude/skills/`, `.opencode/skills/`), hacer obvio el dept de origen al leer cualquier referencia, y eliminar el drift entre source y stub — el installer ya no manipula el nombre, solo copia.
 
-**Engine v2:** la skill se invoca por su `name:`, que coincide con el dirname. `engine.js run operations-redmine list-issues`. El `path:` de `config:` (p. ej. `tools.redmine.base_url`) es independiente del `name:` y puede mantenerse sin prefijo si la config ya existía — o pasar a `tools.<name>.<...>` para skills nuevas.
+**Engine v2:** la skill se invoca por su `name:`, que coincide con el dirname. `engine.cjs run operations-redmine list-issues`. El `path:` de `config:` (p. ej. `tools.redmine.base_url`) es independiente del `name:` y puede mantenerse sin prefijo si la config ya existía — o pasar a `tools.<name>.<...>` para skills nuevas.
 
-**Lint del engine:** `engine.js validate <skill>` emite un warning si `manifest.name` no coincide con el dirname.
+**Lint del engine:** `engine.cjs validate <skill>` emite un warning si `manifest.name` no coincide con el dirname.
 
 ## 5. Estructura mínima de un agente
 
@@ -245,7 +245,7 @@ Reglas de resolución (las aplica BOSS al inicio de cada delegación, y el engin
 El engine v2 expone `--project <name>` en `run`, `dry-run` **y `configure --scope project`**. Si solo hay 1 proyecto en `.context/`, lo autodetecta. Si hay >1 y no se pasa el flag (cuando hace falta), devuelve `NO_PROJECT_SPECIFIED` con la lista.
 
 **Patrón habitual de configuración:**
-- La gran mayoría de valores van al config global con `engine.js configure <skill> --set ... ` (default `--scope global`). Una sola fuente de verdad por skill, válida para todos los proyectos.
+- La gran mayoría de valores van al config global con `engine.cjs configure <skill> --set ... ` (default `--scope global`). Una sola fuente de verdad por skill, válida para todos los proyectos.
 - Cuando un proyecto necesita un **override puntual** (ej. proyecto piloto que usa una URL de Redmine staging mientras el resto usa producción), el agente decide y pasa `--scope project --project <name>`. El valor se escribe en `.context/<proyecto>/config.json` bajo el mismo `path:` declarado en el manifest. En `run`/`dry-run`, el config del proyecto **sobreescribe** al global vía `deepMerge`.
 - Las decisiones de qué va en cada nivel las toma el agente caller, no el usuario directamente. El usuario aporta los valores; el agente decide el scope.
 
@@ -380,7 +380,7 @@ actions:
 
 **Reglas:**
 - `runtime: engine-v2` es obligatorio para que el engine cargue la skill.
-- `name:` sigue §4.1 (`<dept-prefix>-<carpeta>`). Es por este `name` por el que el engine encuentra la skill (`engine.js run operations-redmine ...`), no por dirname.
+- `name:` sigue §4.1 (`<dept-prefix>-<carpeta>`). Es por este `name` por el que el engine encuentra la skill (`engine.cjs run operations-redmine ...`), no por dirname.
 - `user-invocable: true` es obligatorio (§7.1).
 - `config.<key>.path` apunta a la ruta dentro de `.context/config.json` con prefijo `tools.<skill>.<...>` (§10). El `<skill>` del path es independiente del `name:` de la skill — puede mantenerse sin prefijo si la config ya existe (ej. `tools.redmine.base_url`).
 - `secrets[].name` es el nombre del env var. Nunca poner valores aquí.
@@ -499,20 +499,20 @@ El agente lee `details.next` y sigue los comandos en orden. Para los secretos pe
 ### 12.8 CLI del engine
 
 ```
-node .aigent/v2/engine/engine.js list
+node .aigent/v2/engine/engine.cjs list
   → lista skills cargables (todos los departments con runtime: engine-v2)
 
-node .aigent/v2/engine/engine.js describe <skill>
+node .aigent/v2/engine/engine.cjs describe <skill>
   → manifiesto en JSON (acciones, inputs, outputs), sin prosa
 
-node .aigent/v2/engine/engine.js validate <skill>
+node .aigent/v2/engine/engine.cjs validate <skill>
   → parsea, valida y reporta errores SIN ejecutar nada (uso: CI, skill-builder)
 
-node .aigent/v2/engine/engine.js doctor [<skill>]
+node .aigent/v2/engine/engine.cjs doctor [<skill>]
   → reporta estado de configuración: qué config + secrets faltan por rellenar
   → sin <skill> = reporta todas las skills v2
 
-node .aigent/v2/engine/engine.js configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
+node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
   → escribe valores en .context/config.json (global, default) o .context/<proyecto>/config.json (--scope project)
   → para --scope project: el agente decide qué proyecto pasar con --project <name>. Si solo hay 1 proyecto
     en .context/ se autodetecta. La mayoría de skills se configuran en global; los overrides por proyecto
@@ -520,21 +520,21 @@ node .aigent/v2/engine/engine.js configure <skill> --set <path>=<valor> [--scope
   → valida que <path> está declarado en manifest.config y aplica el type del manifest
   → admite múltiples --set en la misma llamada (atómico: todos o ninguno)
 
-node .aigent/v2/engine/engine.js prepare-secrets <skill>
+node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
   → garantiza que .context/.secrets.json existe (lo crea como {} si falta)
   → garantiza que .context/.gitignore existe con .secrets.json dentro
   → añade placeholders para secrets declarados que no estén set
   → devuelve la lista de secrets pendientes; el usuario los rellena a mano
   → NUNCA acepta valores de secret por CLI (los secrets no pasan por la conversación)
 
-node .aigent/v2/engine/engine.js dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
+node .aigent/v2/engine/engine.cjs dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
   → para mergear con .context/<proyecto>/config.json hace falta --project (o autodetección si hay 1)
   → si hay >1 proyecto y no se pasa --project, devuelve NO_PROJECT_SPECIFIED con la lista
   → renderiza la request HTTP sin llamarla. Devuelve { method, url, headers, body }
   → secrets cargados se enmascaran como ***SECRET:NAME***
   → secrets/config no configurados aparecen como ***SECRET:NAME:UNSET***
 
-node .aigent/v2/engine/engine.js run <skill> <action> [--inputs '{...}']
+node .aigent/v2/engine/engine.cjs run <skill> <action> [--inputs '{...}']
   → ejecuta la acción y devuelve { ok, data, meta }
 ```
 
@@ -573,7 +573,7 @@ Cuando `install.sh` / `install.ps1` detecta `runtime: engine-v2` en una skill, e
 .opencode/skills/<dept>-<skill>/SKILL.md             (idem)
 ```
 
-El stub contiene `description` copiada y el comando exacto para que el LLM consulte el contrato real vía `engine.js describe`. Reducción típica de contexto en el IDE: ~80%.
+El stub contiene `description` copiada y el comando exacto para que el LLM consulte el contrato real vía `engine.cjs describe`. Reducción típica de contexto en el IDE: ~80%.
 
 **Multi-IDE:** la fuente es única. Cada IDE recibe su stub vía el adaptador correspondiente en `install.sh`. Añadir un IDE nuevo (VS Code, Cursor, etc.) = añadir un destino en el installer, no tocar las skills.
 
@@ -643,7 +643,7 @@ Si un SKILL.md necesita una construcción no soportada, ampliar `engine/yaml.js`
 
 ## 15. Riesgos y normas para skills v2
 
-- **Drift entre prosa y manifiesto.** El frontmatter manda. La prosa describe lo declarado, no añade comportamiento. Para detectarlo: `engine.js validate <skill>` en CI o `shared-skill-builder` en modo audit.
+- **Drift entre prosa y manifiesto.** El frontmatter manda. La prosa describe lo declarado, no añade comportamiento. Para detectarlo: `engine.cjs validate <skill>` en CI o `shared-skill-builder` en modo audit.
 - **Acciones hinchadas.** Una acción = una llamada lógica. Si una operación necesita orquestar N llamadas en orden, son N acciones + un agente que las componga, no una mega-acción.
 - **Secretos en logs.** El engine nunca escribe valores de `secrets.*` en stdout/stderr. No incluirlos tampoco en `description` o ejemplos.
 - **Inputs sin schema.** Cada input declara `type` y `required`. Sin esto, el engine rechaza la skill al cargarla.
