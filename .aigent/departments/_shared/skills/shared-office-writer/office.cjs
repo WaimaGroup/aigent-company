@@ -236,16 +236,51 @@ function buildDocxParagraphXml(runsXml, opts) {
   return '<w:p>' + pPrXml + runsXml + '</w:p>';
 }
 
+// Hyperlink relationships collected while building the body. Each run with a
+// `link` registers one here; buildDocx emits them into word/_rels/document.xml.rels.
+const hyperlinkRels = [];
+
+function registerHyperlink(url) {
+  const id = 'hl' + (hyperlinkRels.length + 1);
+  hyperlinkRels.push({ id: id, url: String(url) });
+  return id;
+}
+
 function buildDocxRun(run) {
-  const text = run && typeof run === 'object' ? run.text : run;
+  const isObj = run && typeof run === 'object';
+  const text = isObj ? run.text : run;
   let rPr = '';
-  if (run && typeof run === 'object') {
+  if (isObj) {
+    if (run.link) rPr += '<w:rStyle w:val="Hyperlink"/>';
     if (run.bold) rPr += '<w:b/>';
     if (run.italic) rPr += '<w:i/>';
     if (run.underline) rPr += '<w:u w:val="single"/>';
   }
   const rPrXml = rPr ? '<w:rPr>' + rPr + '</w:rPr>' : '';
-  return '<w:r>' + rPrXml + '<w:t xml:space="preserve">' + xmlEscape(text == null ? '' : text) + '</w:t></w:r>';
+  const runXml = '<w:r>' + rPrXml + '<w:t xml:space="preserve">' + xmlEscape(text == null ? '' : text) + '</w:t></w:r>';
+  // A run with `link` is wrapped in <w:hyperlink> pointing at an external relationship.
+  if (isObj && run.link) {
+    const id = registerHyperlink(run.link);
+    return '<w:hyperlink r:id="' + id + '">' + runXml + '</w:hyperlink>';
+  }
+  return runXml;
+}
+
+// A table cell can be: a plain string (text), a single run object
+// ({ text, link?, bold?, italic?, underline? }), or an array of strings/run
+// objects. Header rows bold the cell unless the cell object overrides `bold`.
+function buildCellRuns(cell, isHeader) {
+  if (Array.isArray(cell)) {
+    return cell.map(function (r) {
+      return (r !== null && typeof r === 'object')
+        ? buildDocxRun(Object.assign({ bold: isHeader }, r))
+        : buildDocxRun({ text: r, bold: isHeader });
+    }).join('');
+  }
+  if (cell !== null && typeof cell === 'object') {
+    return buildDocxRun(Object.assign({ bold: isHeader }, cell));
+  }
+  return buildDocxRun({ text: cell, bold: isHeader });
 }
 
 function buildDocxBlock(block) {
@@ -288,8 +323,8 @@ function buildDocxBlock(block) {
     const rowsXml = rows.map(function (row, ri) {
       const cells = (Array.isArray(row) ? row : [row]).map(function (cell) {
         const isHeader = header && ri === 0;
-        const run = buildDocxRun({ text: cell, bold: isHeader });
-        const cellPara = buildDocxParagraphXml(run);
+        const runsXml = buildCellRuns(cell, isHeader);
+        const cellPara = buildDocxParagraphXml(runsXml);
         return '<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>' + cellPara + '</w:tc>';
       }).join('');
       return '<w:tr>' + cells + '</w:tr>';
@@ -301,6 +336,7 @@ function buildDocxBlock(block) {
 }
 
 function buildDocx(spec, outputAbs, outputUserPath) {
+  hyperlinkRels.length = 0; // reset collector (defensive; one build per process)
   const body = Array.isArray(spec.body) ? spec.body : [];
   if (body.length === 0 && !spec.title) {
     emitError('BAD_SPEC', 'docx spec has no "body" array (and no title)');
@@ -313,7 +349,8 @@ function buildDocx(spec, outputAbs, outputUserPath) {
 
   const documentXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
     '<w:body>' + bodyXml + sectPr + '</w:body></w:document>';
 
   // Styles: Normal + Heading1..6 (mapped to built-in heading style ids).
@@ -336,6 +373,7 @@ function buildDocx(spec, outputAbs, outputUserPath) {
     '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
     '<w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:basedOn w:val="TableNormal"/></w:style>' +
     '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/></w:style>' +
+    '<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>' +
     headingStyles +
     '</w:styles>';
 
@@ -356,10 +394,14 @@ function buildDocx(spec, outputAbs, outputUserPath) {
     '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
     '</Relationships>';
 
+  const hyperlinkRelsXml = hyperlinkRels.map(function (h) {
+    return '<Relationship Id="' + h.id + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="' + xmlEscape(h.url) + '" TargetMode="External"/>';
+  }).join('');
   const docRels =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    hyperlinkRelsXml +
     '</Relationships>';
 
   const title = spec.title ? xmlEscape(spec.title) : '';
@@ -586,7 +628,6 @@ function buildXlsx(spec, outputAbs, outputUserPath) {
 
   const zip = buildZip(entries);
   try {
-    ensureDirRecursive(outputAbs);
     fs.writeFileSync(outputAbs, zip);
   } catch (e) {
     emitError('WRITE_FAILED', 'Failed to write xlsx: ' + (e && e.message ? e.message : String(e)));

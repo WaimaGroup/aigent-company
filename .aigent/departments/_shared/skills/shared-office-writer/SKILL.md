@@ -9,7 +9,7 @@ description: >
   PRODUCE a Word or Excel file as a deliverable** — a report, memo, letter, table
   export, budget, summary, data dump, or any tabular/textual document the user will
   open in Microsoft Office or LibreOffice. Supported (scope "Práctico"): docx with
-  paragraphs, headings (H1-H6), bold/italic/underline, and simple bordered tables;
+  paragraphs, headings (H1-H6), bold/italic/underline, clickable external hyperlinks, and simple bordered tables;
   xlsx with multiple sheets, text/number/boolean/date cells, formulas, column
   widths, and a bold header row. Activation keywords: "Word document", "docx",
   "Excel", "xlsx", "spreadsheet", "export to Excel", "generate a report as docx",
@@ -54,6 +54,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 **docx:**
 
 - Párrafos (texto plano o *runs* con `bold` / `italic` / `underline`).
+- **Hipervínculos externos** a nivel de *run* (`link`): texto clicable con estilo `Hyperlink` (azul + subrayado), tanto en párrafos como en celdas de tabla.
 - Encabezados nivel 1-6 (estilos `Heading1`..`Heading6`).
 - Tablas simples con bordes; fila de cabecera opcional en negrita.
 
@@ -82,6 +83,9 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
       { "text": " y ", "italic": false },
       { "text": "cursiva", "italic": true }
     ]},
+    { "type": "paragraph", "runs": [
+      { "text": "Ver el pliego", "link": "https://ejemplo.com/pliego.pdf" }
+    ]},
     { "type": "table", "header": true, "rows": [
       ["Col A", "Col B"],
       ["a1", "b1"]
@@ -92,7 +96,9 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 
 - Un string suelto en `body` equivale a `{ "type": "paragraph", "text": "..." }`.
 - `paragraph` admite `text` (atajo, con `bold`/`italic`/`underline` a nivel de párrafo) **o** `runs` (control por fragmento).
-- `table.rows` es una matriz de filas; cada fila es una lista de celdas (strings). `header: true` pone la primera fila en negrita.
+- Un *run* con `link` (URL) se convierte en hipervínculo externo clicable: `{ "text": "etiqueta", "link": "https://..." }`. Combinable con `bold`/`italic`/`underline`. Válido en runs de párrafo **y** en celdas de tabla. La URL se escapa para XML automáticamente.
+- Una **celda de tabla** puede ser: un string (texto plano), un objeto run (`{ "text": "...", "link": "...", "bold": true }`), o un array de runs (`[ { "text": "Ver " }, { "text": "resumen", "link": "..." } ]`). En la fila de cabecera (`header: true`) las celdas salen en negrita salvo que el objeto lo sobreescriba.
+- `table.rows` es una matriz de filas; cada fila es una lista de celdas. Una celda puede ser un string, un objeto run (`{ "text", "link"?, "bold"?, ... }`) o un array de runs. `header: true` pone la primera fila en negrita.
 
 ### xlsx
 

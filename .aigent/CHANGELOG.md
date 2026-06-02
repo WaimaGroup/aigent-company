@@ -4,6 +4,27 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.13.0 — 2026-06-02
+
+### Skill `shared-office-writer` — hipervínculos externos en docx (párrafos y tablas)
+
+`office.cjs` (writer docx) gana soporte de **hipervínculos clicables** a nivel de *run*, tanto en párrafos como en celdas de tabla. Era el único formato rico que faltaba para que un entregable `.md` "bonito" (cabeceras + tablas + enlaces) se reprodujera fiel en `.docx` con el writer nativo, sin depender de pandoc ni de la librería `docx` de npm. Motivado por el flujo de subir resúmenes/índices de licitaciones a Google Drive (el conector abre el `.docx` y conserva los enlaces; el índice `licitaciones.md` es una tabla con enlaces por fila).
+
+**Contrato (nuevos campos opcionales en el spec docx):**
+- Un *run* admite ahora `link`: `{ "text": "etiqueta", "link": "https://..." }`. Se renderiza con el estilo de carácter `Hyperlink` (azul `0563C1` + subrayado). Retrocompatible: los specs sin `link` se comportan igual que antes.
+- Una **celda de tabla** puede ser ahora un string (como antes), un objeto run (`{ "text", "link"?, "bold"?, ... }`) o un array de runs. Permite enlaces clicables dentro de tablas. La cabecera (`header: true`) sigue bolando salvo override por celda.
+
+**Implementación (`office.cjs`):**
+- `buildDocxRun` envuelve el *run* en `<w:hyperlink r:id="hlN">` cuando hay `link`, y registra la relación en un colector (`hyperlinkRels`).
+- Nuevo helper `buildCellRuns(cell, isHeader)` resuelve celdas string / objeto / array a runs; el constructor de tabla lo usa en lugar del antiguo run único.
+- `word/_rels/document.xml.rels` emite una `Relationship` tipo `hyperlink` con `TargetMode="External"` por enlace (la URL se escapa con `xmlEscape`).
+- `<w:document>` declara el namespace `xmlns:r`; `styles.xml` incluye el estilo de carácter `Hyperlink`. Reset defensivo del colector al inicio de `buildDocx`.
+
+**Verificado:** docx con enlaces en párrafos y en celdas de tabla abre en LibreOffice; subido a Google Drive vía el conector (mime docx), el `contentSnippet` de Drive conserva los enlaces como `[etiqueta](url)`.
+
+**Archivos editados:** `.aigent/departments/_shared/skills/shared-office-writer/office.cjs`, `.aigent/departments/_shared/skills/shared-office-writer/SKILL.md`, `.aigent/departments/_shared/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
 ## 3.12.0 — 2026-06-01
 
 ### Nueva utility-skill compartida `shared-office-writer` — generación de .docx/.xlsx sin dependencias

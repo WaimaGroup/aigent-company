@@ -757,7 +757,7 @@ Por defecto los entregables salen en `.md` (texto plano). Si lo quieres en Word 
 
 > "Quiero el resumen de KPIs como hoja de Excel, con la cabecera en negrita."
 
-Qué sabe hacer hoy: **docx** con títulos, párrafos, negrita/cursiva/subrayado y tablas; **xlsx** con varias hojas, texto, números, fechas, fórmulas, ancho de columna y fila de cabecera en negrita. Qué **no** hace (todavía): imágenes, logos, gráficos, colores de celda, bordes a medida. Si necesitas algo de eso, dilo y se valora caso a caso.
+Qué sabe hacer hoy: **docx** con títulos, párrafos, negrita/cursiva/subrayado, enlaces clicables y tablas; **xlsx** con varias hojas, texto, números, fechas, fórmulas, ancho de columna y fila de cabecera en negrita. Qué **no** hace (todavía): imágenes, logos, gráficos, colores de celda, bordes a medida. Si necesitas algo de eso, dilo y se valora caso a caso.
 
 ### `shared-base64` — base64 ↔ fichero (uso interno)
 
