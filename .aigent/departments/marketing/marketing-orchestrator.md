@@ -189,6 +189,69 @@ Marketing no tiene skills v2 (ejecutables por engine); todas sus skills son v1 p
 
 ---
 
+## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
+
+Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
+
+### Camino principal — precheck proactivo (preferido)
+
+Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
+
+```bash
+node .aigent/v2/engine/engine.cjs doctor <skill>
+```
+
+- Si el output es `data.skills[0].ready: true` → adelante, ejecuta `run` con normalidad.
+- Si `ready: false` → **no llames a `run`**. Lanza el flujo de configuración (siguiente sección) y solo continúa cuando un nuevo `doctor` devuelva `ready: true`.
+
+El precheck cuesta una llamada barata, evita errores ruidosos al usuario y permite tener el pipeline configurado antes de pedir inputs reales para la acción.
+
+### Red de seguridad reactiva (fallback)
+
+Aunque hagas precheck, puede ocurrir que `run` falle con `CONFIG_ERROR` o `SECRETS_ERROR` (p. ej. el usuario borró un valor entre llamadas). En ese caso el engine devuelve `error.details` enriquecido:
+
+```json
+{
+  "code": "CONFIG_ERROR" | "SECRETS_ERROR",
+  "message": "...",
+  "details": {
+    "skill": "<skill>",
+    "missing_config":  [{ "key", "path", "type", "description" }],
+    "missing_secrets": [{ "name", "description" }],
+    "secrets_file": "/.../.context/.secrets.json",
+    "next": [ "...comandos exactos a ejecutar..." ],
+    "rule": "Los secretos NUNCA se aceptan por chat. Solo se le indica al usuario donde ponerlos."
+  }
+}
+```
+
+Trátalo igual que un precheck con `ready: false`: lanza el flujo de configuración y reintenta.
+
+### Flujo de configuración (común a precheck y a red de seguridad)
+
+1. **Comunica al usuario** que la skill `<skill>` necesita config/secrets antes de seguir. Tono natural: *"Antes de continuar, voy a comprobar la configuración de `<skill>`. Falta `<n>` cosas, lo arreglamos en un momento."*
+2. **Delega en `shared-skill-builder` modo `configure`** pasándole el nombre exacto de la skill:
+
+   ```
+   Delegando en shared-skill-builder (configure <skill>) — la skill necesita
+   onboarding antes de ejecutarse.
+   ```
+
+   El skill-builder hará: `engine.cjs doctor` → preguntará al usuario los valores de **config** faltantes (no son secretos) → ejecutará `engine.cjs configure` → ejecutará `engine.cjs prepare-secrets` → indicará al usuario qué **secrets** rellenar manualmente y dónde, **sin pedir el valor por chat**.
+3. **Espera el "ready: true"** del skill-builder. Si quedan secrets pendientes que el usuario debe rellenar a mano (placeholder `<replace_me_*>` en `.context/.secrets.json` o env var), espera la confirmación explícita del usuario antes de continuar.
+4. **Reintenta el `run` original** (o continúa con la delegación al especialista) una vez la skill esté configurada. Si vuelve a fallar con `CONFIG_ERROR` / `SECRETS_ERROR` (raro), repite el ciclo. Si falla con otro código (`HTTP_4xx`, `HTTP_5xx`, `NETWORK_ERROR`, `INVALID_BODY_JSON`, etc.), eso ya es un problema operativo de la operación: reporta al usuario sin llamar a configure.
+5. **Continúa la tarea original** desde donde estabas.
+
+### Reglas (innegociables)
+
+- **Nunca aceptes el valor de un secreto por chat.** Si el usuario te lo intenta dictar (incluso si insiste), recházalo con respeto: *"Por seguridad, los secretos no pasan por la conversación. Abre `.context/.secrets.json` y reemplaza el placeholder de `<NAME>` ahí, o define la variable de entorno `<NAME>`."* Esta regla aplica a **toda** la cadena: orquestador, especialistas, `shared-skill-builder`.
+- **Sí pides al usuario los valores de `config`** (URLs, ids, identificadores de proyecto). No son secretos. El skill-builder los recoge y los aplica con `engine.cjs configure --set ...`.
+- **No silencies el error.** Aunque el flujo de configure sea casi automático, comunica al usuario qué está pasando para que sepa por qué se está parando la tarea.
+- **No edites tú directamente** `.context/config.json` ni `.context/.secrets.json`. Delega siempre en `shared-skill-builder`. El skill-builder usa el engine para validar tipos, paths y placeholders — escribir a mano salta esas garantías.
+- **Si el usuario rechaza configurar la skill ahora,** ofrece alternativa: ¿hay otra skill o agente que pueda resolver la petición sin esa skill? Si no, registra la petición como bloqueada en `tasks.md` con `⚠️ Bloqueada: skill <skill> no configurada`.
+
+---
+
 ## Cuándo NO delegar y actuar directamente
 
 Puedes responder tú directamente cuando: es una consulta rápida de orientación general de marketing; el usuario pide una recomendación sobre qué tipo de acción tomar; o es información general sobre el departamento o sus agentes.
