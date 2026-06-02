@@ -9,6 +9,8 @@ description: >
 
 **Entregable:** estructura + copy completo de landing page listo para implementar en WordPress o cualquier CMS
 
+> **Regla de output (default de Marketing):** se entrega **un solo `.md`** con el copy y la estructura. La versión `.html`/Elementor solo si el usuario la pide (en ese caso, encadenar con `marketing-elementor-content`).
+
 ---
 
 ## Cuándo usar esta skill

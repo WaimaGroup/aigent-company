@@ -1,29 +1,27 @@
 #!/usr/bin/env node
 /**
- * shared-base64-to-file/decode.cjs
+ * shared-base64/b64.cjs
  *
- * Decode a base64 file into a binary/textual asset, verifying that the decoded
- * bytes match the requested format via magic-bytes inspection (or initial UTF-8
- * content for SVG).
+ * Bidirectional base64 ↔ file utility.
+ *
+ *   decode  base64 (text in a .b64 file) → real binary/textual asset, verifying
+ *           the decoded bytes match the requested format via magic-bytes.
+ *   encode  any file → base64, written directly to a `.b64` text file (optionally
+ *           as a `data:<mime>;base64,...` data URI), returning the path in JSON.
  *
  * Contract documented in SKILL.md alongside this file. If behavior here and prose
  * there diverge, the script is the source of truth — adjust the prose.
  *
- * No dependencies beyond Node stdlib. Compatible with Node 18+.
+ * No dependencies beyond Node stdlib (fs, path). Compatible with Node 18+.
  *
  * Usage:
- *   node decode.cjs --input <path> [--format <fmt>] [--output <path>]
- *                  [--keep-input] [--no-b64-copy]
+ *   node b64.cjs decode --input <path> [--format <fmt>] [--output <path>]
+ *                       [--keep-input] [--no-b64-copy]
+ *   node b64.cjs encode --input <path> [--output <path.b64>] [--format <fmt>]
+ *                       [--data-uri] [--emit-string]
  *
- * Behavior:
- *   - --input MUST live under `.context/.temp/` (staging convention).
- *   - --output is unrestricted: typically a deliverable path under the project
- *     output directory (e.g. `posts/<slug>/assets/hero.png`). If --output is
- *     under `.context/.temp/`, the staging gitignore is still managed.
- *   - By default a `.b64` copy is left next to the output (same basename, `.b64`
- *     extension), so the original payload can be re-uploaded later. Suppress with
- *     `--no-b64-copy`. If the alongside path equals the input path, no copy is
- *     made and the input is preserved (regardless of --keep-input).
+ * Back-compat: if the first argument starts with `--` (no subcommand), the
+ * command defaults to `decode` — preserving the historical `decode.cjs` CLI.
  *
  * Exit codes:
  *   0 = success (JSON `{ ok: true, ... }` on stdout)
@@ -74,17 +72,33 @@ function emitOk(data) {
 function help() {
   const text = [
     'Usage:',
-    '  node decode.cjs --input <path> [--format <fmt>] [--output <path>]',
-    '                 [--keep-input] [--no-b64-copy]',
+    '  node b64.cjs decode --input <path> [--format <fmt>] [--output <path>]',
+    '                      [--keep-input] [--no-b64-copy]',
+    '  node b64.cjs encode --input <path> [--output <path.b64>] [--format <fmt>]',
+    '                      [--data-uri] [--emit-string]',
     '',
-    'Args:',
+    'Commands:',
+    '  decode   base64 (.b64 under .context/.temp/) → binary/textual asset.',
+    '  encode   any file → base64, written to a .b64 text file.',
+    '           (default command if the first arg starts with --)',
+    '',
+    'decode args:',
     '  --input <path>     Path to the .b64 file. Must be under .context/.temp/.',
     '  --format <fmt>     png|jpg|jpeg|gif|webp|svg|pdf|zip. Required unless --output has a known extension.',
     '  --output <path>    Destination path. Unrestricted (typically a deliverable path).',
     '                     Default: --input with extension changed to <format> (stays in temp).',
     '  --keep-input       Do not delete the .b64 after a successful decode.',
     '  --no-b64-copy      Do not leave a .b64 copy next to the output.',
-    '  --help, -h         Show this help.',
+    '',
+    'encode args:',
+    '  --input <path>     Path to the source file to encode. Unrestricted. Must exist.',
+    '  --output <path>    Destination .b64 text file. Unrestricted (point it to',
+    '                     .context/.temp/<dept>/ for a transient snapshot).',
+    '                     Default: --input with extension changed to .b64 (alongside).',
+    '  --format <fmt>     Optional. If given, verifies the source magic bytes match',
+    '                     before encoding. Else mime is inferred from the extension.',
+    '  --data-uri         Prefix the .b64 content with "data:<mime>;base64,".',
+    '  --emit-string      Include the full base64 string in the stdout JSON.',
     '',
     'Output: JSON to stdout. Exit 0 on success, 1 on error.',
     '',
@@ -94,12 +108,14 @@ function help() {
 }
 
 function parseArgs(argv) {
-  const out = { keepInput: false, noB64Copy: false };
+  const out = { keepInput: false, noB64Copy: false, dataUri: false, emitString: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--help' || a === '-h') { out.help = true; continue; }
     if (a === '--keep-input') { out.keepInput = true; continue; }
     if (a === '--no-b64-copy') { out.noB64Copy = true; continue; }
+    if (a === '--data-uri') { out.dataUri = true; continue; }
+    if (a === '--emit-string') { out.emitString = true; continue; }
     if (!a.startsWith('--')) {
       emitError('BAD_ARGS', "Unexpected positional argument: '" + a + "'");
     }
@@ -175,18 +191,17 @@ function verifyMagic(format, buf) {
   return true;
 }
 
-function deriveOutputUserPath(inputUserPath, format) {
-  const ext = path.extname(inputUserPath);
-  const base = ext ? inputUserPath.substring(0, inputUserPath.length - ext.length) : inputUserPath;
-  return base + '.' + format;
+function changeExt(userPath, newExtNoDot) {
+  const ext = path.extname(userPath);
+  const base = ext ? userPath.substring(0, userPath.length - ext.length) : userPath;
+  return base + '.' + newExtNoDot;
 }
 
 // ---------------------------------------------------------------------------
+// decode: base64 .b64 file → binary/textual asset
+// ---------------------------------------------------------------------------
 
-function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help) help();
-
+function runDecode(args) {
   if (!args.input) emitError('BAD_ARGS', 'Missing --input');
 
   // Resolve format (explicit --format wins; otherwise derive from --output extension)
@@ -213,15 +228,11 @@ function main() {
 
   // Resolve output path (explicit --output wins; otherwise derive from input).
   // Output scope is unrestricted: typically the deliverable folder of the dept.
-  const outputUserPath = args.output ? args.output : deriveOutputUserPath(args.input, format);
+  const outputUserPath = args.output ? args.output : changeExt(args.input, format);
   const outputAbs = path.resolve(outputUserPath);
 
   // Derive the alongside .b64 user path (same basename as output, .b64 extension).
-  const outputUserExt = path.extname(outputUserPath);
-  const outputUserBase = outputUserExt
-    ? outputUserPath.substring(0, outputUserPath.length - outputUserExt.length)
-    : outputUserPath;
-  const alongsideB64UserPath = outputUserBase + '.b64';
+  const alongsideB64UserPath = changeExt(outputUserPath, 'b64');
   const alongsideB64Abs = path.resolve(alongsideB64UserPath);
   const alongsideEqualsInput = alongsideB64Abs === inputAbs;
 
@@ -300,12 +311,127 @@ function main() {
   }
 
   emitOk({
+    op: 'decode',
     path: outputUserPath,
     bytes: buf.length,
     mime: MIME[format],
     format: format,
     b64_copy: b64CopyUserPath,
   });
+}
+
+// ---------------------------------------------------------------------------
+// encode: any file → base64 written to a .b64 text file
+// ---------------------------------------------------------------------------
+
+function runEncode(args) {
+  if (!args.input) emitError('BAD_ARGS', 'Missing --input');
+
+  // Resolve and validate the source file. Input scope is unrestricted for encode.
+  const inputAbs = path.resolve(args.input);
+  if (!fs.existsSync(inputAbs)) {
+    emitError('INPUT_NOT_FOUND', 'Input file does not exist: ' + args.input);
+  }
+  let stat;
+  try {
+    stat = fs.statSync(inputAbs);
+  } catch (e) {
+    emitError('INTERNAL', 'Failed to stat input: ' + (e && e.message ? e.message : String(e)));
+  }
+  if (!stat.isFile()) {
+    emitError('BAD_ARGS', 'Input is not a regular file: ' + args.input);
+  }
+
+  // Optional format verification (symmetry with decode). If --format is given it
+  // must be in the catalog and the source bytes must match its signature.
+  let format = args.format || null;
+  if (format && !SUPPORTED.includes(format)) {
+    emitError('BAD_ARGS', "Unsupported format: '" + format + "'. Supported: " + SUPPORTED.join(', '));
+  }
+
+  // Read source bytes
+  let buf;
+  try {
+    buf = fs.readFileSync(inputAbs);
+  } catch (e) {
+    emitError('INTERNAL', 'Failed to read input: ' + (e && e.message ? e.message : String(e)));
+  }
+  if (!buf || buf.length === 0) {
+    emitError('EMPTY_INPUT', 'Source file is empty: ' + args.input);
+  }
+
+  if (format && !verifyMagic(format, buf)) {
+    emitError('FORMAT_MISMATCH', "Source bytes do not match expected signature for format '" + format + "'");
+  }
+
+  // Resolve mime: explicit format wins; otherwise infer from the source extension.
+  let mime;
+  if (format) {
+    mime = MIME[format];
+  } else {
+    const srcExt = path.extname(args.input).replace(/^\./, '').toLowerCase();
+    mime = MIME[srcExt] || 'application/octet-stream';
+    if (SUPPORTED.includes(srcExt)) format = srcExt;
+  }
+
+  // Encode
+  const b64 = buf.toString('base64');
+  const fileContent = args.dataUri ? ('data:' + mime + ';base64,' + b64) : b64;
+
+  // Resolve output .b64 path (explicit --output wins; otherwise alongside input).
+  const outputUserPath = args.output ? args.output : changeExt(args.input, 'b64');
+  const outputAbs = path.resolve(outputUserPath);
+
+  // Write the .b64 text file. If the output lands under .context/.temp/, manage
+  // the staging gitignore too.
+  try {
+    ensureDirRecursive(outputAbs);
+    ensureTempGitignoreFor(outputAbs);
+    fs.writeFileSync(outputAbs, fileContent);
+  } catch (e) {
+    emitError('WRITE_FAILED', 'Failed to write .b64 output: ' + (e && e.message ? e.message : String(e)));
+  }
+
+  emitOk({
+    op: 'encode',
+    b64_path: outputUserPath,
+    source_path: args.input,
+    source_bytes: buf.length,
+    b64_chars: fileContent.length,
+    mime: mime,
+    format: format,
+    data_uri: !!args.dataUri,
+    base64: args.emitString ? fileContent : null,
+  });
+}
+
+// ---------------------------------------------------------------------------
+
+function main() {
+  const argv = process.argv.slice(2);
+
+  // Help with no command.
+  if (argv.length === 0) help();
+  if (argv[0] === '--help' || argv[0] === '-h') help();
+
+  // Resolve command. Back-compat: a leading `--` means no subcommand → decode.
+  let command;
+  let rest;
+  if (argv[0] === 'decode' || argv[0] === 'encode') {
+    command = argv[0];
+    rest = argv.slice(1);
+  } else if (argv[0].startsWith('--')) {
+    command = 'decode';
+    rest = argv;
+  } else {
+    emitError('BAD_ARGS', "Unknown command: '" + argv[0] + "'. Expected 'decode' or 'encode'.");
+  }
+
+  const args = parseArgs(rest);
+  if (args.help) help();
+
+  if (command === 'decode') runDecode(args);
+  else runEncode(args);
 }
 
 try {

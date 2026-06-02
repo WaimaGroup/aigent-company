@@ -15,6 +15,8 @@
 2. **Directo a agente** cuando ya sabes (ej. "NDA" → `legal-contracts`).
 3. **Skill directa** para outputs concretos (privacy-policy, compliance-checklist).
 
+> **¿En Word o Excel?** Por defecto los entregables salen en `.md`. Si lo quieres como documento de Word (contratos, NDAs, políticas) o como hoja de Excel (matrices de cumplimiento o de riesgos), solo pídelo (p. ej. «el NDA en Word», «la matriz de cumplimiento GDPR en Excel»): el sistema genera el `.docx`/`.xlsx` listo para abrir. Recuerda que sigue siendo un borrador `[REVISAR LEGAL]`, en Word o en `.md`.
+
 ---
 
 ## Agentes

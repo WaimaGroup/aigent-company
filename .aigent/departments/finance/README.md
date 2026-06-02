@@ -13,6 +13,8 @@
 2. **Directo a agente** cuando ya sabes (ej. "rolling forecast" → `finance-budgeting`).
 3. **Skill directa** para outputs concretos (factura, cash forecast, expense report).
 
+> **¿En Word o Excel?** Por defecto los entregables salen en `.md`. Si prefieres una hoja de Excel (lo natural para presupuestos, forecasts y tablas con fórmulas) o un documento de Word, solo pídelo (p. ej. «el presupuesto 2026 en Excel con fórmulas de totales», «el informe de tesorería en Word»): el sistema genera el `.xlsx`/`.docx` listo para abrir.
+
 ---
 
 ## Agentes

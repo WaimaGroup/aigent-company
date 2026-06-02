@@ -11,6 +11,8 @@
 2. **Directo a agente**: sabes que es prospección → `sales-sdr`; closing → `sales-ae`.
 3. **Skill directa**: para outputs concretos (pipeline-review semanal, forecast trimestral).
 
+> **¿En Word o Excel?** Por defecto los entregables salen en `.md`. Si lo quieres como documento de Word o como hoja de Excel, solo pídelo (p. ej. «el forecast trimestral en Excel», «la propuesta comercial en Word»): el sistema genera el `.docx`/`.xlsx` listo para abrir.
+
 ---
 
 ## Agentes

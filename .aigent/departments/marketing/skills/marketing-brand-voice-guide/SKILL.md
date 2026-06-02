@@ -4,7 +4,7 @@ user-invocable: true
 description: >
   Skill for producing a brand voice guide: tone attributes, vocabulary do/don't,
   examples of correct/incorrect content per channel, and writing principles. Used
-  by marketing-content as the canonical reference to keep tone consistent across
+  by marketing-creative as the canonical reference to keep tone consistent across
   all outputs (posts, emails, ads, social, web). Living document with versioning.
 ---
 

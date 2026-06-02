@@ -5,7 +5,7 @@ description: >
   Shared skill for producing a structured competitive analysis: landscape mapping
   (direct/indirect/alternative competitors), comparison matrix by user-centric
   criteria, whitespace identification, threat assessment, and recommendations.
-  Used cross-department (marketing-strategy, product-strategy-roadmap, sales-ae)
+  Used cross-department (marketing-planning, product-strategy-roadmap, sales-ae)
   with the same deliverable structure regardless of context.
 ---
 

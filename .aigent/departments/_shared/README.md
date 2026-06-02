@@ -311,7 +311,7 @@ Matriz comparativa estructurada con whitespace y threat assessment.
 
 **Caso de uso:** análisis competitivo previo a roadmap.
 
-**Prompt:** (desde `marketing-strategy` o `product-strategy-roadmap`)
+**Prompt:** (desde `marketing-planning` o `product-strategy-roadmap`)
 > "Análisis competitivo para nuestro mercado de SaaS financiero B2B. Competidores principales: CompetitorX, NetSuite, in-house. Foco: identificar whitespace para Q3."
 
 **Output esperado:**
@@ -360,7 +360,7 @@ Problema → solución → resultados medibles + citas verbatim.
 
 **Caso de uso:** case study para marketing/sales.
 
-**Prompt:** (desde `marketing-content` o `sales-enablement`)
+**Prompt:** (desde `marketing-creative` o `sales-enablement`)
 > "Case study de ACME Corp. Pasaron de 11 a 4 días en el cierre. Tengo 2 entrevistas hechas con CFO y Head of Finance. Audiencia: heads of finance de SaaS B2B."
 
 **Output esperado:**
@@ -427,7 +427,7 @@ Métricas × target × variance × tendencia × commentary.
 
 **Caso de uso:** dashboard mensual de un dept.
 
-**Prompt:** (desde `finance-reporting`, `marketing-seo`, `product-metrics` o `sales-crm`)
+**Prompt:** (desde `finance-reporting`, `marketing-planning`, `product-metrics` o `sales-crm`)
 > "KPI dashboard mensual del dept de Sales para revisión con CEO. Métricas: ARR, MRR, churn, win rate, ciclo de venta, CAC."
 
 **Output esperado:**
@@ -473,7 +473,7 @@ Influencia × interés × posición × plan de engagement.
 
 **Caso de uso:** deal enterprise con múltiples stakeholders.
 
-**Prompt:** (desde `sales-ae`, `product-discovery`, `legal-risk` o `marketing-strategy`)
+**Prompt:** (desde `sales-ae`, `product-discovery`, `legal-risk` o `marketing-planning`)
 > "Stakeholder map para el deal con ACME Corp. He identificado 5 personas con peso. Necesito influencia × interés × posición × plan."
 
 **Output esperado:**
@@ -578,7 +578,7 @@ Probabilidad × impacto × mitigación × owner.
 
 **Caso de uso:** OKRs trimestrales de un dept.
 
-**Prompt:** (desde `product-metrics`, `hr-evaluation` o `marketing-strategy`)
+**Prompt:** (desde `product-metrics`, `hr-evaluation` o `marketing-planning`)
 > "OKRs Q3 2026 del equipo de producto. Tema del trimestre: convertir el módulo de conciliación en categoría propia."
 
 **Output esperado:**
@@ -741,6 +741,34 @@ Ver ejemplo en [`software/README.md`](../software/README.md) — sección "Skill
 
 ---
 
+## Skills utility compartidas
+
+> Utilidades técnicas con script propio (Node, sin dependencias) que **cualquier agente** puede usar. A diferencia de las business-skills, en general **no las pides por su nombre**: el sistema las activa solo cuando hacen falta. Se documentan aquí por transparencia, para que sepas qué ocurre por detrás.
+
+### `shared-office-writer` — entregar en Word (.docx) y Excel (.xlsx)
+
+Convierte un entregable en un fichero de Office de verdad, listo para abrir en Word/Excel (o LibreOffice). No hay que instalar nada.
+
+Por defecto los entregables salen en `.md` (texto plano). Si lo quieres en Word o Excel, **solo tienes que pedirlo en lenguaje normal**:
+
+> "El plan de marketing Q3, pero dámelo en Word."
+
+> "Pásame la tabla de presupuesto a Excel, con una columna de totales."
+
+> "Quiero el resumen de KPIs como hoja de Excel, con la cabecera en negrita."
+
+Qué sabe hacer hoy: **docx** con títulos, párrafos, negrita/cursiva/subrayado y tablas; **xlsx** con varias hojas, texto, números, fechas, fórmulas, ancho de columna y fila de cabecera en negrita. Qué **no** hace (todavía): imágenes, logos, gráficos, colores de celda, bordes a medida. Si necesitas algo de eso, dilo y se valora caso a caso.
+
+### `shared-base64` — base64 ↔ fichero (uso interno)
+
+Fontanería: convierte entre texto "base64" y ficheros reales, en los dos sentidos. La usa un agente cuando, por ejemplo, una herramienta externa devuelve una imagen codificada y hay que guardarla como PNG/PDF, o al revés (preparar un fichero para subirlo a un sistema que solo acepta base64). **No la invocas tú** — el agente la activa cuando toca.
+
+### `shared-http-download` — descargar ficheros por URL (uso interno)
+
+Fontanería: descarga uno o varios ficheros desde una dirección web a disco (PDF, ZIP, documentos...). La usa un agente cuando recibe enlaces a documentos que hay que materializar para procesarlos (p. ej. los pliegos de una licitación). **No la invocas tú** — el agente la activa cuando toca.
+
+---
+
 ## Cuándo invocar transversales vs depts
 
 | Necesidad | Invocar |
@@ -758,3 +786,6 @@ Ver ejemplo en [`software/README.md`](../software/README.md) — sección "Skill
 | Journey de usuario | skill `shared-journey-map` |
 | Checklist de deploy de release | skill `shared-deploy-checklist` |
 | Crear agente nuevo en un dept | skill `shared-agent-scaffold` (la invoca `shared-skill-builder` o el orquestador del dept) |
+| Entregar un informe o una tabla como Word o Excel | skill `shared-office-writer` (formato `docx` o `xlsx`) |
+| Guardar/recuperar un base64 como fichero (interno) | skill `shared-base64` (la activa el agente, no se pide por nombre) |
+| Descargar ficheros desde una URL (interno) | skill `shared-http-download` (la activa el agente, no se pide por nombre) |

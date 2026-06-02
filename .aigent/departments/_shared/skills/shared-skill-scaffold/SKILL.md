@@ -44,7 +44,7 @@ Una sola pregunta al usuario si no está claro:
 |---|---|
 | `base` | Kebab-case, único dentro del dept. Ej: `blog-post`, `slack`, `github-issues`. |
 | `location` | Dónde vive la skill. Ver "Decidir ubicación" más abajo. Tres opciones: `<dept>` (vive en un departamento), `_shared` (compartida entre depts; ver `conventions.md` §7.1) u `operations` típico para v2 transversal. |
-| `folder` y `name` | Iguales entre sí (§4.1). Se calculan como `<dept-prefix>-<base>` salvo que `base` ya empiece por el prefijo (no doblar). Ejemplo: carpeta `marketing/skills/marketing-blog-post/` + `name: "marketing-blog-post"`. Para `_shared/skills/` el prefijo es `shared-`: `_shared/skills/shared-competitive-analysis/` + `name: "shared-competitive-analysis"`. |
+| `folder` y `name` | Iguales entre sí (§4.1). Se calculan como `<dept-prefix>-<base>` salvo que `base` ya empiece por el prefijo (no doblar). Ejemplo: carpeta `marketing/skills/marketing-copy/` + `name: "marketing-copy"`. Para `_shared/skills/` el prefijo es `shared-`: `_shared/skills/shared-competitive-analysis/` + `name: "shared-competitive-analysis"`. |
 | `description` | Una frase. Va al frontmatter. |
 | `cuando-usar` | 2-4 viñetas de cuándo aplicar la skill. |
 | `cuando-no-usar` | 1-2 viñetas de casos fuera de alcance. |
@@ -157,9 +157,9 @@ Si no se ha proporcionado, preguntar en una sola tanda:
 
 ### Referencias canónicas v1
 
-- `marketing/skills/marketing-blog-post/SKILL.md` — entregable de carpeta con varios archivos.
-- `marketing/skills/marketing-ad-copy/SKILL.md` — entregable de archivo único, multiplataforma.
-- `marketing/skills/marketing-campaign-brief/SKILL.md` — brief estructurado con campos fijos.
+- `marketing/skills/marketing-elementor-content/SKILL.md` — entregable de carpeta con varios archivos.
+- `marketing/skills/marketing-copy/SKILL.md` — entregable de archivo único, multiformato (blog/email/anuncio/prensa).
+- `marketing/skills/marketing-strategy/SKILL.md` — brief/plan estructurado con campos fijos.
 
 ---
 
