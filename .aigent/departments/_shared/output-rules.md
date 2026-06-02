@@ -57,8 +57,8 @@ Ejemplo:
 │           └── tasks.md
 └── website-redesign/              ← entregables del proyecto
     └── marketing/
-        ├── posts/
-        ├── landing-pages/
+        ├── posts/                 ← todo el contenido publicable (posts, páginas, landings)
+        ├── strategy/
         └── ...
 ```
 

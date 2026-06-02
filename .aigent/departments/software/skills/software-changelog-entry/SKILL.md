@@ -23,7 +23,7 @@ description: >
 **Cuándo NO usar:**
 
 - Para describir un PR individual — eso es `pr-description` (orientado a reviewers, mucho más detalle técnico).
-- Para escribir release notes de marketing / blog post de release — eso pertenece a `marketing-content` (audiencia distinta, tono de marca).
+- Para escribir release notes de marketing / blog post de release — eso pertenece a `marketing-creative` (audiencia distinta, tono de marca).
 - Para el mensaje de un commit — eso es `commit-message`.
 
 ---

@@ -749,7 +749,39 @@ ask_interactive() {
   done
   DEPT="${selected_depts[*]}"; echo ""
 
-  # 4. MCPs (solo en instalación completa, no en --sync)
+  # 4. Clean (modo declarativo) — solo si NO --sync y NO se seleccionaron todos
+  # los depts (si están todos, no hay nada que limpiar). Pensado para el caso
+  # "tenía marketing+sales instalados, ahora solo quiero operations".
+  if ! $SYNC_ONLY; then
+    # Calcular qué depts del repo NO están en la selección → candidatos a borrar
+    local to_clean=()
+    for d in "${available_depts[@]}"; do
+      local in_sel=false
+      for s in "${selected_depts[@]}"; do
+        [ "$d" == "$s" ] && in_sel=true && break
+      done
+      $in_sel || to_clean+=("$d")
+    done
+
+    if [ ${#to_clean[@]} -gt 0 ]; then
+      echo -e "  ${BOLD}¿Quitar los departamentos no seleccionados si ya estaban instalados?${NC}"
+      echo -e "  ${DIM}Modo --clean: borra agentes y skills de: ${YELLOW}${to_clean[*]}${NC}"
+      echo -e "  ${DIM}shared-* y carpetas personalizadas NUNCA se tocan.${NC}"
+      while true; do
+        print_options "s" "n" "Salir"
+        printf "  [s/N] (h=ayuda, q=salir): "; read -r clean_choice
+        handle_control "$clean_choice" && continue
+        case "${clean_choice,,}" in
+          s|si|sí|y|yes) CLEAN=true;  break ;;
+          n|no|"")       CLEAN=false; break ;;
+          *)             echo -e "  ${RED}  Responde s o n (o h/q).${NC}" ;;
+        esac
+      done
+      echo ""
+    fi
+  fi
+
+  # 5. MCPs (solo en instalación completa, no en --sync)
   if ! $SYNC_ONLY; then
     echo -e "  ${BOLD}¿Copiar también los templates de configuración MCP?${NC}"
     while true; do

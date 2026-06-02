@@ -6,7 +6,7 @@ description: >
   any level (company, department, team, individual) and cycle (annual,
   quarterly). 1-3 qualitative objectives × 2-4 quantitative key results each,
   scoring 0.0-1.0, cadence and check-ins documented. Used cross-department
-  (product-metrics, hr-evaluation for personal OKRs, marketing-strategy).
+  (product-metrics, hr-evaluation for personal OKRs, marketing-planning).
 ---
 
 # Skill: OKR Set

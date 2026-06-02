@@ -4,7 +4,7 @@ user-invocable: true
 description: >
   Shared skill for producing a structured customer case study: context, problem,
   solution, implementation, measurable results, and quotes. Used cross-department
-  (marketing-content for content marketing, sales-enablement for sales material)
+  (marketing-creative for content and social marketing, sales-enablement for sales material)
   with the same deliverable structure. Numbers-first, claim-backed.
 ---
 

@@ -18,6 +18,8 @@ description: >
 
 **Entregable:** carpeta con `_elementor_data.json` (postmeta `_elementor_data`), `content.html` (fallback `post_content`), `metadata.md` (title, slug, meta description, postmetas), `README.md` (cómo publicar vía MCP o manual) y, cuando aplique, subcarpeta `assets/` con SVGs + PNGs @2x.
 
+> **Excepción al default de archivo único:** el resto de skills de Marketing entregan un solo `.md`, pero esta skill es un **entregable técnico multi-archivo por naturaleza** (el JSON del builder, su fallback HTML, los postmetas y los assets son inseparables). Es la única excepción documentada del departamento y solo se invoca cuando el usuario quiere explícitamente contenido montado en Elementor.
+
 **Archivos de la skill (fuente de verdad):**
 
 ```
@@ -33,7 +35,7 @@ El validador es **parte del contrato de la skill** — la skill se ejecuta siemp
 
 ## Cuándo usar esta skill
 
-- **Modo `post`** — Maquetar en Elementor un blog post **ya generado** por `marketing-blog-post`. Se ejecuta **siempre después** de `marketing-blog-post`, sobre la misma carpeta `<proyecto>/marketing/posts/<slug>/`. Lee el `.md` como input, no reescribe el copy.
+- **Modo `post`** — Maquetar en Elementor un blog post **ya generado** por `marketing-copy` (formato `blog`). Se ejecuta **siempre después** de generar el copy, sobre la misma carpeta `<proyecto>/marketing/posts/<slug>/`. Lee el `.md` como input, no reescribe el copy.
 - **Modo `page`** — Crear una página de WordPress (about, servicio, contacto, pricing) construida con Elementor desde cero, sin blog-post previo.
 - **Modo `landing`** — Crear una landing page de campaña con hero + social proof + FAQ + CTAs múltiples lista para clonar, sin blog-post previo.
 - **Modo `block`** — Generar bloques reutilizables (secciones sueltas: hero, pricing, testimonios, FAQ) para inyectar en páginas existentes.
@@ -42,17 +44,17 @@ El validador es **parte del contrato de la skill** — la skill se ejecuta siemp
 
 | Tipo de entregable | Skill que se invoca primero | ¿Encadenar Elementor? |
 |---|---|---|
-| Blog post / artículo editorial | `marketing-blog-post` (siempre) | Sí, si el sitio usa Elementor → modo `post` sobre la misma carpeta |
+| Blog post / artículo editorial | `marketing-copy` formato `blog` (siempre) | Sí, si el sitio usa Elementor → modo `post` sobre la misma carpeta |
 | Page (about, servicio, contacto, pricing) | `marketing-elementor-content` modo `page` (directo) | — (esta skill es el único paso) |
 | Landing de campaña | `marketing-elementor-content` modo `landing` (directo) | — |
 | Bloque reutilizable | `marketing-elementor-content` modo `block` (directo) | — |
-| Copy plano sin builder | `marketing-blog-post` o `marketing-landing-page` y se queda ahí | No |
+| Copy plano sin builder | `marketing-copy` (formato `blog`) o `marketing-landing-page` y se queda ahí | No |
 
-**Nunca invocar esta skill antes que `marketing-blog-post` para contenido editorial.** El copy se decide primero (tono, SEO, estructura) y luego se maqueta.
+**Nunca invocar esta skill antes que el copy para contenido editorial.** El copy se decide primero (con `marketing-copy` formato `blog`: tono, SEO, estructura) y luego se maqueta.
 
 **Cuándo NO usar:**
 - Sitio sin Elementor (Gutenberg puro, WPBakery, Divi).
-- Solo necesitas copy plano: usar `marketing-blog-post` o `marketing-ad-copy`.
+- Solo necesitas copy plano: usar `marketing-copy` (formato `blog` o `anuncio`).
 - Contenido que requiere **Elementor Pro** (Form, Posts Loop, Slides, Price Table avanzada…). Esta skill cubre solo widgets **core**.
 
 ---
@@ -65,13 +67,13 @@ Antes de escribir una sola línea de `_elementor_data.json`:
 
 Leer `.context/<proyecto>/config.json → paths.marketing.posts` (o `paths.marketing` legacy). Si existe, la carpeta del entregable va ahí. Si no existe, usar el default y persistirlo en el config.
 
-**Convención unificada del dept Marketing (desde framework 3.2.0):** todo el contenido publicable de `marketing-web` y `marketing-content` (blog posts, páginas WP, landings, contenido Elementor y bloques reutilizables) vive en una **única carpeta `posts/`**, no en `contenido/`, `web/`, `blog-posts/` ni `landing-pages/`.
+**Convención unificada del dept Marketing (desde framework 3.2.0):** todo el contenido publicable de `marketing-web` y `marketing-creative` (blog posts, páginas WP, landings, contenido Elementor y bloques reutilizables) vive en una **única carpeta `posts/`**, no en `contenido/`, `web/`, `blog-posts/` ni `landing-pages/`.
 
 ```
 <proyecto>/marketing/posts/<slug>/
 ```
 
-El `<slug>` describe el tipo cuando ayuda a distinguir (`landing-launch-q3`, `page-about`, `block-hero-default`, `post-como-elegir-crm`). El orquestador `marketing-orchestrator` y `marketing-blog-post/SKILL.md` ya usan este path.
+El `<slug>` describe el tipo cuando ayuda a distinguir (`landing-launch-q3`, `page-about`, `block-hero-default`, `post-como-elegir-crm`). El orquestador `marketing-orchestrator` y `marketing-copy` (formato `blog`) ya usan este path.
 
 ### 0.2 Tokens de estilo Elementor
 

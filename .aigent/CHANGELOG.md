@@ -4,6 +4,263 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 3.13.0 — 2026-06-02
+
+### Skill `shared-office-writer` — hipervínculos externos en docx (párrafos y tablas)
+
+`office.cjs` (writer docx) gana soporte de **hipervínculos clicables** a nivel de *run*, tanto en párrafos como en celdas de tabla. Era el único formato rico que faltaba para que un entregable `.md` "bonito" (cabeceras + tablas + enlaces) se reprodujera fiel en `.docx` con el writer nativo, sin depender de pandoc ni de la librería `docx` de npm. Motivado por el flujo de subir resúmenes/índices de licitaciones a Google Drive (el conector abre el `.docx` y conserva los enlaces; el índice `licitaciones.md` es una tabla con enlaces por fila).
+
+**Contrato (nuevos campos opcionales en el spec docx):**
+- Un *run* admite ahora `link`: `{ "text": "etiqueta", "link": "https://..." }`. Se renderiza con el estilo de carácter `Hyperlink` (azul `0563C1` + subrayado). Retrocompatible: los specs sin `link` se comportan igual que antes.
+- Una **celda de tabla** puede ser ahora un string (como antes), un objeto run (`{ "text", "link"?, "bold"?, ... }`) o un array de runs. Permite enlaces clicables dentro de tablas. La cabecera (`header: true`) sigue bolando salvo override por celda.
+
+**Implementación (`office.cjs`):**
+- `buildDocxRun` envuelve el *run* en `<w:hyperlink r:id="hlN">` cuando hay `link`, y registra la relación en un colector (`hyperlinkRels`).
+- Nuevo helper `buildCellRuns(cell, isHeader)` resuelve celdas string / objeto / array a runs; el constructor de tabla lo usa en lugar del antiguo run único.
+- `word/_rels/document.xml.rels` emite una `Relationship` tipo `hyperlink` con `TargetMode="External"` por enlace (la URL se escapa con `xmlEscape`).
+- `<w:document>` declara el namespace `xmlns:r`; `styles.xml` incluye el estilo de carácter `Hyperlink`. Reset defensivo del colector al inicio de `buildDocx`.
+
+**Verificado:** docx con enlaces en párrafos y en celdas de tabla abre en LibreOffice; subido a Google Drive vía el conector (mime docx), el `contentSnippet` de Drive conserva los enlaces como `[etiqueta](url)`.
+
+**Archivos editados:** `.aigent/departments/_shared/skills/shared-office-writer/office.cjs`, `.aigent/departments/_shared/skills/shared-office-writer/SKILL.md`, `.aigent/departments/_shared/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.12.0 — 2026-06-01
+
+### Nueva utility-skill compartida `shared-office-writer` — generación de .docx/.xlsx sin dependencias
+
+Utilidad transversal para **producir** documentos Office desde un spec JSON, sin ningún paquete externo. Un `.docx`/`.xlsx` es un paquete OPC (un ZIP de partes XML); el script lo ensambla con `zlib` de stdlib (DEFLATE crudo + CRC32 + central directory propios). Misma filosofía zero-dependencia que `b64.cjs`, `download.cjs` y el parser YAML del engine.
+
+**Capacidades (alcance "Práctico"):**
+- **docx:** párrafos (texto o *runs* con `bold`/`italic`/`underline`), encabezados H1-H6, tablas simples con bordes y cabecera opcional en negrita.
+- **xlsx:** varias hojas (nombres saneados a reglas de Excel), celdas texto/número/booleano/fecha (`yyyy-mm-dd`), fórmulas (con valor cacheado opcional), ancho de columna, cabecera en negrita.
+
+**Contrato:** `node office.cjs <docx|xlsx> --spec <spec.json> --output <fichero>` (o `--stdin`). Output JSON `{ ok, op, path, bytes, ... }`. Errores: `BAD_ARGS`, `SPEC_NOT_FOUND`, `BAD_SPEC_JSON`, `BAD_SPEC`, `WRITE_FAILED`, `INTERNAL`.
+
+**Limitaciones declaradas:** solo escribe (no lee/edita ficheros existentes); sin imágenes, headers/footers, TOC, comentarios, control de cambios (docx) ni colores/bordes/merges/gráficos/pivots/formato condicional (xlsx); las fórmulas las recalcula Office al abrir. Ampliar = editar `office.cjs` + SKILL.md de forma deliberada.
+
+**Verificación:** ficheros generados validados de tres formas independientes — integridad ZIP (`unzip -t`), lectura con python-docx/openpyxl (estilos de encabezado, negrita de cabecera, fechas como `datetime` reales, fórmulas, escape XML de `&`/`<`), y conversión a PDF con LibreOffice headless (prueba estricta de validez OOXML). Rutas de error probadas.
+
+**Categoría:** utility-skill (§7.1 conventions) — autodescubrimiento vía `description` rica en triggers, no se lista en agentes. `install.sh`/`install.ps1` la propagan automáticamente como cualquier `_shared/skill`.
+
+### Documentación de casos de uso (para usuarios no técnicos)
+- `_shared/README.md`: nueva sección **"Skills utility compartidas"** que documenta las tres utility (`shared-office-writer`, `shared-base64`, `shared-http-download`) con ejemplos en lenguaje natural, aclarando que base64/http-download son fontanería autodescubierta (no se piden por nombre). Tres filas añadidas a la tabla "Cuándo invocar".
+- READMEs de dept con nota **"¿En Word o Excel?"** (ejemplos propios de cada dominio) donde el entregable Office es natural: `marketing` (extiende la nota de formato existente), `sales`, `finance`, `hr`, `legal`. Los demás depts no se tocan (Office no es su entregable habitual; la skill sigue disponible vía autodescubrimiento).
+
+### Plantillas de permisos del instalador (Claude Code + OpenCode)
+Retoques genéricos a `IDE/settings.local.json` y `IDE/opencode.json` (las plantillas que el instalador copia). Motivados por permisos hiper-específicos que se auto-capturaban en Windows; se sustituyen por patrones genéricos:
+- **Paridad PowerShell.** La plantilla solo tenía `powershell:*`/`pwsh:*` (estilo unix). Añadidos los binarios Windows `powershell.exe`/`pwsh.exe` y cmdlets equivalentes a los allow unix ya existentes: lectura (`Get-ChildItem`, `Get-Content`, `Get-Item`, `Get-Location`, `Test-Path`, `Select-String`) y escritura (`New-Item`, `Copy-Item`, `Move-Item`, `Set-Content`, `Add-Content`, `Out-File`) en allow; `Remove-Item` en ask (espejo de `rm`). Resuelve genéricamente los prompts de `New-Item`/`Test-Path`/`powershell.exe` sin rutas hardcodeadas.
+- **`office.cjs`** de `shared-office-writer` añadido a la lista de scripts permitidos (paridad con `b64.cjs`), en ambos ficheros.
+- **Claude:** añadidos `WebSearch` y `Read(/tmp/**)` + `Read(.context/.temp/**)` (staging). En OpenCode no aplican (webfetch ya es allow global y Read no se gatea por patrón).
+- **No** se añadieron al repo permisos MCP con UUID de conector (instancia-específicos → van en el `.claude/settings.local.json` real del usuario), ni el dominio WebFetch de PLACSP (específico del flujo `sales-tender-search`).
+
+### Archivos tocados
+`.aigent/departments/_shared/skills/shared-office-writer/{SKILL.md, office.cjs}` (nuevos), `.aigent/README.md` (catálogo: estado `_shared` 2→3 utility, tabla utility-skills ×2, conteo de skills compartidas 12→13), `.aigent/departments/_shared/README.md`, `.aigent/departments/{marketing,sales,finance,hr,legal}/README.md`, `.aigent/IDE/settings.local.json`, `.aigent/IDE/opencode.json`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.11.0 — 2026-06-01
+
+### Utility-skill `shared-base64` — ahora bidireccional (encode + decode) y renombrada
+
+La antigua `shared-base64-to-file` se generaliza a una utilidad **base64 ↔ fichero** en ambos sentidos y se renombra para reflejarlo.
+
+**Rename:**
+- Carpeta `_shared/skills/shared-base64-to-file/` → `_shared/skills/shared-base64/`.
+- `name:` del frontmatter `shared-base64-to-file` → `shared-base64`.
+- Script `decode.cjs` → `b64.cjs` (un solo script con subcomandos).
+
+**Nueva capacidad — `encode` (fichero → base64):**
+- `node b64.cjs encode --input <fichero> [--output <path.b64>] [--format <fmt>] [--data-uri] [--emit-string]`.
+- Escribe directamente un fichero `.b64` de texto con todo el base64 (default: alongside con extensión `.b64`; el caller puede apuntarlo a `.context/.temp/<dept>/` para un snapshot transitorio).
+- `--data-uri` prefija el contenido con `data:<mime>;base64,`. `--emit-string` incluye el base64 completo en el JSON de stdout (para blobs pequeños; default `null`).
+- `--format` (opcional) verifica los magic bytes del origen antes de codificar. Sin `--format`, el mime se infiere de la extensión y un formato fuera de catálogo cae a `application/octet-stream` (`format: null`).
+- Gestiona `.context/.temp/.gitignore` con `*` si el `.b64` cae bajo `.context/.temp/`.
+- Output JSON: `{ ok, op:"encode", b64_path, source_path, source_bytes, b64_chars, mime, format, data_uri, base64 }`.
+
+**`decode` — comportamiento preservado** (mismo contrato que `decode.cjs`): input bajo `.context/.temp/`, verificación de magic bytes obligatoria, copia `.b64` alongside, borrado del intermedio, errores idénticos. Se añade `op:"decode"` al JSON de salida.
+
+**Back-compat:** si el primer argumento empieza por `--` (sin subcomando), el comando es `decode` — preserva la CLI histórica `decode.cjs --input ...`. Verificado round-trip byte-idéntico (png/pdf) y guard `INPUT_OUT_OF_SCOPE`.
+
+**Sigue sin dependencias** (solo `fs`, `path`; Node 18+).
+
+### Referencias actualizadas (rename)
+- `conventions.md` §7.1 (tabla de categorías de skills): ejemplo de utility-skill `shared-base64-to-file` → `shared-base64`.
+- `_shared/skills/shared-http-download/SKILL.md`: dos referencias cruzadas.
+- `IDE/settings.local.json` y `IDE/opencode.json`: rutas allow de Bash `decode.cjs` → `b64.cjs`.
+- `.aigent/README.md`: líneas de catálogo (estado `_shared`, tabla utility-skills ×2) renombradas y redactadas como bidireccionales.
+
+### Aviso — corrupción preexistente en `.aigent/README.md` (no corregida en este bump)
+Al editar el README se detectó que su **última línea (774) está corrupta**: `- \`v2/README.m` truncado, seguido de un relleno de espacios y un bloque de **980 bytes NUL** al final del fichero (mismo tipo de defecto que se limpió en `decode.js` en una versión previa). La edición de este bump **preservó** la corrupción intacta (no la agravó). Pendiente: reconstruir el final del README en un PATCH dedicado una vez se confirme qué contenido se perdió.
+
+### Archivos tocados
+`.aigent/departments/_shared/skills/shared-base64/{SKILL.md, b64.cjs}` (nuevos; reemplazan `shared-base64-to-file/{SKILL.md, decode.cjs}`, eliminados), `.aigent/departments/_shared/conventions.md`, `.aigent/departments/_shared/skills/shared-http-download/SKILL.md`, `.aigent/IDE/settings.local.json`, `.aigent/IDE/opencode.json`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.10.1 — 2026-06-01
+
+### Consistencia documental: corrección de incoherencias preexistentes detectadas en la revisión
+
+Correcciones de documentación (sin cambio de contrato ni de comportamiento) destapadas al revisar el trabajo de 3.9.0/3.10.0.
+
+**`conventions.md`:**
+- **§7.1 Naming (contradicción real corregida):** la subsección decía que las skills compartidas **no** llevan prefijo (`competitive-analysis`, "no llevan `shared-`"), contradiciendo §4.1 y la realidad (las 12 son `shared-*`). Reescrita para afirmar el prefijo `shared-` obligatorio. Riesgo evitado: que `skill-scaffold` generara una shared-skill mal nombrada.
+- **Rutas de scaffolds:** §1 (diagrama) mostraba `skills/skill-scaffold/` y §5.1 escribía `shared/skills/agent-scaffold`; corregidas a `_shared/skills/shared-{skill,agent}-scaffold/`.
+
+**`output-rules.md`:** el ejemplo de estructura mostraba `posts/` y `landing-pages/` como carpetas separadas, contradiciendo la convención unificada `posts/` (framework 3.2.0). Actualizado a `posts/` (todo el contenido publicable) + `strategy/`.
+
+**`.aigent/README.md` (totales corregidos a la realidad del repo):**
+- Agentes especialistas: `33` → **29** (el catálogo lista 8 deptos implementados = 29; el `35`/`33` previo estaba inflado).
+- Skills dept-específicas v1: `70` → **71** (suma real de los 8 deptos; la skill v2 `operations-redmine` se cuenta aparte).
+- Tabla de estado: Sales `11` → **12** skills (`sales-tender-search` no se había reflejado en la fila).
+
+### README de la raíz: adelgazado a índice-puntero
+El `README.md` de la raíz era un relicto de una época anterior (hablaba de "63 skills dept-específicas", "9 compartidas", convención sin prefijo, los 5 agentes viejos de Marketing, y "Software (7)" cuando son 19). Reescrito como **índice-puntero**: conserva intro, "qué resuelve", instalación y "cómo extender"; sustituye los catálogos duplicados de agentes y skills por una tabla de estado por departamento con **enlace al README de casos de uso de cada dept**, y delega el inventario y los conteos en `.aigent/README.md` (única fuente de verdad), evitando mantener dos catálogos en paralelo. De paso se corrigió "skill compartida sin prefijo" → "con prefijo `shared-`" y `skill-scaffold`/`agent-scaffold` → `shared-skill-scaffold`/`shared-agent-scaffold`.
+
+### Naming doblado en Sales corregido
+`sales-sales-proposal` / `sales-sales-playbook` → `sales-proposal` / `sales-playbook` (carpetas reales; §4.1, no doblar prefijo). 8 ocurrencias: 6 en `.aigent/README.md` y —más importante— 2 en las tablas "Skills disponibles" de `sales-ae.md` y `sales-enablement.md`, donde eran referencias a un nombre de skill inexistente (bug funcional latente).
+
+### Archivos tocados
+`.aigent/departments/_shared/conventions.md`, `.aigent/departments/_shared/output-rules.md`, `.aigent/README.md`, `README.md` (raíz del repo), `.aigent/departments/sales/agents/{sales-ae.md, sales-enablement.md}`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.10.0 — 2026-06-01
+
+### Convenciones: el bloque de readiness de skills v2 pasa a ser condicional (antes obligatorio)
+
+Continuación del refactor de Marketing (3.9.0), ahora promovido a `_shared/` y aplicado a todo el framework.
+
+**Convención (`conventions.md §6`):** el bloque "Manejo de skills v2 — readiness" deja de ser una sección obligatoria de *todo* orquestador. Ahora se incluye **solo si el departamento tiene al menos una skill v2** (`runtime: engine-v2`). Los departamentos cuyas skills son todas v1 prosa lo sustituyen por una nota de una línea. Motivo: evitar ~80 líneas de instrucciones inejecutables en orquestadores sin v2.
+
+**Plantilla (`orchestrator-template.md`):** el bloque v2 se conserva como referencia canónica, pero ahora va precedido de un aviso "Sección CONDICIONAL" con la nota de una línea a usar cuando el dept no tiene skills v2.
+
+**Orquestadores limpiados (7):** se eliminó el bloque v2 muerto de `sales`, `software`, `hr`, `product`, `finance`, `legal` y `design` (sustituido por la nota "Skills v2 — no aplica en este departamento"). `operations` lo conserva (tiene `operations-redmine`, v2). `marketing` ya se había limpiado en 3.9.0; se actualizó su nota y su sección de excepciones (el bloque v2 ya no figura como excepción local, solo el default de archivo único).
+
+### Documentación: referencias a los nombres antiguos de Marketing actualizadas en `_shared/`
+
+Tras el renombrado de agentes/skills de Marketing en 3.9.0, se corrigieron las referencias obsoletas que quedaban fuera del departamento:
+- **Descripciones de skills compartidas** (consumidores documentados): `shared-case-study` (`marketing-content`→`marketing-creative`), `shared-competitive-analysis`, `shared-okr-set`, `shared-stakeholder-map` (`marketing-strategy`→`marketing-planning`), `shared-kpi-dashboard` (`marketing-seo`→`marketing-planning`).
+- **`_shared/README.md`**: los 5 "Prompt: (desde …)" de las skills compartidas.
+- **Ejemplos de naming** en `conventions.md` (§4 y §4.1: `marketing-social.md`→`marketing-creative.md`, `marketing-blog-post`→`marketing-copy`, `[Marketing] Social Media`→`[Marketing] Creative`; se quitó `marketing-plan` del ejemplo de "no doblar prefijo").
+- **Scaffolds**: `shared-agent-scaffold` (ejemplos `marketing-content`/`marketing-social`→`marketing-creative`/`marketing-web`) y `shared-skill-scaffold` (referencias canónicas v1: multi-archivo→`marketing-elementor-content`, archivo único→`marketing-copy`, brief→`marketing-strategy`).
+- **`software-changelog-entry`**: `marketing-content`→`marketing-creative`.
+
+### Archivos tocados
+`.aigent/departments/_shared/conventions.md`, `.aigent/departments/_shared/orchestrator-template.md`, `.aigent/departments/_shared/README.md`, `.aigent/departments/_shared/skills/{shared-case-study,shared-competitive-analysis,shared-kpi-dashboard,shared-okr-set,shared-stakeholder-map,shared-agent-scaffold,shared-skill-scaffold}/SKILL.md`, `.aigent/departments/{sales,software,hr,product,finance,legal,design}/<dept>-orchestrator.md`, `.aigent/departments/marketing/marketing-orchestrator.md`, `.aigent/departments/software/skills/software-changelog-entry/SKILL.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.9.0 — 2026-06-01
+
+### Marketing: simplificación del departamento (5 agentes → 3, 14 skills → 8) + default de archivo único
+
+Refactor de usabilidad del departamento de Marketing. Objetivo: menos piezas, menos archivos por entregable, más fácil de pedir. **No se tocó `_shared/`** (decisión de alcance): las dos reglas nuevas viven como excepción local documentada en el orquestador de Marketing.
+
+> **Aviso de migración para deployments:** los nombres de agentes y skills de Marketing han cambiado. Cualquier deployment que referencie los nombres antiguos (`marketing-content`, `marketing-strategy`, `marketing-seo`, `marketing-social` como agentes; `marketing-blog-post`, `marketing-ad-copy`, `marketing-email-campaign`, `marketing-editorial-calendar`, `marketing-platform-adapter`, `marketing-linkedin-audit`, `marketing-keyword-research`, `marketing-seo-on-page`, `marketing-marketing-plan`, `marketing-campaign-brief` como skills) debe actualizar las referencias (ver mapa abajo).
+
+**Agentes (5 → 3):**
+- `marketing-creative` (nuevo) = fusión de `marketing-content` + `marketing-social`. Copy + redes + voz de marca.
+- `marketing-planning` (nuevo) = fusión de `marketing-strategy` + `marketing-seo`. Estrategia + SEO/analytics.
+- `marketing-web` (se mantiene, reescrito y aligerado; referencias de skills actualizadas).
+- Eliminados: `marketing-content.md`, `marketing-strategy.md`, `marketing-seo.md`, `marketing-social.md`.
+
+**Skills (14 → 8), multi-modo cuando aplica:**
+- `marketing-copy` (nueva) = `marketing-blog-post` + `marketing-ad-copy` + `marketing-email-campaign`. Formatos `blog`/`email`/`anuncio`/`prensa`.
+- `marketing-social` (nueva) = `marketing-editorial-calendar` + `marketing-platform-adapter` + `marketing-linkedin-audit`. Modos `adaptar`/`calendario`/`linkedin-audit`.
+- `marketing-seo` (nueva) = `marketing-keyword-research` + `marketing-seo-on-page`. Modos `research`/`on-page`.
+- `marketing-strategy` (nueva) = `marketing-marketing-plan` + `marketing-campaign-brief`. Modos `plan`/`brief`.
+- Se mantienen: `marketing-landing-page`, `marketing-elementor-content`, `marketing-publish-checklist`, `marketing-brand-voice-guide`.
+- Eliminadas (fusionadas): las 10 skills de origen listadas arriba.
+
+**Nueva regla de output (local de Marketing): default de archivo único.** Por defecto cada entregable es **un solo `.md`**; los formatos extra (`.html`, `_content.html`, `assets/`, `analytics/`) solo se generan a petición. Excepción documentada: `marketing-elementor-content` (entregable técnico multi-archivo por naturaleza). Aplicado en todas las skills de Marketing y en el orquestador.
+
+**Orquestador (`marketing-orchestrator.md`):**
+- Eliminado el bloque "Manejo de skills v2 — readiness" (~80 líneas): Marketing no tiene skills v2, era código muerto.
+- Nueva tabla de decisión y secciones de delegación para 3 agentes.
+- Nueva sección "Excepciones documentadas respecto a `_shared/`" que registra como intencionales las dos divergencias: (1) sin bloque v2 readiness (diverge de `conventions.md §6`), (2) default de archivo único (extiende `output-rules.md`). **Pendiente de promover a `_shared/` si se decide aplicarlo a todos los departamentos.**
+- Se conservan intactos Paso 0, Paso 0.5 (init de proyecto), gestión de tareas y PRD.
+
+### Índice (`.aigent/README.md`)
+- Tabla de estado: Marketing `5 / 5` → `3 / 3` agentes, `14` → `8` skills.
+- Sección "Detalle por departamento → Marketing" reescrita (3 agentes + 8 skills).
+- Catálogo global: "Agentes especialistas" `35` → `33`; "Skills dept-específicas" `76` → `70`; subsección Marketing actualizada.
+- Referencias de "consumidores documentados" en skills compartidas actualizadas a los nuevos nombres (`marketing-creative`/`marketing-planning`).
+- `departments/marketing/README.md` (casos de uso) reescrito para la nueva estructura.
+
+### Pendiente (fuera del alcance de esta versión)
+- Referencias a los nombres antiguos de agentes de Marketing que aún viven en `_shared/` (descripciones de `shared-case-study`, `shared-competitive-analysis`, `shared-kpi-dashboard`, `shared-okr-set`, `shared-stakeholder-map`; ejemplos en `conventions.md`, `shared-agent-scaffold`, `shared-skill-scaffold`, `_shared/README.md`) y una en `software-changelog-entry`. No se tocaron por decisión de alcance (solo Marketing, sin `_shared`).
+
+### Archivos tocados
+`.aigent/departments/marketing/marketing-orchestrator.md`, `.aigent/departments/marketing/README.md`, `.aigent/departments/marketing/agents/{marketing-creative.md (nuevo), marketing-planning.md (nuevo), marketing-web.md}` (eliminados `marketing-content.md`, `marketing-strategy.md`, `marketing-seo.md`, `marketing-social.md`), `.aigent/departments/marketing/skills/` (nuevas `marketing-copy/`, `marketing-social/`, `marketing-seo/`, `marketing-strategy/`; actualizadas `marketing-landing-page/`, `marketing-publish-checklist/`, `marketing-brand-voice-guide/`, `marketing-elementor-content/`; eliminadas 10 skills fusionadas), `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.8.0 — 2026-05-29
+
+### Sales: nueva skill `sales-tender-search` (búsqueda de licitaciones ATOM/PLACSP)
+
+Skill v1 con script propio para buscar licitaciones públicas en feeds ATOM de sindicación (por defecto la PLACSP, `contrataciondelestado.es`), filtrarlas client-side y preparar su triaje. El feed no es una API consultable (sindicación masiva paginada con `rel="next"`), así que el script descarga, pagina sobre la ventana de `<updated>` y filtra en local.
+
+- **`sales/skills/sales-tender-search/atom-search.cjs`** (Node 18+, sin deps, `fetch` global): núcleo genérico de búsqueda ATOM con extractor enchufable por perfil (`placsp-codice` el primero, leyendo CODICE/UBL). Filtros: CPV mixto (exactos + prefijos tipo `722*`), ventana de fechas de publicación, estado (`PUB`/abiertas por defecto) y plazo de presentación ≥ hoy. Inputs por `--inputs '<json>'`; soporta `file` para pruebas offline; progreso por stderr; salida JSON con `results[]` (expediente, objeto, órgano, CPV, presupuesto, estado, plazo, enlace, documentos[]).
+- **`sales/skills/sales-tender-search/SKILL.md`**: prosa + contrato CLI + flujo de 3 pasos (buscar → descargar pliegos con `shared-http-download` → resumir con `pdf`) y ruta de entregables según `output-rules`. El Paso 3 exige que cada `resumen.md` incluya **siempre** una sección "Documentos originales" enlazando la ficha PLACSP (`results[i].enlace`) y cada pliego por su `url` original, y que el índice `licitaciones.md` enlace de forma navegable a cada `resumen.md` (`<expediente>/resumen.md`).
+
+### _shared: nueva utility-skill `shared-http-download`
+
+- **`_shared/skills/shared-http-download/download.cjs`** (Node 18+, sin deps): descarga binaria por GET HTTP(S) a un `outDir`, con resolución segura de nombre (título → `Content-Disposition` → segmento de URL → `Content-Type`), aislamiento de errores por URL (un 404 no aborta el lote), tope `maxBytes` y reporte JSON.
+- **`_shared/skills/shared-http-download/SKILL.md`**: prosa + contrato CLI, códigos de error y convención de `outDir` (output-rules). Reutilizable por cualquier departamento.
+
+### Sales: cableado de la skill en el departamento
+
+Para que la skill sea alcanzable desde el orquestador (y no solo por invocación manual):
+
+- **`sales/agents/sales-sdr.md`**: `sales-tender-search` añadida a su tabla "Skills disponibles" (la asociación skill→agente vive en el agente, por convención).
+- **`sales/sales-orchestrator.md`**: nueva señal de delegación a `sales-sdr` (licitaciones / concursos públicos / CPV / pliegos / PLACSP / tender), fila en la tabla de decisión rápida, carpeta `licitaciones/` añadida a la estructura de outputs por defecto (Paso 0.5 + árbol + tabla "carpeta destino por agente").
+
+### Índice
+
+- `README.md`: añadidas ambas skills a los catálogos (`_shared` utility 1→2, sales 11→12, dept-específicas 75→76, compartidas 11→12) y actualizado el resumen de `_shared`.
+
+### Archivos tocados
+
+`.aigent/departments/sales/skills/sales-tender-search/{atom-search.cjs,SKILL.md}`, `.aigent/departments/_shared/skills/shared-http-download/{download.cjs,SKILL.md}`, `.aigent/departments/sales/agents/sales-sdr.md`, `.aigent/departments/sales/sales-orchestrator.md`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.7.1 — 2026-05-28
+
+### Instalador: prompt interactivo para activar `--clean` / `-Clean`
+
+Mejora UX retro-compatible del flag declarativo `--clean` introducido en 3.5.0. Hasta ahora la única forma de activarlo era pasando el flag por CLI; quien usaba el modo interactivo (el flujo `./install.sh` sin argumentos) no veía la opción y tenía que conocer la existencia del flag para usarla.
+
+**Nuevo prompt en `ask_interactive` (bash) e `Invoke-Interactive` (PowerShell):** justo después de la selección de departamentos y antes del prompt de MCPs, si la selección NO incluye todos los departamentos del repo, se pregunta:
+
+```
+¿Quitar los departamentos no seleccionados si ya estaban instalados?
+Modo --clean: borra agentes y skills de: <lista>
+shared-* y carpetas personalizadas NUNCA se tocan.
+##OPTIONS:["s","n","Salir"]##
+[s/N] (h=ayuda, q=salir):
+```
+
+**Lógica condicional del prompt:**
+
+- Solo aparece en instalación completa (no en `--sync`, donde `--clean` es incompatible).
+- Solo aparece si hay candidatos a limpiar: si el usuario eligió "Todos", el prompt se omite.
+- Lista explícita los departamentos que se borrarían — el usuario ve qué consecuencias tiene decir "s".
+- `s` → activa `CLEAN=true`. `n` o `Enter` → `CLEAN=false` (default seguro).
+- Emite el marcador `##OPTIONS:` para que los wrappers (Cowork) muestren botones nativos.
+
+**Verificado end-to-end** con tres escenarios:
+
+| Escenario | Resultado |
+|---|---|
+| Selección parcial + respuesta `s` | Prompt aparece, clean se ejecuta, borra los depts no seleccionados que estaban instalados |
+| Selección parcial + respuesta `n` | Prompt aparece, clean NO se ejecuta, los demás depts se mantienen intactos |
+| Selección "Todos" | Prompt omitido (no hay candidatos), comportamiento de siempre |
+
+**Archivos editados:**
+- `.aigent/IDE/install.sh` — sección "4. Clean (modo declarativo)" insertada entre depts y MCPs en `ask_interactive`.
+- `.aigent/IDE/install.ps1` — sección "4. Clean (modo declarativo)" insertada entre depts y MCPs en `Invoke-Interactive`.
+
+**Por qué PATCH:** sin cambio de contrato, sin breaking change. El flag CLI sigue funcionando exactamente igual; el flujo no-interactivo no se ve afectado. Solo se añade un prompt nuevo en una rama del flujo interactivo que antes no existía.
+
+---
 ## 3.7.0 — 2026-05-28
 
 ### BOSS.md: bootstrap automático en estado virgen

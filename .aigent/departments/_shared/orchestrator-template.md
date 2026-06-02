@@ -181,6 +181,14 @@ Cuando coordinas múltiples agentes, **siempre**:
 
 ## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
 
+> **⚠️ Sección CONDICIONAL (convención §6, desde framework 3.10.0).** Incluye este bloque **solo si el departamento tiene al menos una skill v2** (`runtime: engine-v2`). Si todas las skills del dept son v1 prosa, **elimina todo este bloque** (hasta el `---` previo a "Cuándo NO delegar") y sustitúyelo por esta nota de una línea:
+>
+> ```markdown
+> ## Skills v2 — no aplica en este departamento
+>
+> Este departamento no tiene skills v2 (ejecutables por engine); todas son v1 prosa. Por eso este orquestador no incluye el bloque de readiness de skills v2. Si en el futuro se añade una skill v2, copiar ese bloque desde `_shared/orchestrator-template.md`.
+> ```
+
 Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
 
 ### Camino principal — precheck proactivo (preferido)

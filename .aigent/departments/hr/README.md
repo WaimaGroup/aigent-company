@@ -13,6 +13,8 @@
 2. **Directo a agente** cuando la tarea es de su único dominio.
 3. **Skill directa** para outputs concretos (job-description de rol específico, etc).
 
+> **¿En Word o Excel?** Por defecto los entregables salen en `.md`. Si lo quieres como documento de Word (cartas de oferta, JDs, políticas) o como hoja de Excel (bandas salariales, planes de headcount), solo pídelo (p. ej. «la carta de oferta en Word», «la tabla de bandas salariales en Excel»): el sistema genera el `.docx`/`.xlsx` listo para abrir.
+
 ---
 
 ## Agentes

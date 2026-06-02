@@ -5,7 +5,7 @@ description: >
   Shared skill for producing a structured stakeholder map: identification,
   influence × interest matrix, position (champion/supporter/neutral/blocker),
   motivations, engagement plan per stakeholder. Used cross-department
-  (product-discovery, legal-risk, marketing-strategy, sales-ae) with the same
+  (product-discovery, legal-risk, marketing-planning, sales-ae) with the same
   deliverable structure, regardless of context (initiative, decision, deal).
 ---
 

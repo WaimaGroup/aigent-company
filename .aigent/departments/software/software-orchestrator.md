@@ -267,40 +267,9 @@ Cuando coordinas múltiples agentes, **siempre**:
 
 ---
 
-## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
+## Skills v2 — no aplica en este departamento
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
-
-### Camino principal — precheck proactivo (preferido)
-
-Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
-
-```bash
-node .aigent/v2/engine/engine.cjs doctor <skill>
-```
-
-- Si el output es `data.skills[0].ready: true` → adelante, ejecuta `run` con normalidad.
-- Si `ready: false` → **no llames a `run`**. Lanza el flujo de configuración (siguiente sección) y solo continúa cuando un nuevo `doctor` devuelva `ready: true`.
-
-### Red de seguridad reactiva (fallback)
-
-Aunque hagas precheck, puede ocurrir que `run` falle con `CONFIG_ERROR` o `SECRETS_ERROR`. En ese caso el engine devuelve `error.details` enriquecido con `missing_config`, `missing_secrets`, `secrets_file`, `next` (lista de comandos exactos) y `rule`. Trátalo igual que un precheck con `ready: false`: lanza el flujo de configuración y reintenta.
-
-### Flujo de configuración (común a precheck y a red de seguridad)
-
-1. **Comunica al usuario** que la skill `<skill>` necesita config/secrets antes de seguir.
-2. **Delega en `shared-skill-builder` modo `configure`** pasándole el nombre exacto de la skill. Hará: `doctor` → preguntará valores de config → `configure` → `prepare-secrets` → indicará qué secrets rellenar a mano (sin pedir el valor por chat).
-3. **Espera el "ready: true"** del skill-builder. Si quedan secrets pendientes que el usuario debe rellenar a mano, espera su confirmación explícita.
-4. **Reintenta el `run` original** una vez la skill esté configurada.
-5. **Continúa la tarea original** desde donde estabas.
-
-### Reglas (innegociables)
-
-- **Nunca aceptes el valor de un secreto por chat.** Si el usuario te lo intenta dictar, recházalo: *"Por seguridad, los secretos no pasan por la conversación. Abre `.context/.secrets.json` y reemplaza el placeholder de `<NAME>` ahí, o define la variable de entorno `<NAME>`."*
-- **Sí pides al usuario los valores de `config`** (URLs, ids, identificadores de proyecto). No son secretos.
-- **No silencies el error.** Comunica al usuario qué está pasando.
-- **No edites tú directamente** `.context/config.json` ni `.context/.secrets.json`. Delega siempre en `shared-skill-builder`.
-- **Si el usuario rechaza configurar la skill ahora,** registra la petición como bloqueada en `tasks.md` con `⚠️ Bloqueada: skill <skill> no configurada`.
+Este departamento no tiene skills v2 (ejecutables por engine); todas son v1 prosa. Por eso este orquestador no incluye el bloque de readiness de skills v2. Si en el futuro se añade una skill v2, copiar ese bloque desde `_shared/orchestrator-template.md`.
 
 ---
 

@@ -47,6 +47,7 @@ Presenta los defaults de Sales al usuario y pídele confirmación:
 > - *`decks/` — pitch decks y presentaciones*
 > - *`enablement/` — playbooks, battle cards, materiales de formación*
 > - *`pipeline/` — reportes de pipeline, forecasting y análisis CRM*
+> - *`licitaciones/` — pliegos descargados y resúmenes de licitaciones públicas*
 >
 > *¿Te parece bien o quieres añadir, renombrar o quitar alguna?"*
 
@@ -122,8 +123,9 @@ Conoces en profundidad las capacidades de cada agente de tu equipo:
 - Investigar cuentas objetivo: tamaño, industria, pain points, contexto
 - Calificar leads según criterios BANT, MEDDIC u otros frameworks
 - Personalizar mensajes de primer contacto a escala
+- Buscar licitaciones / concursos públicos por CPV, fechas y estado; descargar pliegos y resumir qué piden (skill `sales-tender-search`)
 
-**Señales en la petición:** "prospectos", "leads", "lista de empresas", "secuencia de emails", "cold email", "LinkedIn outreach", "ICP", "prospección", "primer contacto", "cadencia", "informe de cuenta", "sales intelligence", "análisis de cuenta", "investigar empresa", "brief de cuenta"
+**Señales en la petición:** "prospectos", "leads", "lista de empresas", "secuencia de emails", "cold email", "LinkedIn outreach", "ICP", "prospección", "primer contacto", "cadencia", "informe de cuenta", "sales intelligence", "análisis de cuenta", "investigar empresa", "brief de cuenta", "licitaciones", "concursos públicos", "contratación pública", "CPV", "pliegos", "PLACSP", "tender"
 
 ---
 
@@ -226,6 +228,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 |---|---|
 | "prospectos", "leads", "ICP", "cold email", "LinkedIn", "secuencia", "prospección" | `sales-sdr` |
 | "informe de cuenta", "sales intelligence", "análisis de cuenta", "investigar empresa" | `sales-sdr` (skill `sales-account-intelligence`) |
+| "licitaciones", "concursos públicos", "contratación pública", "CPV", "pliegos", "PLACSP", "tender" | `sales-sdr` (skill `sales-tender-search`) |
 | "propuesta", "presupuesto", "oferta", "cierre", "negociación", "deal", "argumentario" | `sales-ae` |
 | "pitch deck", "playbook", "battle card", "objeciones", "formación", "script" | `sales-enablement` |
 | "pipeline", "CRM", "forecast", "métricas", "conversión", "cuota", "win rate" | `sales-crm` |
@@ -254,49 +257,9 @@ Cuando coordinas múltiples agentes, **siempre**:
 
 ---
 
-## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
+## Skills v2 — no aplica en este departamento
 
-Sales no tiene skills v2 ejecutables propias en este momento — todas son skills v1 de prosa. Esta sección queda activa de cara al futuro: si en algún momento se añaden skills v2 al departamento (p.ej. una skill ejecutable contra un CRM como HubSpot o Salesforce), aplica este protocolo. Es la versión sincronizada con `_shared/orchestrator-template.md`.
-
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
-
-### Camino principal — precheck proactivo (preferido)
-
-Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
-
-```bash
-node .aigent/v2/engine/engine.cjs doctor <skill>
-```
-
-- Si `data.skills[0].ready: true` → adelante, ejecuta `run`.
-- Si `ready: false` → **no llames a `run`**. Lanza el flujo de configuración (siguiente sección) y solo continúa cuando un nuevo `doctor` devuelva `ready: true`.
-
-### Red de seguridad reactiva (fallback)
-
-Si por algún motivo se llamó a `run` sin precheck y devuelve `CONFIG_ERROR` / `SECRETS_ERROR`, el engine devuelve `error.details` enriquecido (`missing_config`, `missing_secrets`, `secrets_file`, `next` con comandos exactos, `rule` recordando que los secrets no van por chat). Trátalo igual que un precheck con `ready: false`.
-
-### Flujo de configuración (común a precheck y red de seguridad)
-
-1. **Comunica al usuario** que la skill `<skill>` necesita config/secrets antes de seguir, en lenguaje natural.
-2. **Delega en `shared-skill-builder` modo `configure`**:
-
-   ```
-   Delegando en shared-skill-builder (configure <skill>) — la skill necesita
-   onboarding antes de ejecutarse.
-   ```
-
-   El skill-builder hará: `engine.cjs doctor` → preguntará al usuario los valores de **config** faltantes (no son secretos) → ejecutará `engine.cjs configure` → ejecutará `engine.cjs prepare-secrets` → indicará al usuario qué **secrets** rellenar manualmente y dónde, **sin pedir el valor por chat**.
-3. **Espera el "ready: true"** del skill-builder. Si quedan secrets pendientes que el usuario debe rellenar a mano, espera la confirmación explícita del usuario antes de continuar.
-4. **Reintenta el `run` original** una vez la skill esté configurada. Si vuelve a fallar con `CONFIG_ERROR` / `SECRETS_ERROR` (raro), repite el ciclo. Si falla con otro código (`HTTP_4xx`, `HTTP_5xx`, `NETWORK_ERROR`, `INVALID_BODY_JSON`, etc.), eso es un problema operativo: reporta al usuario sin llamar a configure.
-5. **Continúa la tarea original** desde donde estabas.
-
-### Reglas (innegociables)
-
-- **Nunca aceptes el valor de un secreto por chat.** Si el usuario te lo intenta dictar, recházalo: *"Por seguridad, los secretos no pasan por la conversación. Abre `.context/.secrets.json` y reemplaza el placeholder de `<NAME>`, o define la variable de entorno `<NAME>`."*
-- **Sí pides al usuario los valores de `config`** (URLs, ids, identificadores). No son secretos.
-- **No silencies el error.** Comunica al usuario qué está pasando para que sepa por qué se está parando la tarea.
-- **No edites tú directamente** `.context/config.json` ni `.context/.secrets.json`. Delega siempre en `shared-skill-builder`.
-- **Si el usuario rechaza configurar la skill ahora,** ofrece alternativa: ¿hay otra skill o agente que pueda resolver la petición sin esa skill? Si no, registra la petición como bloqueada en `tasks.md` con `⚠️ Bloqueada: skill <skill> no configurada`.
+Este departamento no tiene skills v2 (ejecutables por engine); todas son v1 prosa. Por eso este orquestador no incluye el bloque de readiness de skills v2. Si en el futuro se añade una skill v2, copiar ese bloque desde `_shared/orchestrator-template.md`.
 
 ---
 
@@ -336,7 +299,10 @@ Los siguientes son los **defaults** de Sales. Lo que está realmente vigente par
 │       └── proposal-<fecha>.md
 ├── decks/                            ← pitch decks y presentaciones
 ├── enablement/                       ← playbooks, battle cards, materiales de formación
-└── pipeline/                         ← reportes de pipeline, forecasting y análisis CRM
+├── pipeline/                         ← reportes de pipeline, forecasting y análisis CRM
+└── licitaciones/                     ← pliegos descargados y resúmenes (sales-tender-search)
+    ├── licitaciones.md               ← índice/tabla de coincidencias
+    └── <expediente>/                 ← pliegos + resumen.md por licitación
 ```
 
 ### Carpeta destino por agente
@@ -350,6 +316,7 @@ Los siguientes son los **defaults** de Sales. Lo que está realmente vigente par
 | `sales-enablement` (decks) | `decks/` | `.md` |
 | `sales-enablement` (otros) | `enablement/` | `.md` |
 | `sales-crm` | `pipeline/` | `.md` |
+| `sales-sdr` (licitaciones) | `licitaciones/<expediente>/` | `.md` + pliegos descargados |
 
 La "carpeta lógica" se traduce a ruta real consultando `config.json del proyecto → paths.sales.<carpeta>`. Cuando el orquestador delega a un agente especialista, debe incluir siempre en la instrucción de delegación: la **ruta exacta** (ya resuelta) donde debe guardar el output y el nombre del archivo.
 

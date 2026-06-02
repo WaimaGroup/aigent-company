@@ -32,8 +32,8 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 | Departamento | Estado | Orquestador | Agentes | Skills |
 |---|---|---|---|---|
-| Marketing | ✅ implementado | completo | 5 / 5 | 14 (v1 prosa) |
-| Sales | ✅ implementado | completo | 4 / 4 | 11 (v1 prosa) |
+| Marketing | ✅ implementado | completo | 3 / 3 | 8 (v1 prosa) |
+| Sales | ✅ implementado | completo | 4 / 4 | 12 (v1 prosa) |
 | Software | ✅ implementado | completo | 4 / 4 | 19 (v1 prosa) |
 | HR | ✅ implementado | completo | 4 / 4 | 7 (v1 prosa) |
 | Product | ✅ implementado | completo | 3 / 3 | 6 (v1 prosa) |
@@ -42,7 +42,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | Design | ✅ implementado | completo | 4 / 4 | 6 (v1 prosa) |
 | Operations | ✅ parcial | completo (Redmine) | 0 / 4 implementados (4 stubs) | 1 (`operations-redmine` v2 ejecutable) |
 | DevOps | 🚧 TODO | stub honesto | 0 / 4 stub | 0 |
-| _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`shared-skill-scaffold`, `shared-agent-scaffold`) + 8 business compartidas + 1 utility (`shared-base64-to-file`) — todas v1 prosa |
+| _shared_ | ✅ activo | — | `shared-prd-agent`, `shared-skill-builder` | 2 meta (`shared-skill-scaffold`, `shared-agent-scaffold`) + 8 business compartidas + 3 utility (`shared-base64`, `shared-http-download`, `shared-office-writer`) — todas v1 prosa |
 
 **Stub honesto:** orquestador y agentes existen pero su body indica explícitamente que no deben delegar ni ejecutar. Evita que un cliente seleccione un agente vacío. Cuando el dept se active, se sustituye usando `_shared/orchestrator-template.md` y la skill `shared-agent-scaffold`.
 
@@ -74,12 +74,12 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 | Skill | Cuándo usarla | Agentes consumidores documentados |
 |---|---|---|
-| `shared-competitive-analysis` | Matriz comparativa estructurada de competidores, whitespace, threat assessment | `marketing-strategy`, `product-strategy-roadmap` |
-| `shared-case-study` | Caso de éxito de cliente con problema → solución → resultados medibles + citas verbatim | `marketing-content`, `sales-enablement` |
-| `shared-kpi-dashboard` | Dashboard estructurado de KPIs con tendencia, variance y commentary | `marketing-seo`, `product-metrics`, `finance-reporting`, `sales-crm` |
-| `shared-stakeholder-map` | Mapa influencia × interés × posición × plan de engagement | `product-discovery`, `legal-risk`, `marketing-strategy`, `sales-ae` |
+| `shared-competitive-analysis` | Matriz comparativa estructurada de competidores, whitespace, threat assessment | `marketing-planning`, `product-strategy-roadmap` |
+| `shared-case-study` | Caso de éxito de cliente con problema → solución → resultados medibles + citas verbatim | `marketing-creative`, `sales-enablement` |
+| `shared-kpi-dashboard` | Dashboard estructurado de KPIs con tendencia, variance y commentary | `marketing-planning`, `product-metrics`, `finance-reporting`, `sales-crm` |
+| `shared-stakeholder-map` | Mapa influencia × interés × posición × plan de engagement | `product-discovery`, `legal-risk`, `marketing-planning`, `sales-ae` |
 | `shared-risk-matrix` | Matriz de riesgos por dimensión con probabilidad × impacto y mitigación | `legal-risk`, `software-architecture`, `finance-budgeting`, `product-strategy-roadmap` |
-| `shared-okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo | `product-metrics`, `hr-evaluation`, `marketing-strategy` |
+| `shared-okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo | `product-metrics`, `hr-evaluation`, `marketing-planning` |
 | `shared-journey-map` | Journey map con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | `design-ux-research`, `product-discovery` |
 | `shared-deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia (instant/canary/blue-green/progressive) | `software-architecture`, `software-coding` (devops cuando se active) |
 
@@ -87,7 +87,9 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 | Skill | Cuándo usarla | Agentes consumidores documentados |
 |---|---|---|
-| `shared-base64-to-file` | Decodificar un base64 (típicamente de un MCP de imágenes / descarga de assets) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes y formatos soportados: PNG, JPG, GIF, WEBP, SVG, PDF, ZIP. Incluye `decode.cjs` (Node 18+, sin deps) | cualquier agente que reciba base64 de un MCP (marketing-content, marketing-web, design-ui, etc. cuando lo integren) |
+| `shared-base64` | Bidireccional base64 ↔ fichero: **decode** (base64 de un MCP → fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes: PNG/JPG/GIF/WEBP/SVG/PDF/ZIP) y **encode** (cualquier fichero → `.b64`, opcional data URI). Incluye `b64.cjs` (Node 18+, sin deps) | cualquier agente que reciba base64 de un MCP o necesite re-subir un fichero como base64 (marketing-creative, marketing-web, design-ui, etc.) |
+| `shared-http-download` | Descargar uno o varios ficheros por GET HTTP(S) a un directorio destino, con resolución segura de nombre, aislamiento de errores por URL y tope de tamaño. Formatos: PDF, ZIP, DOC/DOCX, XLS/XLSX, XML, HTML, TXT, binario. Incluye `download.cjs` (Node 18+, sin deps) | cualquier agente que reciba URLs de documentos a materializar en disco (p. ej. `sales-tender-search` con los pliegos) |
+| `shared-office-writer` | Generar documentos Office **nuevos** sin dependencias: `.docx` (párrafos, encabezados H1-H6, negrita/cursiva/subrayado, tablas simples) y `.xlsx` (varias hojas, texto/número/bool/fecha, fórmulas, ancho de columna, cabecera en negrita) desde un spec JSON. Incluye `office.cjs` (Node 18+, sin deps). Solo escribe, no edita | cualquier agente que deba producir un Word/Excel como entregable (informes, exports tabulares, presupuestos) |
 
 > **Criterios para `_shared/skills/`:** ver `conventions.md` §7.1. Resumen: ≥2 depts la usan + entregable genuinamente idéntico + sin matices fuertes por dept. Si una compartida empieza a divergir entre depts, se duplica en los depts (no se fuerza lo compartido).
 
@@ -99,34 +101,26 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 
 **Orquestador:** `marketing-orchestrator.md`
 
-**Agentes (5):**
+**Agentes (3):**
 
 | Agente | Cuándo delegarle | Skills propias |
 |---|---|---|
-| `marketing-content` | Posts de blog, emails, anuncios, comunicados, copy persuasivo | `marketing-blog-post`, `marketing-email-campaign`, `marketing-ad-copy` |
-| `marketing-strategy` | Planes de marketing, briefings de campaña, análisis competitivo, KPIs, lanzamientos | `marketing-marketing-plan`, `marketing-campaign-brief` |
-| `marketing-seo` | Keyword research, optimización on-page, auditoría SEO, lectura de Analytics/Search Console | `marketing-keyword-research`, `marketing-seo-on-page` |
-| `marketing-social` | Copies por plataforma (LinkedIn, Instagram, X, TikTok, FB), calendarios, hashtag strategy | `marketing-editorial-calendar`, `marketing-platform-adapter` |
-| `marketing-web` | Landing pages, páginas de WordPress, arquitectura de información, CRO | `marketing-landing-page`, `marketing-elementor-content`, `marketing-publish-checklist` |
+| `marketing-creative` | Copy (blog, email, anuncios, prensa), storytelling, y todo lo de redes sociales (copies por plataforma, calendarios, hashtags, auditoría LinkedIn), más voz de marca | `marketing-copy`, `marketing-social`, `marketing-brand-voice-guide` + `shared-case-study` (shared) |
+| `marketing-planning` | Planes de marketing, briefings de campaña, análisis competitivo, posicionamiento, KPIs/OKRs, lanzamientos, y SEO/analytics (keyword research, on-page, auditorías, Analytics/Search Console) | `marketing-strategy`, `marketing-seo` + `shared-competitive-analysis`, `shared-stakeholder-map`, `shared-okr-set`, `shared-kpi-dashboard` (shared) |
+| `marketing-web` | Landing pages, páginas de WordPress/Elementor, arquitectura de información, CRO | `marketing-landing-page`, `marketing-elementor-content`, `marketing-publish-checklist` |
 
-**Skills (14, todas v1 prosa):**
+**Skills (8, todas v1 prosa). Default de entregable: un solo `.md` (formatos extra solo a petición; excepción: `marketing-elementor-content`):**
 
 | Skill | Entregable |
 |---|---|
-| `marketing-blog-post` | Carpeta completa del post: `.md` + `.html` preview + `_content.html` para CMS + `assets/` + `analytics/` |
-| `marketing-ad-copy` | Copy publicitario para Google/Meta/LinkedIn Ads con variantes A/B y respeto de límites por plataforma |
-| `marketing-brand-voice-guide` | Guía canónica de voz de marca con atributos de tono, vocabulario do/don't y adaptación por canal |
-| `marketing-campaign-brief` | Briefing de campaña completo (objetivo, audiencia, canales, presupuesto, riesgos) |
-| `marketing-editorial-calendar` | Calendario editorial mensual o semanal de redes sociales con pilares y mix |
-| `marketing-elementor-content` | Contenido para Elementor: JSON canónico de `_elementor_data` + HTML fallback + metadata + `assets/` con SVGs vectoriales generados (icons custom, blobs, dividers, badges, patrones) y sus PNGs @2x. Cubre page/post/landing/block reutilizable (solo widgets core) |
-| `marketing-email-campaign` | Email de marketing con asunto (3 variantes), preheader, cuerpo y CTA |
-| `marketing-keyword-research` | Tabla priorizada de keywords con intención, volumen, dificultad y página destino |
-| `marketing-landing-page` | Estructura + copy completo de landing de conversión |
-| `marketing-linkedin-audit` | Análisis y optimización de un post de LinkedIn con copy plain-text listo para pegar |
-| `marketing-marketing-plan` | Plan de marketing (anual o trimestral) con análisis, objetivos, canales, presupuesto y calendario |
-| `marketing-platform-adapter` | Versiones de un mismo contenido adaptadas a cada red social |
-| `marketing-publish-checklist` | Checklist completo SEO + UX + técnico antes de publicar en WordPress |
-| `marketing-seo-on-page` | Auditoría + versión optimizada de contenido para SEO on-page |
+| `marketing-copy` | Copy de marketing en 4 formatos seleccionables (`blog`/`email`/`anuncio`/`prensa`): post SEO, email con 3 asuntos A/B, anuncio con variantes y límites por plataforma, o nota de prensa. Un `.md` |
+| `marketing-social` | Redes sociales en 3 modos: `adaptar` (un contenido por plataforma), `calendario` (editorial mensual/semanal) o `linkedin-audit` (alcance orgánico + copy plain-text para pegar) |
+| `marketing-strategy` | Estrategia en 2 modos: `plan` (plan de marketing anual/trimestral) o `brief` (briefing de campaña) |
+| `marketing-seo` | SEO en 2 modos: `research` (keyword research priorizado) u `on-page` (auditoría + versión optimizada) |
+| `marketing-landing-page` | Estructura + copy completo de landing de conversión (en plano) |
+| `marketing-elementor-content` | Contenido para Elementor: JSON canónico de `_elementor_data` + HTML fallback + metadata + `assets/` con SVGs vectoriales y PNGs @2x. Cubre page/post/landing/block (solo widgets core). **Entregable multi-archivo (excepción al default)** |
+| `marketing-publish-checklist` | Checklist SEO + UX + técnico antes de publicar en WordPress |
+| `marketing-brand-voice-guide` | Guía canónica de voz de marca: atributos de tono, vocabulario do/don't, adaptación por canal |
 
 ---
 
@@ -139,25 +133,26 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | Agente | Cuándo delegarle | Skills propias |
 |---|---|---|
 | `sales-sdr` | Listas de prospectos por ICP, secuencias de outreach (email/LinkedIn), investigación de cuentas, calificación BANT/MEDDIC | `sales-prospecting-list`, `sales-outreach-sequence`, `sales-account-intelligence` |
-| `sales-ae` | Propuestas, discovery calls, renewal management, argumentarios, estrategia de cierre | `sales-account-intelligence`, `sales-sales-proposal`, `sales-discovery-call`, `sales-renewal-playbook` + `shared-stakeholder-map` (shared) |
-| `sales-enablement` | Pitch decks, playbooks, battle cards, guías de objeciones, casos de éxito | `sales-pitch-deck`, `sales-objection-handler`, `sales-sales-playbook` + `shared-case-study` (shared) |
+| `sales-ae` | Propuestas, discovery calls, renewal management, argumentarios, estrategia de cierre | `sales-account-intelligence`, `sales-proposal`, `sales-discovery-call`, `sales-renewal-playbook` + `shared-stakeholder-map` (shared) |
+| `sales-enablement` | Pitch decks, playbooks, battle cards, guías de objeciones, casos de éxito | `sales-pitch-deck`, `sales-objection-handler`, `sales-playbook` + `shared-case-study` (shared) |
 | `sales-crm` | Pipeline review operativo, forecast formal, KPI dashboard, estructura de CRM | `sales-pipeline-review`, `sales-forecasting-report` + `shared-kpi-dashboard` (shared) |
 
-**Skills (11, todas v1 prosa):**
+**Skills (12 — v1 prosa; `sales-tender-search` incluye script `atom-search.cjs`):**
 
 | Skill | Entregable |
 |---|---|
 | `sales-prospecting-list` | Tabla estructurada de prospectos con investigación, hooks de personalización y campos por verificar |
 | `sales-outreach-sequence` | Cadencia multi-step de email/LinkedIn con scripts y variables de personalización |
 | `sales-account-intelligence` | Informe completo de Sales Intelligence sobre una cuenta: stack tech, pain points, mapeo de servicios, stakeholders, secuencia de venta y estimación del deal |
-| `sales-sales-proposal` | Propuesta comercial completa con resumen ejecutivo, problema, solución, ROI, plan, pricing y próximos pasos |
+| `sales-proposal` | Propuesta comercial completa con resumen ejecutivo, problema, solución, ROI, plan, pricing y próximos pasos |
 | `sales-pitch-deck` | Outline + script slide a slide del pitch deck para presentaciones en vivo |
 | `sales-objection-handler` | Guía estructurada de manejo de objeciones con respuestas, preguntas de seguimiento y señales de excusa vs. real |
-| `sales-sales-playbook` | Playbook completo del proceso comercial: ICP, etapas, scripts, framework de cualificación, métricas y onboarding de reps |
+| `sales-playbook` | Playbook completo del proceso comercial: ICP, etapas, scripts, framework de cualificación, métricas y onboarding de reps |
 | `sales-discovery-call` | Script + framework de cualificación BANT/MEDDIC/SPICED con debrief estructurado y red flags |
 | `sales-pipeline-review` | Revisión operativa deal-by-deal con weighted forecast, health flags, acciones acordadas |
 | `sales-renewal-playbook` | Playbook de renovación con health signals, timing, scripts por situación (🟢/🟡/🔴), concessions ladder |
 | `sales-forecasting-report` | Forecast formal (commit/best/worst) con metodología explícita, segmentación, win rates, riesgos. Board-ready |
+| `sales-tender-search` | Búsqueda de licitaciones en feeds ATOM (PLACSP por defecto) filtrando por CPV (mixto exacto+prefijos `722*`), ventana de fechas y estado; descarga de pliegos (vía `shared-http-download`) y resumen accionable por licitación (vía `pdf`). Incluye `atom-search.cjs` (Node 18+, sin deps) |
 
 ---
 
@@ -397,17 +392,15 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `shared-prd-agent` | Captura de requisitos y redacción de PRDs estructurados optimizados para humanos y agentes IA, válido para cualquier departamento |
 | `shared-skill-builder` | Crear, auditar y configurar skills v1 prosa o v2 ejecutables (engine-v2 HTTP) con validación contra el engine |
 
-### Agentes especialistas (35)
+### Agentes especialistas (29)
 
-**Marketing (5)**
+**Marketing (3)**
 
 | Agente | Para qué |
 |---|---|
-| `marketing-content` | Redactar posts de blog, emails, copy publicitario, newsletters, comunicados y otros textos de marca |
-| `marketing-strategy` | Diseñar planes de marketing, briefings de campaña, análisis competitivo y posicionamiento |
-| `marketing-seo` | Investigar palabras clave, optimizar SEO on-page, auditar técnicamente y leer Analytics/Search Console |
-| `marketing-social` | Adaptar contenido a redes sociales (LinkedIn, Instagram, X, TikTok) y mantener calendarios editoriales |
-| `marketing-web` | Diseñar landing pages, contenido de WordPress y arquitectura de información orientada a conversión |
+| `marketing-creative` | Copy (blog, email, anuncios, prensa), storytelling y todo lo de redes sociales (copies por plataforma, calendarios, hashtags, auditoría LinkedIn) + voz de marca |
+| `marketing-planning` | Estrategia (planes, briefings, análisis competitivo, posicionamiento, KPIs/OKRs, lanzamientos) y SEO/analytics (keyword research, on-page, auditorías, Analytics/Search Console) |
+| `marketing-web` | Diseñar landing pages, contenido de WordPress/Elementor y arquitectura de información orientada a conversión |
 
 **Sales (4)**
 
@@ -470,7 +463,7 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `design-design-system` | Mantener el Design System: tokens, foundations, documentación canónica de componentes y versionado |
 | `design-accessibility` | Auditar WCAG 2.2 AA, producir remediation plans y patrones accesibles (keyboard, ARIA, screen readers) |
 
-### Skills compartidas (11 = 2 meta + 8 business + 1 utility) — `_shared/skills/`
+### Skills compartidas (13 = 2 meta + 8 business + 3 utility) — `_shared/skills/`
 
 | Skill | Para qué | Tipo |
 |---|---|---|
@@ -484,44 +477,41 @@ Orquestador stub honesto y 4 agentes stub. Cuando se active, se redactará sigui
 | `shared-okr-set` | OKRs estructurados (1-3 Os + 2-4 KRs cuantitativos) por ciclo con scoring | business |
 | `shared-journey-map` | Journey con fases × acciones × pensamientos × emociones × pain points × oportunidades × touchpoints | business |
 | `shared-deploy-checklist` | Checklist pre/durante/post-deploy de un release adaptado a riesgo (🟢/🟡/🟠/🔴) y estrategia | business |
-| `shared-base64-to-file` | Decodificar base64 (típicamente de un MCP) a fichero real bajo `.context/.temp/<dept>/` con verificación de magic bytes (PNG/JPG/GIF/WEBP/SVG/PDF/ZIP). Incluye `decode.cjs` (Node 18+, sin deps) | utility |
+| `shared-base64` | Bidireccional base64 ↔ fichero: decode (base64 → fichero real bajo `.context/.temp/<dept>/`, magic bytes PNG/JPG/GIF/WEBP/SVG/PDF/ZIP) y encode (fichero → `.b64`, opcional data URI). Incluye `b64.cjs` (Node 18+, sin deps) | utility |
+| `shared-http-download` | Descargar ficheros por GET HTTP(S) a un directorio destino, con resolución de nombre, aislamiento de errores por URL y tope de tamaño (PDF/ZIP/DOC/DOCX/XLS/XLSX/XML/HTML/TXT/binario). Incluye `download.cjs` (Node 18+, sin deps) | utility |
+| `shared-office-writer` | Generar `.docx`/`.xlsx` **nuevos** sin dependencias desde un spec JSON (docx: párrafos/encabezados/negrita/tablas; xlsx: hojas/número/fecha/fórmulas/ancho/cabecera). Solo escribe, no edita. Incluye `office.cjs` (Node 18+, sin deps) | utility |
 
-### Skills dept-específicas (75)
+### Skills dept-específicas (71)
 
-**Marketing (14)**
+**Marketing (8)** — default de entregable: un solo `.md` (excepción: `marketing-elementor-content`)
 
 | Skill | Para qué |
 |---|---|
-| `marketing-blog-post` | Post de blog completo con SEO, `.md` + `.html` y carpeta `assets/` |
-| `marketing-ad-copy` | Copy publicitario para Google/Meta/LinkedIn Ads con variantes A/B y respeto de límites de plataforma |
-| `marketing-campaign-brief` | Briefing de campaña con objetivo, audiencia, canales, presupuesto, KPIs y riesgos |
-| `marketing-editorial-calendar` | Calendario editorial mensual/semanal de redes sociales con pilares y mix de contenido |
-| `marketing-elementor-content` | Contenido Elementor para WordPress: JSON canónico de `_elementor_data` + HTML fallback + metadata + `assets/` con SVGs (icons, blobs, dividers, badges, patrones) y PNG @2x. Cubre page/post/landing/block (widgets core) |
-| `marketing-email-campaign` | Email de marketing con asunto (3 variantes), preheader, cuerpo y CTA |
-| `marketing-keyword-research` | Tabla priorizada de keywords con intención, volumen, dificultad y página destino |
-| `marketing-landing-page` | Estructura + copy de landing page de conversión |
-| `marketing-marketing-plan` | Plan de marketing anual/trimestral con análisis, objetivos, canales, presupuesto y calendario |
-| `marketing-platform-adapter` | Versiones de un contenido adaptadas a cada red social respetando límites |
+| `marketing-copy` | Copy en 4 formatos (`blog`/`email`/`anuncio`/`prensa`): post SEO, email con 3 asuntos A/B, anuncio con variantes y límites de plataforma, o nota de prensa |
+| `marketing-social` | Redes en 3 modos: `adaptar` (un contenido por plataforma), `calendario` (editorial) o `linkedin-audit` (alcance + copy plain-text) |
+| `marketing-strategy` | Estrategia en 2 modos: `plan` (plan anual/trimestral) o `brief` (briefing de campaña) |
+| `marketing-seo` | SEO en 2 modos: `research` (keyword research priorizado) u `on-page` (auditoría + versión optimizada) |
+| `marketing-landing-page` | Estructura + copy de landing page de conversión (en plano) |
+| `marketing-elementor-content` | Contenido Elementor para WordPress: JSON `_elementor_data` + HTML fallback + metadata + `assets/` con SVGs y PNG @2x. Cubre page/post/landing/block. Multi-archivo (excepción al default) |
 | `marketing-publish-checklist` | Checklist SEO + UX + técnico antes de publicar en WordPress |
-| `marketing-seo-on-page` | Auditoría + versión optimizada de contenido para SEO on-page |
-| `marketing-linkedin-audit` | Análisis y optimización de un post de LinkedIn con copy plain-text listo para pegar |
-| `marketing-brand-voice-guide` | Guía canónica de voz de marca con atributos de tono, vocabulario do/don't y adaptación por canal |
+| `marketing-brand-voice-guide` | Guía canónica de voz de marca: atributos de tono, vocabulario do/don't, adaptación por canal |
 
-**Sales (11)**
+**Sales (12)**
 
 | Skill | Para qué |
 |---|---|
 | `sales-prospecting-list` | Tabla estructurada de prospectos con investigación, hooks y campos por verificar |
 | `sales-outreach-sequence` | Cadencia multi-step de email/LinkedIn con scripts y variables de personalización |
 | `sales-account-intelligence` | Informe completo de Sales Intelligence sobre una cuenta (stack, pain points, stakeholders) |
-| `sales-sales-proposal` | Propuesta comercial con resumen ejecutivo, problema, solución, ROI, plan, pricing |
+| `sales-proposal` | Propuesta comercial con resumen ejecutivo, problema, solución, ROI, plan, pricing |
 | `sales-pitch-deck` | Outline + script slide a slide de presentación de ventas |
 | `sales-objection-handler` | Guía de manejo de objeciones con respuestas y señales excusa vs problema real |
-| `sales-sales-playbook` | Playbook completo del proceso comercial con ICP, etapas, scripts, métricas |
+| `sales-playbook` | Playbook completo del proceso comercial con ICP, etapas, scripts, métricas |
 | `sales-discovery-call` | Script + framework de cualificación BANT/MEDDIC/SPICED con debrief estructurado |
 | `sales-pipeline-review` | Revisión operativa deal-by-deal con weighted forecast, health flags y acciones acordadas |
 | `sales-renewal-playbook` | Playbook de renovación con health signals, timing, scripts por situación y concessions ladder |
 | `sales-forecasting-report` | Forecast formal del periodo con commit/best/worst, metodología, segmentación y riesgos |
+| `sales-tender-search` | Búsqueda de licitaciones en feeds ATOM (PLACSP) por CPV/fechas/estado + descarga de pliegos y resumen accionable. Incluye `atom-search.cjs` (Node 18+, sin deps) |
 
 **Software (19)**
 
@@ -783,4 +773,4 @@ Cada dept implementado tiene su propio `README.md` con ejemplos detallados de ca
 - `_shared/agents/shared-skill-builder.md` — agente para crear / auditar skills.
 - `_shared/skills/shared-skill-scaffold/SKILL.md` — plantilla canónica para skills (v1 + v2).
 - `_shared/skills/shared-agent-scaffold/SKILL.md` — plantilla canónica para agentes (especialistas, compartidos, stubs).
-- `v2/README.m
+- `v2/README.m                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    

@@ -13,7 +13,7 @@
 │   ├── _shared/
 │   │   ├── conventions.md · output-rules.md · orchestrator-template.md
 │   │   ├── agents/{shared-prd-agent.md, shared-skill-builder.md}
-│   │   └── skills/skill-scaffold/
+│   │   └── skills/shared-<skill-name>/   ← meta (shared-skill-scaffold, shared-agent-scaffold), business y utility
 │   └── <department>/
 │       ├── <department>-orchestrator.md
 │       ├── agents/<department>-<role>.md
@@ -47,12 +47,12 @@
 |---|---|---|
 | Carpeta de departamento | inglés, una palabra cuando posible | `marketing`, `sales`, `legal` |
 | Orquestador | `<dept>-orchestrator.md` | `marketing-orchestrator.md` |
-| Agente especialista | `<dept>-<role>.md` kebab-case | `marketing-social.md` |
+| Agente especialista | `<dept>-<role>.md` kebab-case | `marketing-creative.md` |
 | Agente compartido | `shared-<role>.md` | `shared-prd-agent.md`, `shared-skill-builder.md` |
-| Skill (carpeta del repo) | `<dept-prefix>-<base>` + `SKILL.md` | `marketing/skills/marketing-blog-post/SKILL.md` |
-| Frontmatter `name` skill | igual al nombre de la carpeta | `marketing-blog-post`, `shared-skill-scaffold`, `operations-redmine` |
+| Skill (carpeta del repo) | `<dept-prefix>-<base>` + `SKILL.md` | `marketing/skills/marketing-copy/SKILL.md` |
+| Frontmatter `name` skill | igual al nombre de la carpeta | `marketing-copy`, `shared-skill-scaffold`, `operations-redmine` |
 | Frontmatter `name` orq. | `[Department] Orchestrator` | `[Marketing] Orchestrator` |
-| Frontmatter `name` agente | `[Department] <Role>` | `[Marketing] Social Media`, `[Shared] Skill Builder` |
+| Frontmatter `name` agente | `[Department] <Role>` | `[Marketing] Creative`, `[Shared] Skill Builder` |
 | Capitalización `[Dept]` | título correcto | `[HR]`, `[DevOps]` (no `[Hr]`, `[Devops]`) |
 
 ### 4.1 Regla: carpeta y `name:` llevan prefijo del dept, y son iguales
@@ -61,10 +61,10 @@ Tanto la **carpeta** como el **`name:` del frontmatter** de toda skill (v1 y v2)
 
 | Ubicación en el repo | Prefijo de carpeta | Ejemplo |
 |---|---|---|
-| `departments/<dept>/skills/<x>/` | `<dept>-` | `marketing/skills/marketing-blog-post/` → `name: "marketing-blog-post"` |
+| `departments/<dept>/skills/<x>/` | `<dept>-` | `marketing/skills/marketing-copy/` → `name: "marketing-copy"` |
 | `departments/_shared/skills/<x>/` | `shared-` | `_shared/skills/shared-competitive-analysis/` → `name: "shared-competitive-analysis"` |
 
-**Excepción: no doblar prefijo.** Si la "base" del nombre ya empieza por el prefijo del dept (caso histórico: `marketing-plan`, `product-roadmap`, `sales-playbook`, `design-token-set`...), la carpeta se queda tal cual y el `name:` también. **No** se genera `marketing-marketing-plan/`. Mecánicamente: si `<carpeta>` empieza por `<dept>-`, ya es válida; si no, el nombre canónico es `<dept>-<carpeta>`.
+**Excepción: no doblar prefijo.** Si la "base" del nombre ya empieza por el prefijo del dept (caso histórico: `product-roadmap`, `sales-playbook`, `design-token-set`...), la carpeta se queda tal cual y el `name:` también. **No** se genera `product-product-roadmap/`. Mecánicamente: si `<carpeta>` empieza por `<dept>-`, ya es válida; si no, el nombre canónico es `<dept>-<carpeta>`.
 
 Motivación: evitar colisiones cuando todas las skills acaban en un único directorio plano del IDE (`.claude/skills/`, `.opencode/skills/`), hacer obvio el dept de origen al leer cualquier referencia, y eliminar el drift entre source y stub — el installer ya no manipula el nombre, solo copia.
 
@@ -101,17 +101,19 @@ OpenCode lee el frontmatter de los agentes y necesita saber si un agente es **pu
 | Especialista (`<dept>-<role>.md`) | `subagent` | Lo invoca su orquestador; el usuario no debería hablarle directamente. |
 | Compartido (`shared-<role>.md`) | `subagent` | Lo invocan orquestadores o BOSS; nunca es entrada directa. |
 
-El template `_shared/orchestrator-template.md` lleva `mode: primary`. Los scaffolds de agentes (`shared/skills/agent-scaffold`) deben generar el modo correcto según la subskill (`create-specialist` → `subagent`, `create-shared` → `subagent`, orquestadores → `primary`).
+El template `_shared/orchestrator-template.md` lleva `mode: primary`. Los scaffolds de agentes (`_shared/skills/shared-agent-scaffold`) deben generar el modo correcto según la subskill (`create-specialist` → `subagent`, `create-shared` → `subagent`, orquestadores → `primary`).
 
 ## 6. Estructura mínima de un orquestador
 
-Sigue `_shared/orchestrator-template.md`. Secciones obligatorias: frontmatter, Rol, Paso 0 (proyecto activo), Paso 0.5 (primera vez en proyecto: confirmar `paths` + `mcps`), Ficheros a leer, Gestión de tareas, Agentes disponibles, Proceso de delegación (simple/compuesto/ambiguo), Tabla de decisión rápida, Comportamiento en tareas compuestas, **Manejo de skills v2 — readiness** (precheck proactivo con `doctor` antes de `run` + red de seguridad reactiva tras `CONFIG_ERROR`/`SECRETS_ERROR` → delegar en `shared-skill-builder configure` → reintentar; secrets nunca por chat), Cuándo NO delegar, Restricciones, Reglas de output (referencia a `_shared/output-rules.md` + carpetas del dept), Principio de cierre.
+Sigue `_shared/orchestrator-template.md`. Secciones obligatorias: frontmatter, Rol, Paso 0 (proyecto activo), Paso 0.5 (primera vez en proyecto: confirmar `paths` + `mcps`), Ficheros a leer, Gestión de tareas, Agentes disponibles, Proceso de delegación (simple/compuesto/ambiguo), Tabla de decisión rápida, Comportamiento en tareas compuestas, Cuándo NO delegar, Restricciones, Reglas de output (referencia a `_shared/output-rules.md` + carpetas del dept), Principio de cierre.
+
+**Sección condicional — Manejo de skills v2 — readiness.** El bloque de readiness de skills v2 (precheck proactivo con `doctor` antes de `run` + red de seguridad reactiva tras `CONFIG_ERROR`/`SECRETS_ERROR` → delegar en `shared-skill-builder configure` → reintentar; secrets nunca por chat) se incluye en el orquestador **solo si el departamento tiene al menos una skill v2** (`runtime: engine-v2`). Un departamento cuyas skills son todas v1 prosa **no debe** arrastrar el bloque: lo sustituye por una nota de una línea (ver `orchestrator-template.md`) indicando que no aplica y que, si en el futuro se añade una skill v2, se copia el bloque desde la plantilla. Esto evita ~80 líneas de instrucciones inejecutables en orquestadores sin v2. *(Regla desde framework 3.10.0; antes el bloque era obligatorio en todos los orquestadores.)*
 
 ## 7. Estructura mínima de una skill v1
 
 ```markdown
 ---
-name: "<dept-prefix>-<carpeta>"   # §4.1 — ej. "marketing-blog-post", "shared-case-study"
+name: "<dept-prefix>-<carpeta>"   # §4.1 — ej. "marketing-copy", "shared-case-study"
 description: > ...
 user-invocable: true               # §7.1
 ---
@@ -155,7 +157,7 @@ Todos los criterios deben cumplirse:
 
 ### Naming
 
-- **Sin prefijo.** Las skills compartidas siguen el mismo naming que cualquier skill: kebab-case directo (ej. `competitive-analysis`, `case-study`, `kpi-dashboard`). No llevan `common-` ni `shared-` — la carpeta `_shared/skills/` ya identifica la ubicación, el nombre identifica el entregable. Coherente con `skill-scaffold` y `agent-scaffold` que tampoco llevan prefijo.
+- **Prefijo `shared-` obligatorio.** Las skills compartidas llevan el prefijo `shared-` tanto en la carpeta como en el `name:` del frontmatter, igual que toda skill lleva el prefijo de su dept (§4.1). Ej: `shared-competitive-analysis`, `shared-case-study`, `shared-kpi-dashboard`. Coherente con las meta-skills `shared-skill-scaffold` / `shared-agent-scaffold` y con los agentes compartidos `shared-prd-agent` / `shared-skill-builder`. El prefijo evita colisiones cuando todas las skills acaban en un único directorio plano del IDE y hace obvio el origen al leer cualquier referencia. (Antes de framework 3.x esta subsección decía "sin prefijo"; quedó obsoleta cuando §4.1 unificó el prefijo para todas las skills.)
 - La regla §7 sigue aplicando: la skill no declara qué agentes la usan.
 
 ### Tres categorías: meta, business, utility
@@ -166,7 +168,7 @@ Todos los criterios deben cumplirse:
 |---|---|---|---|
 | **Meta-skills** — construyen el sistema | `shared-skill-scaffold`, `shared-agent-scaffold` | Las invoca otra meta-skill o agente compartido (`shared-skill-builder`, `shared-prd-agent`) | No habitualmente; uso interno del framework |
 | **Business-skills compartidas** — entregables transversales | `shared-competitive-analysis`, `shared-case-study`, `shared-kpi-dashboard`, `shared-okr-set`, etc. | El agente caller la lista en su `## Skills disponibles` y la invoca explícitamente | **Sí, en cada agente que la use** |
-| **Utility-skills** — utilidades técnicas con script propio | `shared-base64-to-file` | **Autodescubrimiento por el LLM** vía `description` del frontmatter cuando el contexto matchea | **No** — sería propagar lo mismo en N agentes sin valor |
+| **Utility-skills** — utilidades técnicas con script propio | `shared-base64` | **Autodescubrimiento por el LLM** vía `description` del frontmatter cuando el contexto matchea | **No** — sería propagar lo mismo en N agentes sin valor |
 
 Todas siguen las mismas convenciones de naming, frontmatter, idioma y `user-invocable: true`. La diferencia está en el contrato de invocación.
 
@@ -646,7 +648,3 @@ Si un SKILL.md necesita una construcción no soportada, ampliar `engine/yaml.js`
 - **Drift entre prosa y manifiesto.** El frontmatter manda. La prosa describe lo declarado, no añade comportamiento. Para detectarlo: `engine.cjs validate <skill>` en CI o `shared-skill-builder` en modo audit.
 - **Acciones hinchadas.** Una acción = una llamada lógica. Si una operación necesita orquestar N llamadas en orden, son N acciones + un agente que las componga, no una mega-acción.
 - **Secretos en logs.** El engine nunca escribe valores de `secrets.*` en stdout/stderr. No incluirlos tampoco en `description` o ejemplos.
-- **Inputs sin schema.** Cada input declara `type` y `required`. Sin esto, el engine rechaza la skill al cargarla.
-- **MCP existente.** Si ya existe un MCP fiable para la herramienta, preferir el MCP. v2 cubre lo que no tiene MCP, o casos donde se quiere ejecución también vía CLI.
-- **Stubs editados a mano.** El comentario `<!-- AUTOGENERATED -->` advierte; cualquier edición se pierde al re-ejecutar `install.sh`. Editar la fuente, no el stub.
-- **Features 🚧 no implementadas.** No declarar pipelines, paginación o bash blocks en una skill si el engine aún no los soporta. Se rechaza al validar.

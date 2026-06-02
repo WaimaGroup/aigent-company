@@ -787,7 +787,35 @@ function Invoke-Interactive {
   $script:Dept = $selectedDepts -join ","
   Write-Host ""
 
-  # 4. MCPs (solo en instalación completa, no en -Sync)
+  # 4. Clean (modo declarativo) — solo si NO -Sync y hay depts del repo que NO
+  # están en la selección (si están todos, no hay candidatos a limpiar).
+  if (-not $Sync) {
+    $toClean = @()
+    foreach ($d in $availableDepts) {
+      if ($selectedDepts -notcontains $d) { $toClean += $d }
+    }
+
+    if ($toClean.Count -gt 0) {
+      Write-Host "  ¿Quitar los departamentos no seleccionados si ya estaban instalados?" -ForegroundColor White
+      Write-Host "  Modo -Clean: borra agentes y skills de: $($toClean -join ', ')" -ForegroundColor Yellow
+      Write-Host "  shared-* y carpetas personalizadas NUNCA se tocan." -ForegroundColor DarkGray
+      $cleanDone = $false
+      while (-not $cleanDone) {
+        Print-Options @("s","n","Salir")
+        $cleanChoice = Read-Host "  [s/N] (h=ayuda, q=salir)"
+        if (Test-ControlInput $cleanChoice) { continue }
+        $v = ($cleanChoice).ToString().Trim().ToLowerInvariant()
+        switch ($v) {
+          { $_ -in @('s','si','sí','y','yes') } { $script:Clean = $true;  $cleanDone = $true }
+          { $_ -in @('','n','no')             } { $script:Clean = $false; $cleanDone = $true }
+          default { Write-Host "  Responde s o n (o h/q)." -ForegroundColor Red }
+        }
+      }
+      Write-Host ""
+    }
+  }
+
+  # 5. MCPs (solo en instalación completa, no en -Sync)
   if (-not $Sync) {
     $done = $false
     while (-not $done) {

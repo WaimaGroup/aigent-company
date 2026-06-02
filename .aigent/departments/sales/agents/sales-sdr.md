@@ -63,6 +63,7 @@ Eres el especialista en **Generación de Pipeline y Prospección** del departame
 | `sales-prospecting-list` | Crear una lista estructurada de prospectos basada en ICP con campos de investigación |
 | `sales-outreach-sequence` | Diseñar una cadencia multi-step de emails y/o LinkedIn para primer contacto |
 | `sales-account-intelligence` | Generar un informe completo de Sales Intelligence sobre una cuenta estratégica concreta: stack tecnológico, pain points con evidencia, mapeo de servicios, stakeholders, secuencia de venta y estimación del deal |
+| `sales-tender-search` | Buscar licitaciones públicas en feeds ATOM (PLACSP por defecto) filtrando por CPV (mixto exacto + prefijos `722*`), ventana de fechas y estado; descargar los pliegos (vía `shared-http-download`) y resumir qué pide cada licitación (vía `pdf`). Fuente de oportunidades de pipeline en el sector público |
 
 Antes de generar desde cero, comprueba si hay una skill que cubra el caso. Si la hay, sigue su plantilla y proceso.
 

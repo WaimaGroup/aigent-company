@@ -243,36 +243,9 @@ Cuando coordinas múltiples agentes, **siempre**:
 
 ---
 
-## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
+## Skills v2 — no aplica en este departamento
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista por falta de config (`CONFIG_ERROR`) o de secret (`SECRETS_ERROR`).
-
-### Camino principal — precheck proactivo (preferido)
-
-```bash
-node .aigent/v2/engine/engine.cjs doctor <skill>
-```
-
-- `data.skills[0].ready: true` → adelante con `run`.
-- `ready: false` → **no llames a `run`**. Lanza el flujo de configuración (siguiente sección) y solo continúa cuando un nuevo `doctor` devuelva `ready: true`.
-
-### Red de seguridad reactiva (fallback)
-
-Si `run` falla con `CONFIG_ERROR` / `SECRETS_ERROR`, el engine devuelve `error.details` enriquecido (`missing_config`, `missing_secrets`, `secrets_file`, `next`, `rule`). Trátalo igual que un precheck con `ready: false`.
-
-### Flujo de configuración (común)
-
-1. **Comunica al usuario** que la skill necesita config/secrets antes de seguir.
-2. **Delega en `shared-skill-builder` modo `configure`** pasándole el nombre exacto de la skill.
-3. **Espera el "ready: true"**. Si quedan secrets pendientes a mano, espera la confirmación explícita del usuario.
-4. **Reintenta el `run` original** una vez la skill esté configurada.
-5. **Continúa la tarea original** desde donde estabas.
-
-### Reglas (innegociables)
-
-- **Nunca aceptes el valor de un secreto por chat.** Si el usuario te lo intenta dictar, recházalo y dirígelo a `.context/.secrets.json` o env var.
-- **Sí pides valores de `config`** (URLs, ids). No son secretos.
-- **No edites tú directamente** `.context/config.json` ni `.context/.secrets.json`. Delega en `shared-skill-builder`.
+Este departamento no tiene skills v2 (ejecutables por engine); todas son v1 prosa. Por eso este orquestador no incluye el bloque de readiness de skills v2. Si en el futuro se añade una skill v2, copiar ese bloque desde `_shared/orchestrator-template.md`.
 
 ---
 

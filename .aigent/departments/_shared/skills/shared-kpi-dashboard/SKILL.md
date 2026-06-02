@@ -5,7 +5,7 @@ description: >
   Shared skill for producing a structured KPI dashboard document for any domain:
   metric × current × target × variance × trend × commentary, with executive
   summary, definitions, and recommended actions. Used cross-department
-  (marketing-seo, product-metrics, finance-reporting, sales-crm) with the same
+  (marketing-planning, product-metrics, finance-reporting, sales-crm) with the same
   deliverable structure, regardless of the metric domain.
 ---
 

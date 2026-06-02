@@ -19,7 +19,7 @@ description: >
 
 Cuando hay que crear un nuevo agente en el repo, auditarlo contra las conventions, o convertir un stub honesto en un agente especialista activado. Esta skill cubre tres modos:
 
-- **Modo `create-specialist`** — agente especialista de un departamento implementado (ej: `marketing-content`, `sales-ae`).
+- **Modo `create-specialist`** — agente especialista de un departamento implementado (ej: `marketing-creative`, `sales-ae`).
 - **Modo `create-shared`** — agente transversal que vive en `_shared/agents/` y aplica a más de un departamento (ej: `shared-prd-agent`, `shared-skill-builder`).
 - **Modo `create-stub`** — stub honesto para un departamento marcado como TODO. El frontmatter advierte explícitamente de que el agente no está implementado y no debe ejecutar.
 - **Modo `audit`** — revisar un agente existente contra el checklist y proponer correcciones.
@@ -157,8 +157,8 @@ Cuando el departamento se implemente, sustituir este archivo siguiendo `_shared/
 
 ### Naming y archivos
 
-- **Carpeta y archivo:** `kebab-case`. Ej: `marketing-content.md`, `sales-ae.md`.
-- **Especialistas:** prefijo `<dept>-` obligatorio en el nombre del archivo (`marketing-social.md`, no `social.md`).
+- **Carpeta y archivo:** `kebab-case`. Ej: `marketing-creative.md`, `sales-ae.md`.
+- **Especialistas:** prefijo `<dept>-` obligatorio en el nombre del archivo (`marketing-web.md`, no `web.md`).
 - **Compartidos:** prefijo `shared-` obligatorio (`shared-prd-agent.md`, no `prd-agent.md`).
 - **Frontmatter `name`:** `[<Department>] <Role>` para especialistas, `[Shared] <Role>` para compartidos. Capitalización correcta del departamento (`[HR]`, `[DevOps]`, no `[Hr]`/`[Devops]`).
 - **Idioma:** frontmatter en inglés (campos `name`, `description`). Body en español. Nombres de archivos en inglés kebab-case.

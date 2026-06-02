@@ -7,7 +7,9 @@ description: >
 
 # Skill: Checklist de Publicación WordPress
 
-**Entregable:** checklist completado con estado de cada punto y observaciones
+**Entregable:** checklist completado con estado de cada punto y observaciones (un solo `.md`)
+
+> **Regla de output (default de Marketing):** el checklist se entrega como **un `.md`**. Los puntos sobre `.html`, `assets/` o `analytics/` (sección 8) solo aplican **si esos archivos se generaron**; con el default de archivo único, márcalos como "N/A" cuando no existan en vez de exigirlos.
 
 ---
 
