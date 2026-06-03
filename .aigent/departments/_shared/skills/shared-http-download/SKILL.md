@@ -72,14 +72,14 @@ Por orden de preferencia: `titulo` (si trae extensión) → `filename` de la cab
 ## Contrato CLI
 
 ```
-node .aigent/departments/_shared/skills/shared-http-download/download.cjs \
+.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-http-download/download.cjs \
   --inputs '{ "outDir": "<ruta>", "documentos": [ { "url": "...", "titulo": "PCAP.pdf", "tipo": "Legal" } ] }'
 
 # Atajo de un solo documento:
-node .aigent/departments/_shared/skills/shared-http-download/download.cjs \
+.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-http-download/download.cjs \
   --inputs '{ "outDir": "<ruta>", "url": "https://...", "titulo": "PPT.pdf" }'
 
-node .aigent/departments/_shared/skills/shared-http-download/download.cjs --help
+.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-http-download/download.cjs --help
 ```
 
 ### Output exitoso (stdout, exit `0`)

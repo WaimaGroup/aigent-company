@@ -4,7 +4,54 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
-## 3.13.0 — 2026-06-02
+## 4.0.0 — 2026-06-02
+
+### Runtime garantizado: launcher `IDE/bin/run` + Node bundled (BREAKING)
+
+Los IDEs (Claude Code, OpenCode) pasaron a distribuirse como **binarios nativos con runtime embebido (Bun) no expuesto en `PATH`**: ya no se puede asumir que el usuario tenga `node` ejecutable. Como el engine v2 y varias skills v1 son scripts `.cjs`/`.mjs` que se lanzaban con `node …`, en esos entornos fallaban. Esta versión elimina la dependencia del `node` del sistema.
+
+**Cambio incompatible (por qué MAJOR):** cambia cómo el instalador distribuye el runtime a los IDEs y el **contrato de invocación** de toda skill/engine — `node <script>` deja de usarse en favor de `.aigent/IDE/bin/run <script>`. Los deployments existentes deben reinstalar (`--update`) para descargar el runtime bundled y regenerar stubs/permisos.
+
+**Launcher (`IDE/bin/run`, `IDE/bin/run.cmd`):**
+- Resolución dinámica en cada ejecución: Node **bundled** en `IDE/bin/deps/node[.exe]` → fallback a `node` del sistema en `PATH` → suelo de versión **Node ≥ 20** → error claro pidiendo reinstalar.
+- Dinámico = cambiar de runtime no exige reinstalar. Fallback **solo a `node`** por ahora (no `bun`), para mantener reproducibilidad.
+- `run` (bash) es el principal — el shell de herramienta de ambos IDEs es bash (en Windows vía Git-Bash); `run.cmd` es cortesía para shells PowerShell/cmd nativos.
+
+**Layout `IDE/bin/deps/` + pin único:** el binario y la versión viven en `IDE/bin/deps/`. La versión fijada es ahora un fichero **`IDE/bin/deps/.node-version`** (`24.15.0`), **única fuente de verdad** que leen ambos instaladores (sin hardcodear el pin en dos sitios; convención compatible con nvm/fnm). El binario `deps/node[.exe]` está gitignored; `.node-version` sí se commitea. Subir Node = editar ese fichero, sin tocar código.
+
+**Instaladores (`install.sh`, `install.ps1`):**
+- Nueva fase "Runtime Node": detecta SO + arquitectura (`uname` / `$PROCESSOR_ARCHITECTURE`) y descarga el artefacto correcto de `nodejs.org` (`.tar.gz` en Unix/mac, `.zip` en Windows) a `IDE/bin/deps/node[.exe]`. `install.sh` reconoce también **Git Bash/MSYS/MINGW como Windows** y descomprime el `.zip` con `unzip` o, si no está, con `Expand-Archive` de PowerShell. La detección de Node del sistema prueba `node.exe` antes que `node` (en Git Bash `node` suele ser un alias `winpty`).
+- Idempotente por versión: no re-descarga si ya está la versión correcta. En instalación completa el runtime se asegura automáticamente. Descarga siempre (no usa el node del sistema en install).
+- **Comandos de runtime aislados:** `--node-status` / `-NodeStatus` (reporta pin + bundled + sistema + qué resolvería el launcher, sin instalar), `--node-install` / `-NodeInstall` (descarga/asegura el bundled, con `--force` / `-Force` para re-descargar). También vía menú interactivo → entrada **Runtime (Node)** (ver estado / instalar / reinstalar).
+
+**Sustitución de invocaciones (`node <script>` → `.aigent/IDE/bin/run <script>`):** 78 ocurrencias en plantillas de stub v2 (ambos instaladores), cadenas de ayuda de `engine.cjs`, allowlists (`settings.local.json`, `opencode.json` — añadida regla amplia `…/run*`), las 5 skills v1 con script (`shared-base64`, `shared-base64-to-file`, `shared-http-download`, `shared-office-writer`, `sales-tender-search`), `marketing-elementor-content`, y la prosa (`conventions.md`, `orchestrator-template.md`, READMEs, `shared-skill-builder.md`, `shared-skill-scaffold.md`, orquestadores de marketing/operations, `operations-redmine`, `CLAUDE.md`). El CHANGELOG histórico no se reescribe.
+
+**`.mjs` → `.cjs`:** `validate-elementor-data.mjs` (única skill con ESM) convertido a CommonJS (`require` en vez de `import`) y renombrado a `.cjs`, por coherencia con el resto de scripts del framework.
+
+**Convención (`conventions.md` §12.7-bis + nota en `CLAUDE.md` y `orchestrator-template.md`):** regla dura — ninguna skill/engine/doc invoca `node` a secas; siempre el launcher. Toda skill v1 con script documenta sus comandos empezando por `.aigent/IDE/bin/run`.
+
+**`.gitignore` de `.aigent/` — plantilla inerte activada por el instalador.** Antes `.aigent/.gitignore` ignoraba todo (`*`), lo que dejaba los ~191 ficheros del motor en estado "ignorados-pero-trackeados": exigía `git add -f` para cada fichero nuevo y provocaba conflictos espurios en los MR. Ahora ese fichero pasa a `.aigent/.gitignore_` (**inerte** en el repo del framework, sufijo `_` → git no lo aplica → `.aigent/` se trackea con normalidad, sin conflictos). El **instalador lo activa solo en deployments** (lo copia a `.aigent/.gitignore`) para que el repo del cliente ignore la copia vendorizada de `.aigent/`; **no** se activa en el repo fuente (heurística: ahí `.aigent/README.md` está versionado). Editar los patrones a propagar se hace en `.gitignore_`.
+
+**Archivos nuevos:** `.aigent/IDE/bin/run`, `.aigent/IDE/bin/run.cmd`, `.aigent/IDE/bin/.gitignore`, `.aigent/IDE/bin/deps/.node-version`, `.aigent/.gitignore_` (renombrado desde `.aigent/.gitignore`).
+**Archivos editados:** `.aigent/IDE/install.sh`, `.aigent/IDE/install.ps1`, `.aigent/IDE/settings.local.json`, `.aigent/IDE/opencode.json`, `.aigent/v2/engine/engine.cjs`, `.aigent/v2/README.md`, `.aigent/departments/_shared/conventions.md`, `.aigent/departments/_shared/orchestrator-template.md`, `.aigent/departments/_shared/README.md`, `.aigent/departments/_shared/agents/shared-skill-builder.md`, `.aigent/departments/_shared/skills/shared-skill-scaffold/SKILL.md`, `.aigent/departments/_shared/skills/shared-base64/SKILL.md`, `.aigent/departments/_shared/skills/shared-base64-to-file/SKILL.md`, `.aigent/departments/_shared/skills/shared-http-download/SKILL.md`, `.aigent/departments/_shared/skills/shared-office-writer/SKILL.md`, `.aigent/departments/marketing/marketing-orchestrator.md`, `.aigent/departments/marketing/skills/marketing-elementor-content/SKILL.md` (+ `scripts/validate-elementor-data.cjs` nuevo, `.mjs` borrado), `.aigent/departments/operations/operations-orchestrator.md`, `.aigent/departments/operations/skills/operations-redmine/SKILL.md`, `.aigent/departments/sales/skills/sales-tender-search/SKILL.md`, `CLAUDE.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.14.0 — 2026-06-02
+
+### Skill `sales-tender-search` — `.md` como artefacto canónico, otros formatos solo a petición
+
+Nueva **regla obligatoria** en la skill de búsqueda de licitaciones: el `.md` (`licitaciones.md` índice + cada `resumen.md`) es el **único artefacto que la skill produce siempre y primero**. Cualquier otro formato (`docx`, `xlsx`, `pdf`…) pasa a ser **opcional, solo a petición explícita del usuario**, y debe **derivarse del `.md` ya escrito** — nunca generarse directamente desde el JSON de `atom-search.cjs` saltándose el `.md`. Motivado por mantener una única fuente de verdad por licitación y que los entregables Office sean reproducibles desde el `.md`.
+
+**Cambios en `SKILL.md`:**
+- Bloque "Regla canónica del `.md`" añadido junto al **Entregable**.
+- Nuevo **Paso 4 — Otros formatos (opcional, solo a petición)** en el Flujo: el flujo termina por defecto en el `.md`; la derivación a `docx`/`xlsx` usa `shared-office-writer` y a PDF usa `pdf`; el derivado se guarda junto al `.md` y no lo reemplaza.
+
+Coherente con el orquestador y `sales-sdr` (ya declaraban la salida de licitaciones como `.md` + pliegos; sin cambios). El "officer" y el "formatter" de un deployment concreto (p. ej. `1.2 Sales`) deben reflejar esta regla en sus descripciones — fuera del alcance de este repo.
+
+**Archivos editados:** `.aigent/departments/sales/skills/sales-tender-search/SKILL.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 3.14.0 — 2026-06-02
 
 ### Skill `shared-office-writer` — hipervínculos externos en docx (párrafos y tablas)
 
@@ -14,13 +61,15 @@ Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 - Un *run* admite ahora `link`: `{ "text": "etiqueta", "link": "https://..." }`. Se renderiza con el estilo de carácter `Hyperlink` (azul `0563C1` + subrayado). Retrocompatible: los specs sin `link` se comportan igual que antes.
 - Una **celda de tabla** puede ser ahora un string (como antes), un objeto run (`{ "text", "link"?, "bold"?, ... }`) o un array de runs. Permite enlaces clicables dentro de tablas. La cabecera (`header: true`) sigue bolando salvo override por celda.
 
+**Fix de tablas — ajuste a A4 (mismo ciclo):** las tablas usaban columnas de ancho fijo (2400 twips c/u) con `tblW auto` y sin `tblLayout`, así que una tabla con varias columnas se salía por la derecha del A4 y las columnas finales (incluidas las de enlaces) quedaban fuera del papel — invisibles. Ahora la tabla se ajusta al ancho de contenido (A4 menos márgenes = 9026 twips) con `tblLayout fixed` (el texto largo hace wrap). Nuevo campo opcional `table.widths` (pesos relativos por columna) para repartir el ancho de forma no uniforme; sin él, columnas iguales.
+
 **Implementación (`office.cjs`):**
 - `buildDocxRun` envuelve el *run* en `<w:hyperlink r:id="hlN">` cuando hay `link`, y registra la relación en un colector (`hyperlinkRels`).
 - Nuevo helper `buildCellRuns(cell, isHeader)` resuelve celdas string / objeto / array a runs; el constructor de tabla lo usa en lugar del antiguo run único.
 - `word/_rels/document.xml.rels` emite una `Relationship` tipo `hyperlink` con `TargetMode="External"` por enlace (la URL se escapa con `xmlEscape`).
 - `<w:document>` declara el namespace `xmlns:r`; `styles.xml` incluye el estilo de carácter `Hyperlink`. Reset defensivo del colector al inicio de `buildDocx`.
 
-**Verificado:** docx con enlaces en párrafos y en celdas de tabla abre en LibreOffice; subido a Google Drive vía el conector (mime docx), el `contentSnippet` de Drive conserva los enlaces como `[etiqueta](url)`.
+**Verificado:** docx con enlaces en párrafos y en celdas de tabla abre en LibreOffice; una tabla de 8 columnas renderiza en **una sola página A4** (antes se salía y ocultaba las columnas de enlaces); subido a Google Drive vía el conector (mime docx), el `contentSnippet` de Drive conserva los enlaces como `[etiqueta](url)`.
 
 **Archivos editados:** `.aigent/departments/_shared/skills/shared-office-writer/office.cjs`, `.aigent/departments/_shared/skills/shared-office-writer/SKILL.md`, `.aigent/departments/_shared/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
 
@@ -2313,57 +2362,4 @@ Hasta 1.4.0 la red de seguridad era **reactiva**: el agente llamaba a `run`, rec
 - `_shared/orchestrator-template.md` — la sección "Manejo de skills v2 — readiness" se reorganiza en dos caminos (proactivo principal + reactivo fallback) con un único flujo de configuración común y un bloque "Reglas (innegociables)".
 - `_shared/skills/shared-skill-scaffold/SKILL.md` — la plantilla v2 ahora obliga a incluir una sección **"Antes de ejecutar (precheck para el agente caller)"** justo después de Requisitos y antes de Acciones. El checklist estructural (paso 0 de la verificación v2) la verifica explícitamente.
 - `_shared/agents/shared-skill-builder.md` — el modo `configure` distingue tres disparadores con el mismo proceso: tras `create-v2`, **proactivo** (recomendado: orquestador hace `doctor` y delega antes de `run`), **reactivo** (un `run` ya falló). Refuerzo en el paso 3: la regla "secrets nunca por chat" es **innegociable**, aplica también si el usuario insiste o argumenta entorno de desarrollo.
-- `operations/skills/operations-redmine/SKILL.md` — añadida la sección "Antes de ejecutar (precheck)" con el wording específico de la skill (`<replace_me_REDMINE_API_KEY>`, link a `/my/account`).
-- `sales/sales-orchestrator.md` — sincronizado con la nueva versión de la plantilla.
-
-### Redmine — nueva acción `update-time-entry` (skill 0.3.0)
-
-Antes la única forma de editar una imputación era ir por web/curl manualmente. Añadida acción `update-time-entry` que mapea a `PUT /time_entries/:id.json`. Inputs: `time_entry_id` (required) + `hours`, `activity_id`, `spent_on`, `comments`, `issue_id`, `project_id` opcionales (sólo se envían si se aportan). Devuelve 204 → `data: null`. La skill pasa de 9 a 10 acciones; `validate` ok con 0 warnings.
-
-
-## 1.4.0 — 2026-05-08
-
-### Secretos — nueva ubicación: `.context/.secrets.json`
-
-**Cambio limpio (sin retrocompatibilidad — fases iniciales).** Los secretos se mueven de `.aigent/v2/.secrets.json` a `.context/.secrets.json`. Razones:
-
-- `.aigent/` es "el motor", los agentes no escriben ahí. `.context/` sí lo manejan los agentes.
-- `.context/` se commitea, pero se añade un `.context/.gitignore` que excluye específicamente `.secrets.json` (el resto de `.context/` sigue commiteándose: config, prd, tasks).
-- El engine auto-crea `.context/`, `.context/.gitignore` y `.context/.secrets.json` si no existen al llamar a `prepare-secrets`. Cero setup manual.
-
-### Cambios concretos
-
-- **`engine/configure.js`**: `SECRETS_PATH` apunta a `.context/.secrets.json`. Nueva función `ensureContextWithGitignore()` que se llama desde `prepareSecrets`.
-- **`engine/engine.js`**: `SECRETS_PATH` se importa de `configure.js` (ya no se duplica).
-- **Eliminado** `.aigent/v2/.secrets.example.json` (innecesario; el engine genera placeholders dinámicamente desde el manifest).
-- **Eliminado** `.aigent/v2/.secrets.json` antiguo si existía. `.aigent/v2/.gitignore` simplificado (sólo node_modules y similares).
-- **Installers** (`install.sh` / `install.ps1`): nueva función `install_context_secrets` / `Install-ContextSecrets` que crea `.context/.gitignore` y `.context/.secrets.json` vacío en primera pasada (no en `--sync`).
-- **Documentación actualizada** en `_shared/conventions.md` (§1, §12.5, §12.8, §12.9), `_shared/agents/shared-skill-builder.md`, `_shared/orchestrator-template.md`, `_shared/skills/shared-skill-scaffold/SKILL.md`, `operations/skills/operations-redmine/SKILL.md`, `v2/README.md`.
-
-### Migración para usuarios existentes
-
-Si tenías `.aigent/v2/.secrets.json` con valores: cópialos manualmente a `.context/.secrets.json` (mismo shape) y bórralo. O ejecuta `prepare-secrets <skill>` y rellena los placeholders. No hay fallback automático del engine (clean cut).
-
-### Triple red de seguridad
-
-El scaffold del fichero (`.context/.gitignore` + `.context/.secrets.json`) lo hacen **tres** sitios independientes para que sea imposible quedarse sin él:
-
-1. **BOSS bootstrap** (al arrancar cada sesión): pasos 2-3 del bootstrap en `BOSS.md`. Si falta, lo crea silenciosamente.
-2. **Installer** (`install.sh` / `install.ps1`, primera pasada): función `install_context_secrets`.
-3. **Engine** (al llamar `prepare-secrets`): función `ensureContextWithGitignore` en `configure.js`.
-
-Cualquiera de los tres garantiza que la estructura existe. Si el usuario borra el fichero, el siguiente arranque o el siguiente `prepare-secrets` lo restaura.
-
-## 1.3.0 — 2026-05-08
-
-### Orquestadores — red de seguridad para skills v2
-- Nueva sección obligatoria en `_shared/orchestrator-template.md`: **"Manejo de skills v2 no configuradas"**.
-- Documenta el flujo: cuando un agente reporta `CONFIG_ERROR` o `SECRETS_ERROR` del engine, el orquestador detiene la tarea, delega en `shared-skill-builder configure <skill>`, espera a que la skill esté lista (`doctor` ready), y reintenta el `run` original.
-- Refuerza la regla: ni el orquestador ni los agentes aceptan valores de secret por chat. Sólo `shared-skill-builder` toca config/secrets, y vía engine.
-- `_shared/conventions.md` §6 (estructura mínima de orquestador) actualizado para incluir esta sección entre las obligatorias.
-
-## 1.2.0 — 2026-05-08
-
-### Engine v2 — onboarding de skills
-- Comando `doctor [<skill>]` — reporta estado de config + secrets de una o todas las skills. JSON estructurado: `{ skill, ready, config[], secrets[], missing_count }`.
-- Comando `configure <skill> --set <path>=<value> [--scope global|project]` — escribe valores en `.context/config.json` validando contra el manifest. Admite múltiple
+- `operations/skills/operations-redmine/SKILL.md` — añadida la sección "Antes de ejecutar (precheck)" con el wording específico de la skill (`<

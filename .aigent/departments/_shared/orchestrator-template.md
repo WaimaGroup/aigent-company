@@ -189,14 +189,14 @@ Cuando coordinas múltiples agentes, **siempre**:
 > Este departamento no tiene skills v2 (ejecutables por engine); todas son v1 prosa. Por eso este orquestador no incluye el bloque de readiness de skills v2. Si en el futuro se añade una skill v2, copiar ese bloque desde `_shared/orchestrator-template.md`.
 > ```
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
+Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action>`. **Siempre con el launcher `.aigent/IDE/bin/run`, nunca con `node` a secas** — el runtime no está garantizado en el `PATH` del IDE (ver `_shared/conventions.md` §12.7-bis). Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
 
 ### Camino principal — precheck proactivo (preferido)
 
 Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
 
 ```bash
-node .aigent/v2/engine/engine.cjs doctor <skill>
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor <skill>
 ```
 
 - Si el output es `data.skills[0].ready: true` → adelante, ejecuta `run` con normalidad.
@@ -300,4 +300,4 @@ Cuando el orquestador delega a un agente especialista, debe incluir siempre en l
 - **Sustituir todas las marcas `<...>`** por los valores del departamento concreto.
 - **No omitir secciones**: si una sección no aplica, dejar una nota explícita en lugar de borrarla. Mantener la misma estructura entre orquestadores facilita la mantenibilidad.
 - **La sección "Reglas de output"** siempre referencia `_shared/output-rules.md` y añade la estructura específica del departamento. No duplicar la regla universal en cada orquestador.
-- **La sección "Agentes disponibles"** debe coincidir con los archivos reales en `<department>/agents/`. Cualquier cambio en la lista de agentes obliga a actualizar también la "Tabla de decisión rápida".
+- **La sección "Agentes disponi

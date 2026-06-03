@@ -306,11 +306,27 @@ function buildDocxBlock(block) {
     const rows = Array.isArray(block.rows) ? block.rows : [];
     const header = !!block.header;
     const grid = rows.length ? (rows[0].length || 1) : 1;
-    const gridCols = '<w:tblGrid>' + Array(grid).fill('<w:gridCol w:w="2400"/>').join('') + '</w:tblGrid>';
+    // Fit the table to the page content width (A4 minus 1" margins = 9026 twips).
+    // `tblLayout fixed` makes long cell text wrap instead of widening columns and
+    // pushing the table off the right edge of the page.
+    const CONTENT_WIDTH = 9026;
+    // Optional `widths`: relative weights per column (e.g. [1,3,3,1] gives columns
+    // 2 and 3 three times the space). If absent or mismatched, columns are equal.
+    let colWidths;
+    if (Array.isArray(block.widths) && block.widths.length === grid) {
+      const sum = block.widths.reduce(function (a, b) { return a + (Number(b) || 0); }, 0) || grid;
+      colWidths = block.widths.map(function (w) { return Math.max(1, Math.floor(CONTENT_WIDTH * (Number(w) || 0) / sum)); });
+    } else {
+      const eq = Math.max(1, Math.floor(CONTENT_WIDTH / grid));
+      colWidths = new Array(grid).fill(eq);
+    }
+    const tableW = colWidths.reduce(function (a, b) { return a + b; }, 0);
+    const gridCols = '<w:tblGrid>' + colWidths.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>';
     const tblPr =
       '<w:tblPr>' +
       '<w:tblStyle w:val="TableGrid"/>' +
-      '<w:tblW w:w="0" w:type="auto"/>' +
+      '<w:tblW w:w="' + tableW + '" w:type="dxa"/>' +
+      '<w:tblLayout w:type="fixed"/>' +
       '<w:tblBorders>' +
       '<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
       '<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
@@ -321,11 +337,12 @@ function buildDocxBlock(block) {
       '</w:tblBorders>' +
       '</w:tblPr>';
     const rowsXml = rows.map(function (row, ri) {
-      const cells = (Array.isArray(row) ? row : [row]).map(function (cell) {
+      const cells = (Array.isArray(row) ? row : [row]).map(function (cell, ci) {
         const isHeader = header && ri === 0;
         const runsXml = buildCellRuns(cell, isHeader);
         const cellPara = buildDocxParagraphXml(runsXml);
-        return '<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>' + cellPara + '</w:tc>';
+        const cw = colWidths[ci] || colWidths[colWidths.length - 1];
+        return '<w:tc><w:tcPr><w:tcW w:w="' + cw + '" w:type="dxa"/></w:tcPr>' + cellPara + '</w:tc>';
       }).join('');
       return '<w:tr>' + cells + '</w:tr>';
     }).join('');

@@ -1,122 +1,188 @@
-# Marketing — Casos de uso
+# Marketing — Qué puedes pedir y qué recibes
 
-> Ejemplos prácticos de cómo invocar cada agente y skill del departamento de Marketing.
-> Para visión general del dept, ver [`.aigent/README.md`](../../README.md) o el [`marketing-orchestrator.md`](./marketing-orchestrator.md).
-
----
-
-## Cómo se invoca
-
-1. **Vía orquestador** (recomendado): hablar al `marketing-orchestrator`. Analiza la petición y delega al especialista correcto. **No necesitas saber qué agente o skill usar.**
-2. **Directo a agente**: cuando ya sabes a quién (ej. copy → `marketing-creative`).
-3. **Skill directa**: para tareas concretas (ej. "genérame un calendario editorial de junio").
-
-> **Default de archivo único:** por defecto cada entregable es **un solo `.md`**. Pide explícitamente `.html`, fragmento para CMS o maquetación Elementor si los necesitas.
-
-> **¿Lo quieres en Word o Excel?** Si prefieres el entregable como documento de Word o como hoja de Excel en vez de `.md`, solo pídelo en lenguaje normal (p. ej. «el plan de Q3 en Word», «el calendario editorial en Excel»): el sistema genera el `.docx`/`.xlsx` listo para abrir.
+> Guía práctica del equipo de Marketing. Aquí no hay tecnicismos: te explicamos, con ejemplos, qué le puedes pedir a cada miembro del equipo y qué te devuelve.
+> Si quieres la foto general del departamento, mira el [`marketing-orchestrator.md`](./marketing-orchestrator.md).
 
 ---
 
-## El equipo — 3 especialistas
+## Cómo pedir las cosas
 
-| Agente | Cubre | Skills propias |
-|---|---|---|
-| `marketing-creative` | Copy (blog, email, anuncios, prensa) y redes sociales | `marketing-copy`, `marketing-social`, `marketing-brand-voice-guide` + `shared-case-study` |
-| `marketing-planning` | Estrategia, planes, campañas, SEO y analytics | `marketing-strategy`, `marketing-seo` + `shared-competitive-analysis`, `shared-stakeholder-map`, `shared-okr-set`, `shared-kpi-dashboard` |
-| `marketing-web` | Web, landings, WordPress/Elementor, CRO | `marketing-landing-page`, `marketing-elementor-content`, `marketing-publish-checklist` |
+No necesitas saber quién hace qué. Tienes tres formas, de la más cómoda a la más concreta:
 
----
+1. **Pídeselo al coordinador** (lo más fácil): le escribes lo que necesitas y él se encarga de pasárselo a la persona adecuada del equipo. Tú solo describes el objetivo.
+2. **Habla directo con un especialista**, si ya sabes a quién quieres (por ejemplo, "escríbeme un email" → el Creativo).
+3. **Pide una tarea concreta**, sin más (por ejemplo, "hazme el calendario de redes de junio").
 
-## `marketing-creative` — Creative
-
-### Caso: post de blog SEO
-> "Post de blog sobre 'cómo elegir CRM para PYMEs', para CEOs de empresas de 10-50 empleados, tono profesional pero accesible. Keyword: 'crm para pyme'. ~1500 palabras."
-
-→ skill `marketing-copy` formato `blog` → `posts/como-elegir-crm-para-pyme/como-elegir-crm-para-pyme.md` (frontmatter SEO + cuerpo + prompts `[IMG:]`).
-
-### Caso: email de lanzamiento
-> "Email a 8000 leads que estuvieron en demo y no compraron, anunciando AI Insights. Objetivo: pedir nueva demo."
-
-→ skill `marketing-copy` formato `email` → `emails/email-launch-ai-insights.md` (3 asuntos A/B + preheader + cuerpo + CTA).
-
-### Caso: anuncios A/B
-> "3 variantes de anuncio de remarketing en LinkedIn para quienes visitaron la landing de demo y no convirtieron."
-
-→ skill `marketing-copy` formato `anuncio` → `ads/ad-copy-linkedin-remarketing-demo.md` (3 variantes respetando límites de LinkedIn).
-
-### Caso: adaptar un contenido a redes
-> "Adapta este case study a LinkedIn, Instagram, X y TikTok. Tono profesional pero humano."
-
-→ skill `marketing-social` modo `adaptar` → `social/social-case-study-acme.md`.
-
-### Caso: calendario editorial
-> "Calendario editorial de julio. LinkedIn (4/sem) e Instagram (3/sem). Pilares: educación CS, casos de cliente, behind-the-scenes."
-
-→ skill `marketing-social` modo `calendario` → `social/editorial-calendar-julio-2026.md`.
-
-### Caso: auditar un post de LinkedIn antes de publicar
-> "Audita este borrador de post de LinkedIn de nuestra página de empresa; objetivo tráfico al newsletter."
-
-→ skill `marketing-social` modo `linkedin-audit` → añade `## MÉTRICAS OBJETIVO` y `## COPY PARA LINKEDIN` (plain-text) al `.md` del post.
-
-### Caso: guía de voz de marca
-> "Guía canónica de voz: SaaS B2B serio pero humano. 3 atributos: experto, directo, cercano."
-
-→ skill `marketing-brand-voice-guide` → `strategy/brand-voice-guide.md`.
+> **Qué recibes por defecto.** Cada encargo te llega como **un único documento de texto** listo para usar. Si lo quieres **en Word o en Excel**, solo tienes que decirlo en lenguaje normal ("el plan de Q3 en Word", "el calendario de redes en Excel") y se genera el archivo listo para abrir.
 
 ---
 
-## `marketing-planning` — Planning
+## El equipo: tres especialistas
 
-### Caso: plan de marketing trimestral
-> "Plan Q3 2026 de SaaS B2B. Objetivo: +30% MQLs vs Q2. Presupuesto 80k€. Canales: SEO, LinkedIn ads, content, eventos."
+| Especialista | De qué se ocupa |
+|---|---|
+| **Creativo** | Todo lo que se escribe: artículos de blog, emails, anuncios, notas de prensa, y todas las redes sociales. También cuida que la marca "suene" siempre igual. |
+| **Planificación** | La estrategia: planes de marketing, campañas, análisis de la competencia, objetivos, y todo lo de aparecer en Google (SEO). |
+| **Web** | Páginas web y de aterrizaje (landing pages), WordPress, y dejar las páginas a punto antes de publicar. |
 
-→ skill `marketing-strategy` modo `plan` → `strategy/marketing-plan-q3-2026.md`.
-
-### Caso: brief de campaña
-> "Brief para el lanzamiento de la feature AI Insights. 4 semanas, 35k€, target SaaS mid-market."
-
-→ skill `marketing-strategy` modo `brief` → `strategy/brief-launch-ai-insights.md`.
-
-### Caso: keyword research
-> "Keyword research para el pillar de 'gestión de proyectos para agencias', priorizando volumen + intención comercial."
-
-→ skill `marketing-seo` modo `research` → `seo/keyword-research-gestion-proyectos-agencias.md`.
-
-### Caso: optimización on-page
-> "El post '5-señales-cliente-en-riesgo' posiciona en página 2. Audítalo y dame la versión optimizada."
-
-→ skill `marketing-seo` modo `on-page` → `seo/seo-on-page-5-senales-cliente-en-riesgo.md`.
+A continuación, ejemplos reales de cada uno.
 
 ---
 
-## `marketing-web` — Web & WordPress
+## Creativo — textos y redes sociales
 
-### Caso: landing de conversión
-> "Landing para la feature 'AI Insights'. Objetivo: pedir demo. Audiencia: heads of analytics de empresas medianas."
+Escribe cualquier texto de marketing y lleva tus redes sociales. Aquí van los encargos más típicos.
 
-→ skill `marketing-landing-page` → `posts/landing-ai-insights/landing-ai-insights.md` (copy en plano). Si se quiere montar en Elementor, encadenar `marketing-elementor-content` modo `landing`.
+### Un artículo para el blog
 
-### Caso: página de servicio en Elementor
-> "Página de servicio 'Consultoría de datos' en Elementor, con hero, 3 beneficios con iconos custom, testimonios, FAQ y CTA. Slug: `consultoria-de-datos`."
+**Le pides:**
+> "Un artículo de blog sobre cómo elegir un CRM para pymes, dirigido a gerentes de empresas pequeñas, en un tono profesional pero cercano. Que aparezca bien en Google para la búsqueda 'crm para pyme'. Unas 1.500 palabras."
 
-→ skill `marketing-elementor-content` modo `page` → carpeta con `_elementor_data.json` + `content.html` + `metadata.md` + `README.md` + `assets/` (excepción multi-archivo).
-
-### Caso: checklist pre-publicación
-> "Aplica el checklist de publicación al post 'como-elegir-crm-para-pyme'."
-
-→ skill `marketing-publish-checklist` → `posts/como-elegir-crm-para-pyme/publish-checklist.md` (veredicto 🟢/🟠/🔴).
-
----
-
-## Flujo end-to-end típico (lanzamiento de producto)
+**Recibes:** un documento con el artículo completo, ya pensado para posicionar en Google. Incluye el título y la descripción que verá la gente en el buscador, el texto organizado con sus apartados, y sugerencias de dónde colocar imágenes. Por ejemplo:
 
 ```
-1. marketing-planning   → marketing-strategy (brief + plan del trimestre)
-2. marketing-creative   → marketing-copy (post pilar + email) + marketing-social (redes)
-3. marketing-planning   → marketing-seo (keyword research + on-page del post)
-4. marketing-web        → marketing-landing-page / marketing-elementor-content (landing)
-5. marketing-web        → marketing-publish-checklist (antes de publicar)
+Título: Cómo elegir un CRM para tu pyme (sin equivocarte)
+Descripción para Google: Guía práctica para gerentes de pymes...
+
+[Introducción que engancha con el problema real del lector]
+## ¿Qué es un CRM y por qué tu pyme lo necesita?
+## Los 5 criterios que de verdad importan
+...
+[Sugerencia de imagen: gráfico comparando 3 CRMs]
+[Cierre con invitación a probar una demo]
 ```
 
-El orquestador presenta este plan y lo coordina; el usuario solo describe el objetivo.
+### Un email para una campaña
+
+**Le pides:**
+> "Un email para 8.000 contactos que vieron una demo y no compraron, para anunciar la nueva función 'AI Insights'. Quiero que pidan otra demo."
+
+**Recibes:** el email listo para enviar, con **tres asuntos distintos para que pruebes cuál abre más gente**, el texto que se ve junto al asunto, el cuerpo del mensaje y una frase clara de cierre invitando a la acción.
+
+### Varios anuncios para probar
+
+**Le pides:**
+> "Tres versiones de un anuncio en LinkedIn para gente que visitó nuestra página de demo y no se registró."
+
+**Recibes:** tres versiones del anuncio (para comparar cuál rinde mejor), cada una respetando los límites de texto de LinkedIn, listas para copiar y pegar.
+
+### Llevar un contenido a las redes
+
+**Le pides:**
+> "Adapta este caso de cliente a LinkedIn, Instagram, X y TikTok, en tono profesional pero humano."
+
+**Recibes:** el mismo mensaje adaptado a cada red (cada una tiene su estilo y su longitud), con sus hashtags. No es el mismo texto copiado: se reescribe para que encaje en cada sitio.
+
+### Un calendario de redes sociales
+
+**Le pides:**
+> "El calendario de publicaciones de julio. LinkedIn 4 veces por semana e Instagram 3. Temas: educación, casos de cliente y 'detrás de las cámaras'."
+
+**Recibes:** un calendario mes a mes con qué publicar cada día, en qué red y de qué tema, listo para que el equipo lo siga.
+
+### Revisar un post de LinkedIn antes de publicarlo
+
+**Le pides:**
+> "Revisa este borrador de post de LinkedIn de la empresa; el objetivo es llevar gente a la newsletter."
+
+**Recibes:** el post revisado, con el objetivo que debería cumplir y una versión final lista para pegar en LinkedIn.
+
+### La guía de "voz de marca"
+
+**Le pides:**
+> "Una guía de cómo debe sonar siempre nuestra marca: seria pero humana, con tres rasgos: experta, directa y cercana."
+
+**Recibes:** un documento de referencia con cómo escribir siempre en nombre de la marca: el tono, qué palabras usar y cuáles evitar, y cómo cambia según el canal. Sirve para que todo el equipo escriba igual.
+
+> También puede prepararte un **caso de éxito de cliente** (problema → solución → resultados, con frases textuales del cliente).
+
+---
+
+## Planificación — estrategia y aparecer en Google
+
+Decide el rumbo: planes, campañas, análisis y todo lo de posicionamiento en buscadores.
+
+### Un plan de marketing del trimestre
+
+**Le pides:**
+> "El plan del tercer trimestre de 2026. Objetivo: un 30% más de contactos de calidad que el trimestre anterior. Presupuesto 80.000 €. Canales: Google, anuncios en LinkedIn, contenidos y eventos."
+
+**Recibes:** un plan completo del trimestre: los objetivos, en qué canales invertir y cuánto, las acciones concretas y cómo se medirá si va bien. Por ejemplo:
+
+```
+# Plan de marketing — Q3 2026
+Objetivo: +30% de contactos de calidad frente a Q2
+
+## En qué invertimos (80.000 €)
+- Contenidos y SEO: 30.000 €
+- Anuncios LinkedIn: 25.000 €
+...
+## Acciones por mes y cómo lo medimos
+Julio: lanzar 4 artículos + campaña... → seguimiento de contactos
+```
+
+### El plan de una campaña concreta
+
+**Le pides:**
+> "El plan para lanzar la función 'AI Insights'. Cuatro semanas, 35.000 €, público: empresas medianas."
+
+**Recibes:** un documento corto y claro de la campaña: a quién va dirigida, el mensaje principal, qué se hace cada semana y qué resultado se busca.
+
+### Saber qué busca la gente en Google
+
+**Le pides:**
+> "Investiga qué busca la gente sobre 'gestión de proyectos para agencias', priorizando lo más buscado y con intención de compra."
+
+**Recibes:** una lista ordenada de las búsquedas que hace la gente en Google sobre ese tema, indicando cuáles tienen más volumen y cuáles delatan intención de comprar, para decidir sobre qué escribir.
+
+### Mejorar una página para que suba en Google
+
+**Le pides:**
+> "El artículo '5 señales de cliente en riesgo' está en la segunda página de Google. Revísalo y dame una versión mejorada."
+
+**Recibes:** el artículo revisado con los cambios concretos para subir en Google (título, encabezados, palabras a reforzar) y la versión ya optimizada lista para reemplazar la actual.
+
+> También puede prepararte un **análisis de la competencia**, un **mapa de las personas que deciden** en una cuenta, una **lista de objetivos del equipo (OKR)** o un **cuadro de indicadores (KPIs)**.
+
+---
+
+## Web — páginas, landings y WordPress
+
+Crea y deja a punto las páginas de tu web.
+
+### Una página de aterrizaje que convierte
+
+**Le pides:**
+> "Una landing para la función 'AI Insights'. Objetivo: que pidan una demo. Público: responsables de datos de empresas medianas."
+
+**Recibes:** todo el texto de la página pensado para que el visitante haga la acción que buscas (pedir la demo): el titular, los beneficios, las dudas frecuentes y la frase de cierre. Si además quieres montarla directamente en WordPress, se prepara el archivo para el constructor visual (Elementor).
+
+### Una página de servicio en WordPress (Elementor)
+
+**Le pides:**
+> "Una página de servicio 'Consultoría de datos' en Elementor, con cabecera, tres beneficios con iconos, testimonios, preguntas frecuentes y una llamada a la acción."
+
+**Recibes:** la página lista para importar en WordPress con Elementor (el constructor visual), con su texto, su estructura y sus imágenes. Es el único caso en el que recibes varios archivos en vez de uno, porque WordPress lo necesita así.
+
+### Revisar una página antes de publicarla
+
+**Le pides:**
+> "Pásale la revisión final al artículo 'cómo elegir un CRM para pymes' antes de publicar."
+
+**Recibes:** una lista de comprobación con un veredicto claro —🟢 listo, 🟠 con peros, 🔴 no publicar— y qué arreglar antes de darle al botón.
+
+---
+
+## Un proyecto completo de principio a fin (ejemplo: lanzar un producto)
+
+Cuando el encargo es grande, el coordinador reparte el trabajo entre los tres y lo ordena así:
+
+```
+1. Planificación → el plan de la campaña y del trimestre
+2. Creativo      → el artículo principal, el email y los posts de redes
+3. Planificación → qué busca la gente en Google + mejorar el artículo para buscadores
+4. Web           → la página de aterrizaje de la nueva función
+5. Web           → la revisión final antes de publicar
+```
+
+Tú solo describes el objetivo ("quiero lanzar esta función el mes que viene"). El coordinador te enseña el plan, lo confirmas, y el equipo lo ejecuta paso a paso.

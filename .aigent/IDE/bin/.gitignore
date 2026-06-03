@@ -1,0 +1,7 @@
+# El binario Node lo descarga el instalador en tiempo de install — nunca se commitea.
+deps/node
+deps/node.exe
+# Sí se commitean: los launchers y el pin de versión.
+!run
+!run.cmd
+!deps/.node-version

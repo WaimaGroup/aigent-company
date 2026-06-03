@@ -20,6 +20,8 @@ description: >
 
 **Entregable:** por cada licitación relevante, sus **pliegos descargados** y un **`resumen.md`** que explique en lenguaje claro qué pide la licitación (objeto, alcance, requisitos, plazos, presupuesto, criterios), todo bajo la ruta de entregables del proyecto. Además, un **`licitaciones.md`** índice con la tabla de coincidencias.
 
+> **Regla canónica del `.md` (obligatoria).** El `.md` (`licitaciones.md` + cada `resumen.md`) es el **único artefacto que esta skill produce siempre y primero**. Cualquier otro formato (Word/`docx`, Excel/`xlsx`, `pdf`…) es **opcional y solo a petición explícita**, y se genera **derivándolo del `.md` ya escrito** — nunca saltándose el `.md` ni generándolo directamente desde el JSON de la búsqueda. Sin petición de formato, el entregable termina en el `.md`.
+
 **Archivos de la skill (fuente de verdad):**
 
 ```
@@ -56,7 +58,7 @@ El `.atom` de la PLACSP **no es una API consultable**: es sindicación masiva de
 ### Paso 1 — Buscar (`atom-search.cjs`)
 
 ```bash
-node .aigent/departments/sales/skills/sales-tender-search/atom-search.cjs \
+.aigent/IDE/bin/run .aigent/departments/sales/skills/sales-tender-search/atom-search.cjs \
   --inputs '{
     "feedUrl": "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
     "filters": { "cpv": ["722*", "48000000"] }
@@ -70,7 +72,7 @@ Devuelve JSON por stdout con `results[]` (ver contrato abajo). El progreso de de
 Para cada licitación elegida, pasar su `documentos[]` (los `{ url, titulo, tipo }` que ya trae el resultado) a la skill compartida, con `outDir` apuntando a la carpeta de esa licitación (ver "Ruta de entregables"):
 
 ```bash
-node .aigent/departments/_shared/skills/shared-http-download/download.cjs \
+.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-http-download/download.cjs \
   --inputs '{ "outDir": "<proyecto>/sales/licitaciones/<expediente>", "documentos": <results[i].documentos> }'
 ```
 
@@ -97,6 +99,16 @@ Usar la `url` original de cada documento (la del feed), no solo la copia local d
 |---|---|---|---|---|---|---|---|
 | 2026000435 | Servicios de… | Consejería… | 72227000 | 21.567.143 € | 2026-06-14 | [Ver resumen](2026000435/resumen.md) | [PLACSP](https://…) |
 ```
+
+### Paso 4 — Otros formatos (opcional, solo a petición)
+
+El `.md` (`licitaciones.md` + cada `resumen.md`) es la **fuente canónica**. El flujo de la skill **termina aquí por defecto**: sin una petición explícita, no se produce ningún otro formato.
+
+Si —y solo si— el usuario pide explícitamente otro formato (Word/`docx`, Excel/`xlsx`, `pdf`…), se genera **derivándolo del `.md` ya escrito** con la skill correspondiente: `shared-office-writer` para `docx`/`xlsx` (writer nativo del framework, sin dependencias) y `pdf` para PDF. Reglas:
+
+- **Nunca** generar `docx`/`xlsx`/etc. directamente desde los `results[]` de la búsqueda saltándose el `.md`. El `.md` se escribe siempre primero.
+- El documento derivado **refleja el contenido del `.md`** (típicamente: el índice `licitaciones.md` → tabla `xlsx`; un `resumen.md` → `docx`). Si el `.md` cambia, se regenera el derivado.
+- El derivado se guarda junto al `.md` de origen, no lo reemplaza: el `.md` permanece como fuente.
 
 ---
 

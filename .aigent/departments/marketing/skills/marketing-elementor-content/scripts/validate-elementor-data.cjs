@@ -2,7 +2,7 @@
 // Validador específico de `_elementor_data.json` para la skill marketing-elementor-content.
 //
 // Uso:
-//   node validate-elementor-data.mjs <path/to/_elementor_data.json> [--strict] [--quiet]
+//   node validate-elementor-data.cjs <path/to/_elementor_data.json> [--strict] [--quiet]
 //
 // Exit codes:
 //   0 — válido (sin errores). Warnings posibles si no se pasa --strict.
@@ -14,8 +14,8 @@
 //
 // Sin dependencias externas. Node 18+ recomendado por `fs/promises`.
 
-import { readFile } from "node:fs/promises";
-import { argv, exit, stdout, stderr } from "node:process";
+const { readFile } = require("node:fs/promises");
+const { argv, exit, stdout, stderr } = require("node:process");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Catálogo de widgets core soportados por la skill marketing-elementor-content.
@@ -50,7 +50,7 @@ function printHelp() {
   stdout.write(`validate-elementor-data — validador específico de _elementor_data.json
 
 Uso:
-  node validate-elementor-data.mjs <path/to/_elementor_data.json> [--strict] [--quiet]
+  node validate-elementor-data.cjs <path/to/_elementor_data.json> [--strict] [--quiet]
 
 Flags:
   --strict    Sale con código 1 también si solo hay warnings (sin errores).
