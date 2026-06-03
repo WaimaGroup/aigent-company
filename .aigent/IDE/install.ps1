@@ -23,6 +23,9 @@ param(
   [switch]$Prune,        # borra en destino las carpetas de skills sin source en el repo
   [switch]$Clean,        # modo declarativo: borra depts del repo NO listados en -Dept
   [switch]$Update,       # git pull del repo remoto antes de instalar
+  [switch]$NodeStatus,   # muestra estado del runtime (sistema + bundled + pin) y sale
+  [switch]$NodeInstall,  # descarga/asegura el Node bundled en IDE\bin\deps\ y sale
+  [switch]$Force,        # con -NodeInstall: re-descarga aunque la versión ya cuadre
   [switch]$DryRun,
   [switch]$Help
 )
@@ -56,6 +59,19 @@ $RepoRoot       = Split-Path -Parent $ScriptDir           # .aigent/
 $ProjectRoot    = Split-Path -Parent $RepoRoot            # raíz del proyecto (siempre, sin importar desde dónde se invoque)
 $DepartmentsDir = Join-Path $RepoRoot "departments"
 $BossSrc        = Join-Path $RepoRoot "BOSS.md"
+
+# ── Runtime Node bundled ──────────────────────────────────────────────────────
+# Versión LTS fijada en IDE\bin\deps\.node-version (única fuente de verdad). El
+# binario se descarga a IDE\bin\deps\ (nunca va en git). Las skills y el engine v2
+# lo invocan vía el launcher IDE/bin/run, no con `node` a secas.
+$RuntimeDir  = Join-Path $ScriptDir "bin"
+$DepsDir     = Join-Path $RuntimeDir "deps"
+$NodeVersion = "24.15.0"   # fallback defensivo si falta .node-version
+$nodeVerFile = Join-Path $DepsDir ".node-version"
+if (Test-Path $nodeVerFile) {
+  $pinned = (Get-Content $nodeVerFile -Raw -ErrorAction SilentlyContinue)
+  if ($pinned) { $pinned = $pinned.Trim(); if ($pinned) { $NodeVersion = $pinned } }
+}
 
 $ClaudeGlobalAgents  = Join-Path $env:APPDATA "Claude\agents"
 $ClaudeProjectAgents = Join-Path $ProjectRoot ".claude\agents"
@@ -184,10 +200,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ``````bash
 # Ver acciones disponibles, sus inputs y sus outputs
-node .aigent/v2/engine/engine.cjs describe $skillName
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe $skillName
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.cjs run $skillName <action> --inputs '{"...": "..."}'
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run $skillName <action> --inputs '{"...": "..."}'
 ``````
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.
@@ -467,6 +483,144 @@ function Install-ContextSecrets {
   }
 }
 
+# ── Runtime Node bundled ──────────────────────────────────────────────────────
+# Major de un binario node dado (vacío si no ejecuta).
+function Get-NodeMajor($bin) {
+  $v = (& $bin -v 2>$null)
+  if (-not $v) { return $null }
+  $v = ([string]$v).Trim().TrimStart('v')
+  return ($v -split '\.')[0]
+}
+
+# Pausa antes de salir SOLO si hay terminal interactiva (evita que una ventana
+# lanzada por doble clic se cierre antes de leer). Si el stdin va por pipe/wrapper
+# (redirigido), no pausa para no colgarse.
+function Pause-BeforeExit {
+  if (-not [Console]::IsInputRedirected) {
+    Write-Host ""
+    try { [void](Read-Host "  Pulsa Enter para salir") } catch { }
+  }
+}
+
+# Estado del runtime: pin, bundled, sistema y qué resolvería el launcher.
+function Get-NodeStatus {
+  Write-Host ""
+  Write-Host "  🔎 Estado del runtime Node" -ForegroundColor White
+  Divider
+  $target = Join-Path $DepsDir "node.exe"
+  Write-Host "  Pin (.node-version):  $NodeVersion"
+
+  $bundledOk = $false
+  if (Test-Path $target) {
+    $bver = (& $target -v 2>$null)
+    if ($bver) { Write-Host "  Bundled (deps/):      OK $bver  ($target)" -ForegroundColor Green; $bundledOk = $true }
+    else { Write-Host "  Bundled (deps/):      ! existe pero no ejecuta" -ForegroundColor Yellow }
+  } else {
+    Write-Host "  Bundled (deps/):      X no descargado" -ForegroundColor Red
+  }
+
+  $sysOk = $false
+  $sysCmd = Get-Command node -ErrorAction SilentlyContinue
+  if ($sysCmd) {
+    $sver = (& node -v 2>$null); $smaj = Get-NodeMajor "node"
+    if ($smaj -and [int]$smaj -ge 20) {
+      Write-Host "  Sistema (PATH):       OK $sver en $($sysCmd.Source)" -ForegroundColor Green; $sysOk = $true
+    } else {
+      Write-Host "  Sistema (PATH):       ! $sver en $($sysCmd.Source) (< Node 20, no usable)" -ForegroundColor Yellow
+    }
+  } else {
+    Write-Host "  Sistema (PATH):       X no encontrado" -ForegroundColor Red
+  }
+
+  if ($bundledOk)  { Write-Host "  El launcher usaria:   bundled deps/node.exe" }
+  elseif ($sysOk)  { Write-Host "  El launcher usaria:   node del sistema (PATH)" }
+  else { Write-Host "  El launcher usaria:   nada — instala con -NodeInstall" -ForegroundColor Red }
+}
+
+# Descarga el binario Node de nodejs.org a IDE\bin\deps\node.exe. Idempotente por
+# versión salvo -Force. Detecta la arquitectura.
+function Ensure-Runtime([switch]$ForceDl) {
+  Write-Host ""
+  Write-Host "  ⬇  Runtime Node $NodeVersion → IDE\bin\deps\" -ForegroundColor White
+  Divider
+  $target = Join-Path $DepsDir "node.exe"
+
+  # ¿ya está la versión correcta? → idempotente, no re-descarga (salvo -Force).
+  if ((-not $ForceDl) -and (Test-Path $target)) {
+    $cur = (& $target -v 2>$null)
+    if ($cur) { $cur = ([string]$cur).Trim().TrimStart('v') }
+    if ($cur -eq $NodeVersion) {
+      Log-Info "Node $NodeVersion ya presente en deps\ — no se descarga (usa -Force para reinstalar)."
+      return
+    }
+    Log-Info "Node en deps\ es v$cur ≠ $NodeVersion — se re-descarga."
+  }
+
+  # Detectar arquitectura → artefacto win de nodejs.org.
+  $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'x64' }
+  $pkg  = "node-v$NodeVersion-win-$arch"
+  $url  = "https://nodejs.org/dist/v$NodeVersion/$pkg.zip"
+
+  if ($DryRun) {
+    Log-Dry "descargar $url → extraer node.exe → IDE\bin\deps\node.exe"
+    return
+  }
+
+  if (-not (Test-Path $DepsDir)) { New-Item -ItemType Directory -Path $DepsDir -Force | Out-Null }
+  $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("aigent-node-" + [System.Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+  $zip = Join-Path $tmp "node.zip"
+
+  Log-Info "Descargando $pkg.zip desde nodejs.org…"
+  try {
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+  } catch {
+    Log-Error "Descarga fallida ($url): $($_.Exception.Message)"
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    return
+  }
+
+  try {
+    Expand-Archive -Path $zip -DestinationPath $tmp -Force
+  } catch {
+    Log-Error "Extracción fallida: $($_.Exception.Message)"
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    return
+  }
+
+  Copy-Item -Path (Join-Path $tmp "$pkg\node.exe") -Destination $target -Force
+  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+  Log-Ok "Node $NodeVersion instalado → IDE\bin\deps\node.exe ($(& $target -v 2>$null))"
+}
+
+# Submenú interactivo "Runtime (Node)". PERSISTENTE: tras cada acción vuelve a
+# mostrarse; sales tú con la opción 4 (o q). Blindajes: Read-Host en try/catch
+# (EOF/stdin cerrado → salir limpio) y cada acción en try/catch para que un error
+# no dispare el trap global ni cierre la ventana — solo se reporta y sigue.
+function Invoke-RuntimeMenu {
+  while ($true) {
+    Write-Host ""
+    Write-Host "  Runtime (Node)" -ForegroundColor White
+    Write-Host "  1) Ver estado (sistema + bundled + pin)"
+    Write-Host "  2) Instalar / actualizar a la versión fijada"
+    Write-Host "  3) Reinstalar (force, re-descarga)"
+    Write-Host "  4) Salir"
+    Print-Options @("1","2","3","Salir")
+    try { $c = Read-Host "  Opción [1] (q=salir)" } catch { Write-Host ""; return }
+    if (Test-ControlInput $c) { continue }
+    if ([string]::IsNullOrWhiteSpace($c)) { $c = "1" }
+    switch ($c) {
+      "1"     { try { Get-NodeStatus }          catch { Log-Error $_.Exception.Message } }
+      "2"     { try { Ensure-Runtime }          catch { Log-Error $_.Exception.Message } }
+      "3"     { try { Ensure-Runtime -ForceDl } catch { Log-Error $_.Exception.Message } }
+      "4"     { return }
+      "salir" { return }
+      default { Write-Host "  Elige 1, 2, 3 o 4 (o q)." -ForegroundColor Red }
+    }
+  }
+}
+
 function Install-McpConfig($ideName, $configDir) {
   Write-Host ""
   Write-Host "  ⚙  MCP config → $configDir" -ForegroundColor White
@@ -681,9 +835,10 @@ function Invoke-Interactive {
     Write-Host "       (primer setup, nuevo departamento, instalación inicial)" -ForegroundColor DarkGray
     Write-Host "  2) Sync     - solo regenera skills (stubs v2 + copia v1)"
     Write-Host "       (refresca rápido tras editar un SKILL.md, sin tocar agentes/MCP/BOSS)" -ForegroundColor DarkGray
+    Write-Host "  3) Runtime  - ver estado / instalar el Node bundled (no toca agentes/skills)"
     $typeDone = $false
     while (-not $typeDone) {
-      Print-Options @("1","2","Salir")
+      Print-Options @("1","2","3","Salir")
       $installType = Read-Host "  Opción [1] (h=ayuda, q=salir)"
       if (Test-ControlInput $installType) { continue }
       if ([string]::IsNullOrWhiteSpace($installType)) { $installType = "1" }
@@ -694,7 +849,8 @@ function Invoke-Interactive {
           Write-Host "  ⟳  SYNC activado - el resto del flow se ajusta (sin MCP, sin BOSS)" -ForegroundColor Cyan
           $typeDone = $true
         }
-        default { Write-Host "  Elige 1 o 2 (o h/q)." -ForegroundColor Red }
+        "3" { Invoke-RuntimeMenu; Write-Host ""; exit 0 }
+        default { Write-Host "  Elige 1, 2 o 3 (o h/q)." -ForegroundColor Red }
       }
     }
     Write-Host ""
@@ -860,6 +1016,9 @@ function Print-Usage {
   Write-Host "                   (agentes y skills con prefijo <dept>-). Útil para 'quitar' un dept ya instalado."
   Write-Host "                   shared-* y customs del usuario NUNCA se tocan. Incompatible con -Sync."
   Write-Host "    -Update        git pull del repo remoto antes de instalar"
+  Write-Host "    -NodeStatus    muestra qué Node hay (sistema + bundled + pin) y qué usaría el launcher; no instala"
+  Write-Host "    -NodeInstall   descarga/asegura el Node bundled en IDE\bin\deps\ (aislado, no toca agentes/skills)"
+  Write-Host "    -Force         con -NodeInstall: re-descarga aunque la versión ya cuadre"
   Write-Host "    -DryRun        muestra lo que haría sin escribir nada"
   Write-Host "    -Help          esta ayuda"
   Write-Host ""
@@ -922,6 +1081,16 @@ if ($DryRun) { Write-Host "  ⚠  Modo DRY-RUN activado — no se realizarán ca
 if ($Sync)   { Write-Host "  ⟳  SYNC — solo se procesan skills (omite agentes, MCP, BOSS)`n" -ForegroundColor Cyan }
 if ($Prune)  { Write-Host "  ♻  PRUNE — al terminar se eliminarán las skills huérfanas en destino`n" -ForegroundColor Yellow }
 if ($Clean)  { Write-Host "  🧹 CLEAN — modo declarativo: se borrarán los depts no listados en -Dept`n" -ForegroundColor Yellow }
+# Acciones aisladas de runtime (short-circuit): no tocan agentes/skills/MCP.
+if ($NodeStatus) {
+  try { Get-NodeStatus } catch { Log-Error $_.Exception.Message }
+  Pause-BeforeExit; exit 0
+}
+if ($NodeInstall) {
+  try { if ($Force) { Ensure-Runtime -ForceDl } else { Ensure-Runtime } } catch { Log-Error $_.Exception.Message }
+  Pause-BeforeExit; exit 0
+}
+
 if ($Update) { Invoke-Update }
 
 # -Clean + -Sync no tienen sentido juntos: -Sync solo toca skills.
@@ -981,6 +1150,10 @@ if ($Clean) {
   }
 }
 
+# Runtime Node bundled — siempre (idempotente por versión). Necesario para que
+# las skills y el engine v2 se ejecuten vía IDE/bin/run sin Node del sistema.
+Ensure-Runtime
+
 # MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en -Sync
 if (-not $Sync) {
   if ($Mcp) {
@@ -1026,4 +1199,4 @@ if (-not $DryRun) {
     Write-Host "  Reinicia el IDE para que los agentes aparezcan disponibles." -ForegroundColor DarkGray
   }
 }
-Write-Host ""
+Write-Host "" 

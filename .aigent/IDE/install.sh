@@ -28,6 +28,15 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"    # raíz del proyecto
 DEPARTMENTS_DIR="$REPO_ROOT/departments"
 BOSS_SRC="$REPO_ROOT/BOSS.md"
 
+# ── Runtime Node bundled ──────────────────────────────────────────────────────
+# Versión LTS fijada en IDE/bin/deps/.node-version (única fuente de verdad, leída
+# también por nvm/fnm). El binario se descarga a IDE/bin/deps/ (nunca va en git).
+# Las skills y el engine v2 lo invocan vía el launcher IDE/bin/run, no con `node`.
+RUNTIME_DIR="$SCRIPT_DIR/bin"
+DEPS_DIR="$RUNTIME_DIR/deps"
+NODE_VERSION="$(tr -d '[:space:]' < "$DEPS_DIR/.node-version" 2>/dev/null || true)"
+[ -z "$NODE_VERSION" ] && NODE_VERSION="24.15.0"   # fallback defensivo si falta el fichero
+
 # ── Rutas por IDE ─────────────────────────────────────────────────────────────
 CLAUDE_GLOBAL_AGENTS="$HOME/.claude/agents"
 CLAUDE_PROJECT_AGENTS="$PROJECT_ROOT/.claude/agents"
@@ -49,6 +58,8 @@ SYNC_ONLY=false       # --sync: solo skills (omite agentes, MCP, BOSS)
 UPDATE=false          # --update: git pull antes de instalar
 PRUNE=false           # --prune: borrar carpetas en destino que no tengan source en el repo
 CLEAN=false           # --clean: modo declarativo — borrar depts del repo NO seleccionados en --dept
+NODE_ACTION=""        # --node-status | --node-install: acción aislada de runtime (short-circuit)
+FORCE=false           # --force: re-descarga el runtime aunque la versión ya cuadre
 CLAUDE_SKILLS=""
 OC_SKILLS=""
 
@@ -125,6 +136,9 @@ print_usage() {
   echo "                   (agentes y skills con prefijo <dept>-). Útil para 'quitar' un dept ya instalado."
   echo "                   shared-* y customs del usuario NUNCA se tocan. Incompatible con --sync."
   echo "    --update       git pull del repo remoto antes de instalar"
+  echo "    --node-status  muestra qué Node hay (sistema + bundled + pin) y qué usaría el launcher; no instala"
+  echo "    --node-install descarga/asegura el Node bundled en IDE/bin/deps/ (aislado, no toca agentes/skills)"
+  echo "    --force        con --node-install: re-descarga aunque la versión ya cuadre"
   echo "    --dry-run      muestra lo que haría sin escribir nada"
   echo "    --help, -h     esta ayuda"
   echo ""
@@ -240,10 +254,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ```bash
 # Ver acciones disponibles, sus inputs y sus outputs
-node .aigent/v2/engine/engine.cjs describe __SKILL__
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe __SKILL__
 
 # Ejecutar una acción
-node .aigent/v2/engine/engine.cjs run __SKILL__ <action> --inputs '{"...": "..."}'
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run __SKILL__ <action> --inputs '{"...": "..."}'
 ```
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.
@@ -579,6 +593,195 @@ EOF
   fi
 }
 
+# ── Runtime Node bundled ──────────────────────────────────────────────────────
+# Descarga el binario Node de nodejs.org a IDE/bin/node y asegura que el launcher
+# IDE/bin/run sea ejecutable. Idempotente por versión: si ya está la versión
+# fijada, no re-descarga. Detecta SO + arquitectura para elegir el artefacto.
+ensure_runtime_perms() {
+  [ -f "$RUNTIME_DIR/run" ] && chmod +x "$RUNTIME_DIR/run" 2>/dev/null || true
+}
+
+# Major de un binario node dado (vacío si no ejecuta). Uso: rt_major <bin>
+rt_major() {
+  local v; v="$("$1" -v 2>/dev/null)" || return 1
+  v="${v#v}"; echo "${v%%.*}"
+}
+
+# Pausa antes de salir SOLO si hay terminal interactiva (evita que una ventana
+# lanzada por doble clic se cierre antes de poder leer). Si el stdin va por
+# pipe/wrapper (no TTY), no pausa para no colgarse. EOF-safe.
+pause_before_exit() {
+  if [ -t 0 ] && [ -t 1 ]; then
+    echo ""
+    printf "  ${DIM}Pulsa Enter para salir...${NC}"
+    read -r _ || true
+    echo ""
+  fi
+}
+
+# Estado del runtime: pin, bundled, sistema y qué resolvería el launcher.
+node_status() {
+  echo ""; echo -e "  ${BOLD}🔎 Estado del runtime Node${NC}"; divider
+  echo -e "  ${BOLD}Pin (.node-version):${NC}  ${NODE_VERSION}"
+
+  # Bundled: en Windows el binario es node.exe (probar ambos nombres).
+  local bundled_ok=false bundled_bin=""
+  for cand in "$DEPS_DIR/node" "$DEPS_DIR/node.exe"; do
+    [ -x "$cand" ] && { bundled_bin="$cand"; break; }
+  done
+  if [ -n "$bundled_bin" ]; then
+    local bver; bver="$("$bundled_bin" -v 2>/dev/null)" || bver=""
+    if [ -n "$bver" ]; then
+      echo -e "  ${BOLD}Bundled (deps/):${NC}     ${GREEN}✓${NC} ${bver}  (${bundled_bin})"
+      bundled_ok=true
+    else
+      echo -e "  ${BOLD}Bundled (deps/):${NC}     ${YELLOW}⚠${NC} existe pero no ejecuta (${bundled_bin})"
+    fi
+  else
+    echo -e "  ${BOLD}Bundled (deps/):${NC}     ${RED}✗${NC} no descargado"
+  fi
+
+  # Sistema: en Git Bash 'node' suele ser un alias (winpty node.exe) y no da
+  # versión en un script; 'node.exe' lo evita, así que se prueba primero.
+  local sys_ok=false sys_bin="" sver=""
+  for cand in node.exe node; do
+    if command -v "$cand" >/dev/null 2>&1; then
+      local v; v="$("$cand" -v 2>/dev/null)" || v=""
+      [ -n "$v" ] && { sys_bin="$cand"; sver="$v"; break; }
+    fi
+  done
+  if [ -n "$sver" ]; then
+    local smaj="${sver#v}"; smaj="${smaj%%.*}"
+    if [ -n "$smaj" ] && [ "$smaj" -ge 20 ] 2>/dev/null; then
+      echo -e "  ${BOLD}Sistema (PATH):${NC}      ${GREEN}✓${NC} ${sver} (${sys_bin})"
+      sys_ok=true
+    else
+      echo -e "  ${BOLD}Sistema (PATH):${NC}      ${YELLOW}⚠${NC} ${sver} (${sys_bin}, < Node 20)"
+    fi
+  else
+    echo -e "  ${BOLD}Sistema (PATH):${NC}      ${RED}✗${NC} no encontrado (o solo alias sin binario ejecutable)"
+  fi
+
+  if $bundled_ok;   then echo -e "  ${BOLD}El launcher usaría:${NC}  bundled deps/node"
+  elif $sys_ok;     then echo -e "  ${BOLD}El launcher usaría:${NC}  node del sistema (PATH)"
+  else echo -e "  ${BOLD}El launcher usaría:${NC}  ${RED}nada — instala con --node-install${NC}"; fi
+  return 0
+}
+
+# Descarga/asegura el Node bundled en deps/. Con force=1 re-descarga aunque la
+# versión ya cuadre. Idempotente por versión si force vacío.
+ensure_runtime() {
+  local force="${1:-}"
+  echo ""; echo -e "  ${BOLD}⬇  Runtime Node ${NODE_VERSION} → IDE/bin/deps/${NC}"; divider
+
+  # Detectar SO (incluido Git Bash/MSYS = win) + arquitectura → artefacto.
+  local os arch ext target bin_in
+  case "$(uname -s)" in
+    Linux)                os=linux;  ext=tar.gz ;;
+    Darwin)               os=darwin; ext=tar.gz ;;
+    MINGW*|MSYS*|CYGWIN*) os=win;    ext=zip ;;     # Git Bash en Windows
+    *) log_warn "SO no soportado para descarga automática ($(uname -s)). Instala Node ≥20 a mano en IDE/bin/deps/."; ensure_runtime_perms; return ;;
+  esac
+  case "$(uname -m)" in
+    x86_64|amd64)  arch=x64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) log_warn "Arquitectura no soportada ($(uname -m)). Instala Node ≥20 a mano."; ensure_runtime_perms; return ;;
+  esac
+
+  local pkg="node-v${NODE_VERSION}-${os}-${arch}"
+  if [ "$os" = "win" ]; then target="$DEPS_DIR/node.exe"; bin_in="$pkg/node.exe"
+  else                       target="$DEPS_DIR/node";     bin_in="$pkg/bin/node"; fi
+
+  # ¿ya está la versión correcta? → idempotente, no re-descarga (salvo force).
+  if [ -z "$force" ] && [ -x "$target" ]; then
+    local cur; cur="$("$target" -v 2>/dev/null | sed 's/^v//')"
+    if [ "$cur" = "$NODE_VERSION" ]; then
+      log_info "Node ${NODE_VERSION} ya presente en deps/ — no se descarga (usa --force para reinstalar)."
+      ensure_runtime_perms
+      return
+    fi
+    log_info "Node en deps/ es v${cur:-?} ≠ ${NODE_VERSION} — se re-descarga."
+  fi
+
+  local url="https://nodejs.org/dist/v${NODE_VERSION}/${pkg}.${ext}"
+
+  if $DRY_RUN; then
+    log_dry "descargar $url → extraer $bin_in → $target"
+    ensure_runtime_perms
+    return
+  fi
+
+  mkdir -p "$DEPS_DIR"
+  local tmp; tmp="$(mktemp -d)"
+  local dl="$tmp/node.${ext}"
+  log_info "Descargando ${pkg}.${ext} desde nodejs.org…"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$dl" || { log_error "Descarga fallida ($url)"; rm -rf "$tmp"; return 1; }
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$dl" "$url" || { log_error "Descarga fallida ($url)"; rm -rf "$tmp"; return 1; }
+  else
+    log_error "Ni curl ni wget disponibles para descargar Node. Instálalo a mano en IDE/bin/deps/."; rm -rf "$tmp"; return 1
+  fi
+
+  # Extraer según formato.
+  if [ "$ext" = "tar.gz" ]; then
+    tar -xzf "$dl" -C "$tmp" || { log_error "Extracción tar fallida."; rm -rf "$tmp"; return 1; }
+  else
+    # ZIP (Windows): unzip si está; si no, Expand-Archive vía PowerShell.
+    if command -v unzip >/dev/null 2>&1; then
+      unzip -q -o "$dl" -d "$tmp" || { log_error "Extracción unzip fallida."; rm -rf "$tmp"; return 1; }
+    elif command -v powershell.exe >/dev/null 2>&1; then
+      local wdl wtmp
+      wdl="$(cygpath -w "$dl" 2>/dev/null || echo "$dl")"
+      wtmp="$(cygpath -w "$tmp" 2>/dev/null || echo "$tmp")"
+      powershell.exe -NoProfile -Command "Expand-Archive -Force -LiteralPath '$wdl' -DestinationPath '$wtmp'" \
+        || { log_error "Extracción Expand-Archive fallida."; rm -rf "$tmp"; return 1; }
+    else
+      log_error "No hay 'unzip' ni 'powershell.exe' para descomprimir el zip. Usa install.ps1 o instala 'unzip'."; rm -rf "$tmp"; return 1
+    fi
+  fi
+
+  if [ ! -f "$tmp/$bin_in" ]; then
+    log_error "No se encontró $bin_in dentro del paquete descargado."; rm -rf "$tmp"; return 1
+  fi
+  cp "$tmp/$bin_in" "$target"
+  chmod +x "$target" 2>/dev/null || true
+  rm -rf "$tmp"
+  ensure_runtime_perms
+  log_ok "Node ${NODE_VERSION} instalado → ${target} ($("$target" -v 2>/dev/null))"
+}
+
+# Submenú interactivo "Runtime (Node)". PERSISTENTE: tras cada acción vuelve a
+# mostrarse, así puedes leer el estado y salir tú con la opción 4 (o q). Dos
+# blindajes imprescindibles bajo `set -e`:
+#   · `read ... || { return 0; }` → si el stdin se cierra (EOF), sale limpio (0),
+#      no muere con código 1.
+#   · `node_status || true` / `ensure_runtime || true` → suspende errexit DENTRO
+#      de la función y captura su retorno: ningún comando interno puede matar el
+#      script tras pintar el estado.
+runtime_menu() {
+  local rt_choice=""
+  while true; do
+    echo ""
+    echo -e "  ${BOLD}Runtime (Node)${NC}"
+    echo -e "  ${DIM}1)${NC} Ver estado (sistema + bundled + pin)"
+    echo -e "  ${DIM}2)${NC} Instalar / actualizar a la versión fijada"
+    echo -e "  ${DIM}3)${NC} Reinstalar (force, re-descarga)"
+    echo -e "  ${DIM}4)${NC} Salir"
+    print_options "1" "2" "3" "Salir"
+    printf "  Opción [1] (q=salir): "
+    read -r rt_choice || { echo ""; return 0; }
+    handle_control "$rt_choice" && continue
+    case "${rt_choice:-1}" in
+      1)             node_status || true ;;
+      2)             ensure_runtime || true ;;
+      3)             ensure_runtime force || true ;;
+      4|salir|Salir) return 0 ;;
+      *)             echo -e "  ${RED}  Elige 1, 2, 3 o 4 (o q).${NC}" ;;
+    esac
+  done
+}
+
 # ── MCP config (opcional) ─────────────────────────────────────────────────────
 install_mcp() {
   local ide="$1"
@@ -655,8 +858,9 @@ ask_interactive() {
     echo -e "       ${DIM}(primer setup, nuevo departamento, instalación inicial)${NC}"
     echo -e "  ${DIM}2)${NC} Sync     — solo regenera skills (stubs v2 + copia v1)"
     echo -e "       ${DIM}(refresca rápido tras editar un SKILL.md, sin tocar agentes/MCP/BOSS)${NC}"
+    echo -e "  ${DIM}3)${NC} Runtime  — ver estado / instalar el Node bundled (no toca agentes/skills)"
     while true; do
-      print_options "1" "2" "Salir"
+      print_options "1" "2" "3" "Salir"
       printf "  Opción [1] (h=ayuda, q=salir): "; read -r install_type
       handle_control "$install_type" && continue
       install_type="${install_type:-1}"
@@ -665,7 +869,8 @@ ask_interactive() {
         2) SYNC_ONLY=true
            echo -e "  ${CYAN}⟳  SYNC activado — el resto del flow se ajusta (sin MCP, sin BOSS)${NC}"
            break ;;
-        *) echo -e "  ${RED}  Elige 1 o 2 (o h/q).${NC}" ;;
+        3) runtime_menu; echo ""; exit 0 ;;
+        *) echo -e "  ${RED}  Elige 1, 2 o 3 (o h/q).${NC}" ;;
       esac
     done
     echo ""
@@ -892,6 +1097,9 @@ while [[ $# -gt 0 ]]; do
     --prune)       PRUNE=true;       shift   ;;
     --clean)       CLEAN=true;       shift   ;;
     --update)      UPDATE=true;      shift   ;;
+    --node-status) NODE_ACTION="status";  shift ;;
+    --node-install) NODE_ACTION="install"; shift ;;
+    --force)       FORCE=true;       shift   ;;
     --dry-run)     DRY_RUN=true;     shift   ;;
     --help|-h)     print_header; print_usage; exit 0 ;;
     *) log_error "Opción desconocida: $1"; exit 1 ;;
@@ -904,6 +1112,14 @@ $DRY_RUN   && echo -e "  ${YELLOW}⚠  DRY-RUN — no se realizarán cambios${NC
 $SYNC_ONLY && echo -e "  ${CYAN}⟳  SYNC — solo se procesan skills (omite agentes, MCP, BOSS)${NC}\n"
 $PRUNE     && echo -e "  ${YELLOW}♻  PRUNE — al terminar se eliminarán las skills huérfanas en destino${NC}\n"
 $CLEAN     && echo -e "  ${YELLOW}🧹 CLEAN — modo declarativo: se borrarán los depts no listados en --dept${NC}\n"
+# Acciones aisladas de runtime (short-circuit): no tocan agentes/skills/MCP.
+if [ "$NODE_ACTION" = "status" ]; then
+  node_status || true; pause_before_exit; exit 0
+elif [ "$NODE_ACTION" = "install" ]; then
+  if $FORCE; then ensure_runtime force || true; else ensure_runtime || true; fi
+  pause_before_exit; exit 0
+fi
+
 $UPDATE    && run_update
 
 # --clean + --sync no tienen sentido juntos: --sync ya solo toca skills y
@@ -966,6 +1182,11 @@ if $CLEAN; then
     clean_unselected_depts "OpenCode" "$OC_AGENTS" "$OC_SKILLS" "${SELECTED_DEPTS[@]}"
   fi
 fi
+
+# 1.7 Runtime Node bundled — siempre (idempotente por versión). Necesario para
+# que las skills y el engine v2 se ejecuten vía IDE/bin/run sin Node del sistema.
+# `|| true`: un fallo de runtime no debe abortar el resto de la instalación.
+ensure_runtime || true
 
 # 2. MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en --sync
 if ! $SYNC_ONLY; then

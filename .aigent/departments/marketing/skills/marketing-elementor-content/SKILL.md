@@ -26,7 +26,7 @@ description: >
 marketing-elementor-content/
 ├── SKILL.md                                  ← este archivo (prosa + plantillas)
 └── scripts/
-    └── validate-elementor-data.mjs           ← validador específico (Node 18+, sin deps)
+    └── validate-elementor-data.cjs           ← validador específico (Node 18+, sin deps)
 ```
 
 El validador es **parte del contrato de la skill** — la skill se ejecuta siempre con él. Si más adelante varios departments necesitan validadores de outputs estructurados, se promueve al engine v2 con un comando `engine.cjs validate-output <type> <file>`. Por ahora vive aquí porque el contrato es 100% específico de Elementor (catálogo de widgets, jerarquía section/column/widget, `isInner` consistency, columnas a 100%, `icon-list` con `_id`).
@@ -581,10 +581,10 @@ Ruta exacta de la carpeta del entregable, instrucciones de publicación (MCP o m
 
 ### Paso 7 — Validar el JSON con el validador específico
 
-**No basta con `JSON.parse`.** La skill incluye un validador específico de Elementor (`scripts/validate-elementor-data.mjs`, Node 18+, sin dependencias) que comprueba la estructura completa antes de declarar el JSON listo. Es **obligatorio** ejecutarlo sobre cada `_elementor_data.json` generado:
+**No basta con `JSON.parse`.** La skill incluye un validador específico de Elementor (`scripts/validate-elementor-data.cjs`, Node 18+, sin dependencias) que comprueba la estructura completa antes de declarar el JSON listo. Es **obligatorio** ejecutarlo sobre cada `_elementor_data.json` generado:
 
 ```bash
-node .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.mjs \
+.aigent/IDE/bin/run .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.cjs \
   <proyecto>/marketing/posts/<slug>/_elementor_data.json
 ```
 
@@ -897,7 +897,7 @@ Aplica la convención universal `_shared/output-rules.md → "Archivos temporale
 
 ## Checklist de calidad
 
-- [ ] `node scripts/validate-elementor-data.mjs <path>` devuelve `ok: true` (exit 0). Cualquier error reportado se ha corregido en el JSON antes de seguir.
+- [ ] `.aigent/IDE/bin/run .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.cjs <path>` devuelve `ok: true` (exit 0). Cualquier error reportado se ha corregido en el JSON antes de seguir.
 - [ ] `style.elementor` en el config del proyecto existe (o se descubrió y persistió en este proceso).
 - [ ] No hay hex hardcodeados donde el site tiene tokens globales.
 - [ ] Todos los `plugin_required_fields` de `style.elementor` están en cada widget/sección.
@@ -928,6 +928,6 @@ Aplica la convención universal `_shared/output-rules.md → "Archivos temporale
 - **No incluir `<script>` ni metadatos de editor en SVGs.**
 - **No inyectar CSS custom** (`custom_css`, `_element_custom_css`).
 - **No publicar directamente** sin que el usuario lo confirme. Esta skill produce el contenido; la publicación es el Paso 9 y requiere confirmación explícita.
-- **No saltarse `scripts/validate-elementor-data.mjs`** ni comentar su exit code. Si el validador da error, corregir el JSON; nunca pasar al Paso 8 con `ok: false`. Es la única forma de detectar `_column_size` mal, IDs duplicados, widgets Pro infiltrados, `isInner` inconsistente, o `icon-list` sin `_id` antes de publicar.
+- **No saltarse `scripts/validate-elementor-data.cjs`** ni comentar su exit code. Si el validador da error, corregir el JSON; nunca pasar al Paso 8 con `ok: false`. Es la única forma de detectar `_column_size` mal, IDs duplicados, widgets Pro infiltrados, `isInner` inconsistente, o `icon-list` sin `_id` antes de publicar.
 - **No dejar archivos `.tmp`** en `.context/.temp/marketing/` tras el proceso (regla universal de `_shared/output-rules.md`).
 - Aplican las reglas de output de `_shared/output-rules.md`.

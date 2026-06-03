@@ -84,7 +84,7 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
 3. **Invocar `decode.cjs`** desde la raíz del repo (donde vive `.context/`), pasando `--output` con la ruta final del depto:
 
    ```bash
-   node .aigent/departments/_shared/skills/shared-base64-to-file/decode.cjs \
+   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-base64-to-file/decode.cjs \
      --input .context/.temp/<dept>/<purpose>-<TS>.b64 \
      --format <format> \
      --output <ruta-final-del-depto>/<basename>.<format>
@@ -110,7 +110,7 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
 ## Contrato CLI
 
 ```
-node .aigent/departments/_shared/skills/shared-base64-to-file/decode.cjs \
+.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-base64-to-file/decode.cjs \
   --input <path>           # obligatorio. Path al .b64. Debe estar bajo .context/.temp/.
   --format <fmt>           # obligatorio salvo que --output traiga la extensión.
                            # Valores: png, jpg, jpeg, gif, webp, svg, pdf, zip.

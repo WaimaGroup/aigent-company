@@ -43,7 +43,7 @@ Conflicto entre un dept implementado y los archivos de `_shared/` → ganan los 
 | Crear o auditar una **skill** | Agente `shared-skill-builder` (usa la skill `skill-scaffold`). Modos: `create-v1`, `create-v2`, `configure`, `audit`, `add-action`. |
 | Crear o modificar un **orquestador** | Copiar `_shared/orchestrator-template.md`, rellenar marcas `<...>`, listar agentes reales del dept y reflejar la estructura de outputs en la sección final. |
 | Cambiar **convenciones** del repo | Editar `_shared/conventions.md` (NO replicar la decisión en system prompts de agentes). |
-| Validar una skill v2 | `node .aigent/v2/engine/engine.cjs validate <skill>` → corregir hasta `ok: true`. Después `dry-run <action>` con inputs realistas. |
+| Validar una skill v2 | `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <skill>` → corregir hasta `ok: true`. Después `dry-run <action>` con inputs realistas. |
 | Activar un departamento TODO | Sustituir orquestador stub usando `orchestrator-template.md` + sustituir agentes stub usando `agent-scaffold` modo `create-specialist`. **Cuestionar si los 4 agentes stub son realmente necesarios o si parte de su trabajo es mejor una skill.** |
 
 ## Reglas de oro (este repo, no las de BOSS)
@@ -98,14 +98,14 @@ CLAUDE.md (este archivo)                 ← system prompt para mantener el fram
 ## Engine v2 — comandos útiles
 
 ```bash
-node .aigent/v2/engine/engine.cjs list                          # skills v2 cargables
-node .aigent/v2/engine/engine.cjs describe <skill>              # manifest JSON (acciones, inputs, outputs)
-node .aigent/v2/engine/engine.cjs validate <skill>              # parsea y valida sin ejecutar
-node .aigent/v2/engine/engine.cjs doctor [<skill>]              # config + secrets pendientes
-node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project]
-node .aigent/v2/engine/engine.cjs prepare-secrets <skill>       # placeholders en .context/.secrets.json (NUNCA valores)
-node .aigent/v2/engine/engine.cjs dry-run <skill> <action> --inputs '{...}'
-node .aigent/v2/engine/engine.cjs run <skill> <action> --inputs '{...}'
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs list                          # skills v2 cargables
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe <skill>              # manifest JSON (acciones, inputs, outputs)
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <skill>              # parsea y valida sin ejecutar
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor [<skill>]              # config + secrets pendientes
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project]
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets <skill>       # placeholders en .context/.secrets.json (NUNCA valores)
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs dry-run <skill> <action> --inputs '{...}'
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action> --inputs '{...}'
 ```
 
 Errores estructurales del engine: `BAD_ARGS`, `PARSE_ERROR`, `INVALID_INPUTS`, `CONFIG_ERROR`, `SECRETS_ERROR`, `INVALID_BODY_JSON`, `HTTP_<status>`, `TIMEOUT`, `NETWORK_ERROR`, `UNSUPPORTED_IMPL`, `VALIDATION_FAILED`.
@@ -119,6 +119,20 @@ Dos reglas de oro al usar (o construir) skills v2:
 **2. Secrets nunca por chat.** Los valores de los secretos (API keys, tokens, contraseñas) **NUNCA** se piden al usuario en la conversación. Sólo se le indica qué placeholder editar en `.context/.secrets.json` o qué env var definir. Si el usuario intenta dictar un secreto, rechazar el valor explícitamente — la regla aplica también si insiste o argumenta entorno de desarrollo. El engine no acepta valores de secretos por CLI tampoco.
 
 **Red de seguridad reactiva.** Si por descuido se llamó a `run` sin precheck y devuelve `CONFIG_ERROR` / `SECRETS_ERROR`, el engine entrega `error.details` enriquecido con `missing_config`, `missing_secrets`, `secrets_file`, `next` (lista de comandos exactos a ejecutar) y `rule` (recordatorio de la regla 2). El agente lee `details.next` y ejecuta los comandos en orden. La fuente del flujo está en `_shared/orchestrator-template.md` → "Manejo de skills v2 — readiness".
+
+## Runtime: launcher `IDE/bin/run` (desde 4.0.0) — nunca `node` a secas
+
+Los IDEs (Claude Code, OpenCode) se distribuyen como binarios nativos con runtime embebido **no expuesto en `PATH`**, así que `node` no está garantizado. Por eso **toda** invocación de scripts (engine v2 y skills v1 con `.cjs`/`.mjs`) va por el launcher:
+
+```
+.aigent/IDE/bin/run <script> [args...]
+```
+
+El launcher resuelve dinámicamente: Node bundled en `.aigent/IDE/bin/deps/node[.exe]` (lo descarga el instalador, versión LTS fijada, gitignored) → fallback a `node` del sistema → suelo Node ≥ 20 → error claro. Reglas al construir:
+
+- **Nunca escribir `node …` en un SKILL.md, agente, orquestador o doc.** Siempre `.aigent/IDE/bin/run …`. Contrato en `_shared/conventions.md` §12.7-bis.
+- El binario Node **no se commitea** (`IDE/bin/.gitignore`). La versión fijada vive en **`IDE/bin/deps/.node-version`** (única fuente de verdad, la leen ambos instaladores). Para subirla: editar ese fichero y registrar en CHANGELOG — no se toca código de los instaladores.
+- Inspección/instalación aislada: `install.sh --node-status` / `--node-install [--force]` (y `-NodeStatus` / `-NodeInstall [-Force]` en ps1), o el menú interactivo → **Runtime (Node)**.
 
 ## Antes de cerrar una sesión
 
@@ -141,13 +155,4 @@ Reglas de bump (semver):
 
 Qué actualizar siempre que se haga un cambio que merezca bump:
 
-1. `.aigent/VERSION` — un único string con la versión nueva.
-2. `.aigent/CHANGELOG.md` — añadir entrada al principio (debajo del `---` separador) con formato `## X.Y.Z — YYYY-MM-DD` y subsecciones por área tocada (Engine, Convenciones, Skill X, etc.). Lista los archivos editados explícitamente; el changelog es la chuleta para el commit.
-3. Si se modificó una skill v2 con `runtime: engine-v2`, bumpear también su propio `version:` del frontmatter (semver de la skill, independiente del framework).
-4. Si la nueva versión introduce una **regla** que afecta cómo trabajan los agentes, dejar nota explícita en el CLAUDE.md (este archivo) para que la próxima sesión lo lea al arrancar — como ya se hizo con la sección "Readiness de skills v2 (desde 1.5.0)".
-
-Cuando el usuario pida hacer commit o pase de una tanda de cambios sustanciales sin haber bumpeado: avisar y proponer el bump antes de seguir.
-
-## Instrucciones del usuario
-
-El usuario es **Denis (denis.yeromenko@cloudappi.net)**. Idioma de trabajo: **español**. Hoy: **2026-05-08**.
+1. `.aigent/VERSION` — un único string con la

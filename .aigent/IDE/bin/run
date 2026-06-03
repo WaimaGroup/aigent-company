@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Aigent — runtime launcher (Unix / Git-Bash)
+#
+# Ejecuta scripts .cjs con un Node garantizado, sin depender de que el usuario
+# tenga `node` en el PATH. Lo usan TODAS las invocaciones de skills y del engine
+# v2 en lugar de llamar a `node` a secas.
+#
+# Orden de resolución:
+#   1) Node bundled junto a este launcher  (.aigent/IDE/bin/node[.exe])
+#   2) Node del sistema en PATH
+#   3) Error claro (reinstala el runtime)
+#
+# Suelo de versión: Node >= 20. El bundled lo descarga el instalador (v24 LTS),
+# así que el camino normal siempre cumple; la comprobación protege el fallback.
+#
+# Uso:  .aigent/IDE/bin/run <script.cjs> [args...]
+# =============================================================================
+set -euo pipefail
+
+MIN_MAJOR=20
+
+# Carpeta del propio launcher (para encontrar el binario bundled hermano).
+SELF="${BASH_SOURCE[0]}"
+DIR="$(cd "$(dirname "$SELF")" && pwd)"
+
+# ¿Es `$1` un Node ejecutable que cumple la versión mínima?
+usable() {
+  local bin="$1"
+  local v major
+  v="$("$bin" -v 2>/dev/null)" || return 1   # p.ej. "v24.14.1"
+  v="${v#v}"; major="${v%%.*}"
+  case "$major" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$major" -ge "$MIN_MAJOR" ]
+}
+
+# 1) Bundled (node en Unix/mac, node.exe en Git-Bash sobre Windows), en deps/.
+for cand in "$DIR/deps/node" "$DIR/deps/node.exe"; do
+  if [ -x "$cand" ] && usable "$cand"; then
+    exec "$cand" "$@"
+  fi
+done
+
+# 2) Node del sistema en PATH (node.exe primero: en Git Bash 'node' es un alias
+#    winpty que no funciona en scripts; el binario node.exe sí).
+for sys in node.exe node; do
+  if command -v "$sys" >/dev/null 2>&1 && usable "$sys"; then
+    exec "$sys" "$@"
+  fi
+done
+
+# 3) Sin runtime usable.
+{
+  echo "aigent: no se encontró un runtime Node >= ${MIN_MAJOR} usable."
+  echo "        Esperaba el binario bundled en: ${DIR}/deps/node[.exe]"
+  echo "        Reinstala el runtime con .aigent/IDE/install.sh (o install.ps1 en Windows)."
+} >&2
+exit 1

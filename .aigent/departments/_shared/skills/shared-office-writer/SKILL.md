@@ -56,7 +56,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 - Párrafos (texto plano o *runs* con `bold` / `italic` / `underline`).
 - **Hipervínculos externos** a nivel de *run* (`link`): texto clicable con estilo `Hyperlink` (azul + subrayado), tanto en párrafos como en celdas de tabla.
 - Encabezados nivel 1-6 (estilos `Heading1`..`Heading6`).
-- Tablas simples con bordes; fila de cabecera opcional en negrita.
+- Tablas simples con bordes; fila de cabecera opcional en negrita. **Se ajustan al ancho de la página A4** (layout fijo: el texto largo hace salto de línea en vez de salirse del papel). Anchos de columna opcionales vía `widths` (pesos relativos).
 
 **xlsx:**
 
@@ -99,6 +99,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 - Un *run* con `link` (URL) se convierte en hipervínculo externo clicable: `{ "text": "etiqueta", "link": "https://..." }`. Combinable con `bold`/`italic`/`underline`. Válido en runs de párrafo **y** en celdas de tabla. La URL se escapa para XML automáticamente.
 - Una **celda de tabla** puede ser: un string (texto plano), un objeto run (`{ "text": "...", "link": "...", "bold": true }`), o un array de runs (`[ { "text": "Ver " }, { "text": "resumen", "link": "..." } ]`). En la fila de cabecera (`header: true`) las celdas salen en negrita salvo que el objeto lo sobreescriba.
 - `table.rows` es una matriz de filas; cada fila es una lista de celdas. Una celda puede ser un string, un objeto run (`{ "text", "link"?, "bold"?, ... }`) o un array de runs. `header: true` pone la primera fila en negrita.
+- La tabla se ajusta automáticamente al ancho de la página A4 (layout fijo; el texto largo hace wrap). Opcional `table.widths`: array de pesos relativos por columna (p. ej. `[3, 7, 6, 2]` da más ancho a las columnas 2 y 3). Debe tener tantos elementos como columnas; si falta o no cuadra, las columnas se reparten por igual.
 
 ### xlsx
 
@@ -136,7 +137,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 2. **Invocar `office.cjs`** desde la raíz del repo:
 
    ```bash
-   node .aigent/departments/_shared/skills/shared-office-writer/office.cjs docx \
+   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-office-writer/office.cjs docx \
      --spec .context/.temp/<dept>/<purpose>-<TS>.json \
      --output <ruta-de-outputs-del-depto>/<nombre>.docx
    ```
@@ -151,7 +152,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 ## Contrato CLI
 
 ```
-node .aigent/departments/_shared/skills/shared-office-writer/office.cjs <command> [opciones]
+.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-office-writer/office.cjs <command> [opciones]
 
 command:
   docx                     construye un .docx desde un spec JSON.

@@ -498,23 +498,50 @@ Códigos de error: `BAD_ARGS`, `BAD_CMD`, `SKILL_NOT_FOUND`, `ACTION_NOT_FOUND`,
 
 El agente lee `details.next` y sigue los comandos en orden. Para los secretos pendientes, el agente **nunca** pide el valor por chat — sólo indica al usuario qué fichero/env var rellenar.
 
+### 12.7-bis Runtime: el launcher `IDE/bin/run` (regla dura)
+
+**Ninguna skill ni el engine v2 se invoca jamás con `node` a secas.** Siempre a través del launcher:
+
+```
+.aigent/IDE/bin/run <script.cjs|.mjs> [args...]
+```
+
+**Por qué.** Claude Code y OpenCode se distribuyen como binarios nativos que embeben su propio runtime (Bun) — ese runtime NO se expone en el `PATH`, así que no hay garantía de que el usuario tenga `node` ejecutable. El launcher elimina esa dependencia del entorno.
+
+**Qué hace el launcher** (resolución dinámica en cada ejecución, sin reinstalar al cambiar de runtime):
+
+1. Usa el Node **bundled** que el instalador descarga a `.aigent/IDE/bin/deps/node` (Unix/mac) o `.aigent/IDE/bin/deps/node.exe` (Windows).
+2. Si no está, cae al `node` del sistema en `PATH`.
+3. Suelo de versión **Node ≥ 20**; si nada cumple, error claro pidiendo reinstalar.
+
+**Piezas (en `IDE/bin/`):**
+
+- `run` — launcher bash (lo usan los dos IDEs, cuyo shell de herramienta es bash; en Windows vía Git-Bash).
+- `run.cmd` — cortesía para shells PowerShell/cmd nativos.
+- `deps/.node-version` — **única fuente de verdad** de la versión fijada (la leen ambos instaladores; convención compatible con nvm/fnm). Sí va en git.
+- `deps/node[.exe]` — el binario descargado. **Nunca va en git** (`IDE/bin/.gitignore`).
+
+**Inspección/instalación del runtime:** `install.sh --node-status` / `install.ps1 -NodeStatus` reporta qué Node hay (sistema + bundled + pin) y qué resolvería el launcher; `--node-install` / `-NodeInstall` (con `--force` / `-Force` para re-descargar) lo instala de forma aislada. También vía el menú interactivo → opción **Runtime (Node)**. La instalación completa además asegura el runtime automáticamente (idempotente por versión).
+
+**Al crear o auditar una skill v1 con script** (`.cjs`/`.mjs`): toda invocación documentada en su `SKILL.md` debe empezar por `.aigent/IDE/bin/run`, nunca por `node`. El instalador no reescribe nada en runtime — el contrato vive en el texto de la skill.
+
 ### 12.8 CLI del engine
 
 ```
-node .aigent/v2/engine/engine.cjs list
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs list
   → lista skills cargables (todos los departments con runtime: engine-v2)
 
-node .aigent/v2/engine/engine.cjs describe <skill>
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe <skill>
   → manifiesto en JSON (acciones, inputs, outputs), sin prosa
 
-node .aigent/v2/engine/engine.cjs validate <skill>
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <skill>
   → parsea, valida y reporta errores SIN ejecutar nada (uso: CI, skill-builder)
 
-node .aigent/v2/engine/engine.cjs doctor [<skill>]
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor [<skill>]
   → reporta estado de configuración: qué config + secrets faltan por rellenar
   → sin <skill> = reporta todas las skills v2
 
-node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
   → escribe valores en .context/config.json (global, default) o .context/<proyecto>/config.json (--scope project)
   → para --scope project: el agente decide qué proyecto pasar con --project <name>. Si solo hay 1 proyecto
     en .context/ se autodetecta. La mayoría de skills se configuran en global; los overrides por proyecto
@@ -522,21 +549,21 @@ node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scop
   → valida que <path> está declarado en manifest.config y aplica el type del manifest
   → admite múltiples --set en la misma llamada (atómico: todos o ninguno)
 
-node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets <skill>
   → garantiza que .context/.secrets.json existe (lo crea como {} si falta)
   → garantiza que .context/.gitignore existe con .secrets.json dentro
   → añade placeholders para secrets declarados que no estén set
   → devuelve la lista de secrets pendientes; el usuario los rellena a mano
   → NUNCA acepta valores de secret por CLI (los secrets no pasan por la conversación)
 
-node .aigent/v2/engine/engine.cjs dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
   → para mergear con .context/<proyecto>/config.json hace falta --project (o autodetección si hay 1)
   → si hay >1 proyecto y no se pasa --project, devuelve NO_PROJECT_SPECIFIED con la lista
   → renderiza la request HTTP sin llamarla. Devuelve { method, url, headers, body }
   → secrets cargados se enmascaran como ***SECRET:NAME***
   → secrets/config no configurados aparecen como ***SECRET:NAME:UNSET***
 
-node .aigent/v2/engine/engine.cjs run <skill> <action> [--inputs '{...}']
+.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action> [--inputs '{...}']
   → ejecuta la acción y devuelve { ok, data, meta }
 ```
 
@@ -626,25 +653,4 @@ El engine v2 incluye un parser YAML propio (`engine/yaml.js`, sin dependencias).
 | Construcción | Soportado | Ejemplo |
 |---|---|---|
 | Mappings con indentación | ✓ | `config:\n  base_url:\n    type: string` |
-| Scalars: string, integer, float, boolean, null | ✓ | `default: 25`, `required: true` |
-| Strings con/sin comillas | ✓ | `name: redmine` o `name: "redmine"` |
-| Arrays con `- item` | ✓ | `secrets:\n  - name: ...` |
-| Arrays de mappings | ✓ | `- name: X\n    required: true` |
-| Folded scalar `>` | ✓ | `description: >\n  texto multilínea` |
-| Literal scalar `\|` | ✓ | (preserva saltos de línea) |
-| Flow mapping `{ k: v }` | ✓ | `impl: { type: http, ref: "..." }` |
-| Flow array `[a, b]` | ✓ | `enum: [open, closed, "*"]` |
-| Comentarios `#` | ✓ | tanto líneas enteras como al final |
-| Anchors/aliases `&` `*` | ✗ | usar repetición explícita |
-| Tags `!!str` | ✗ | el tipo se infiere del literal |
-| Múltiples documentos `---` | ✗ | solo un documento por frontmatter |
-
-Si un SKILL.md necesita una construcción no soportada, ampliar `engine/yaml.js` antes que añadir una dependencia externa.
-
----
-
-## 15. Riesgos y normas para skills v2
-
-- **Drift entre prosa y manifiesto.** El frontmatter manda. La prosa describe lo declarado, no añade comportamiento. Para detectarlo: `engine.cjs validate <skill>` en CI o `shared-skill-builder` en modo audit.
-- **Acciones hinchadas.** Una acción = una llamada lógica. Si una operación necesita orquestar N llamadas en orden, son N acciones + un agente que las componga, no una mega-acción.
-- **Secretos en logs.** El engine nunca escribe valores de `secrets.*` en stdout/stderr. No incluirlos tampoco en `description` o ejemplos.
+| Scalars: string, integer, floa
