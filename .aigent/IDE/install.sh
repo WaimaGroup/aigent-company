@@ -693,11 +693,39 @@ node_status() {
   return 0
 }
 
-# Descarga/asegura el Node bundled en deps/. Con force=1 re-descarga aunque la
-# versión ya cuadre. Idempotente por versión si force vacío.
+# Asegura que haya un runtime Node usable. Sin force: NO descarga si ya hay uno
+# (bundled descargado o Node del sistema en PATH, ≥20). Con force: descarga la
+# versión fijada al bundled aunque ya exista otro runtime.
 ensure_runtime() {
   local force="${1:-}"
   echo ""; echo -e "  ${BOLD}⬇  Runtime Node ${NODE_VERSION} → IDE/bin/deps/${NC}"; divider
+
+  # Sin --force: si YA hay un runtime usable, NO se descarga nada. Se comprueban
+  # los dos sitios que el launcher resuelve: (1) el bundled ya descargado en
+  # deps/, (2) un Node del sistema en PATH. Cualquiera ≥20 vale. Solo se baja si
+  # no hay ninguno. Con --force se ignora esto y se baja la versión fijada.
+  if [ -z "$force" ]; then
+    local b maj
+    for b in "$DEPS_DIR/node" "$DEPS_DIR/node.exe"; do
+      if [ -x "$b" ]; then
+        maj="$(rt_major "$b" 2>/dev/null || true)"
+        if [ -n "$maj" ] && [ "$maj" -ge 20 ] 2>/dev/null; then
+          log_info "Bundled ya descargado ($("$b" -v 2>/dev/null)) — no se descarga (usa --force para reinstalar la versión fijada)."
+          ensure_runtime_perms; return
+        fi
+      fi
+    done
+    for b in node.exe node; do
+      if command -v "$b" >/dev/null 2>&1; then
+        maj="$(rt_major "$b" 2>/dev/null || true)"
+        if [ -n "$maj" ] && [ "$maj" -ge 20 ] 2>/dev/null; then
+          log_info "Node del sistema usable ($("$b" -v 2>/dev/null) en PATH) — no se descarga el bundled (usa --force para forzarlo)."
+          ensure_runtime_perms; return
+        fi
+      fi
+    done
+    log_info "No hay runtime usable (ni bundled ni en PATH) — se descarga el bundled."
+  fi
 
   # Detectar SO (incluido Git Bash/MSYS = win) + arquitectura → artefacto.
   local os arch ext target bin_in
@@ -716,17 +744,6 @@ ensure_runtime() {
   local pkg="node-v${NODE_VERSION}-${os}-${arch}"
   if [ "$os" = "win" ]; then target="$DEPS_DIR/node.exe"; bin_in="$pkg/node.exe"
   else                       target="$DEPS_DIR/node";     bin_in="$pkg/bin/node"; fi
-
-  # ¿ya está la versión correcta? → idempotente, no re-descarga (salvo force).
-  if [ -z "$force" ] && [ -x "$target" ]; then
-    local cur; cur="$("$target" -v 2>/dev/null | sed 's/^v//')"
-    if [ "$cur" = "$NODE_VERSION" ]; then
-      log_info "Node ${NODE_VERSION} ya presente en deps/ — no se descarga (usa --force para reinstalar)."
-      ensure_runtime_perms
-      return
-    fi
-    log_info "Node en deps/ es v${cur:-?} ≠ ${NODE_VERSION} — se re-descarga."
-  fi
 
   local url="https://nodejs.org/dist/v${NODE_VERSION}/${pkg}.${ext}"
 
