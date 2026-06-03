@@ -571,15 +571,25 @@ function Ensure-Runtime([switch]$ForceDl) {
   Divider
   $target = Join-Path $DepsDir "node.exe"
 
-  # ¿ya está la versión correcta? → idempotente, no re-descarga (salvo -Force).
-  if ((-not $ForceDl) -and (Test-Path $target)) {
-    $cur = (& $target -v 2>$null)
-    if ($cur) { $cur = ([string]$cur).Trim().TrimStart('v') }
-    if ($cur -eq $NodeVersion) {
-      Log-Info "Node $NodeVersion ya presente en deps\ — no se descarga (usa -Force para reinstalar)."
-      return
+  # Sin -Force: si YA hay un runtime usable (bundled descargado o Node del sistema
+  # en PATH, ≥20), NO se descarga nada. Solo se baja si no hay ninguno. Con -Force
+  # se ignora esto y se baja la versión fijada al bundled.
+  if (-not $ForceDl) {
+    if (Test-Path $target) {
+      $bmaj = Get-NodeMajor $target
+      if ($bmaj -and [int]$bmaj -ge 20) {
+        Log-Info "Bundled ya descargado ($(& $target -v 2>$null)) - no se descarga (usa -Force para reinstalar la versión fijada)."
+        return
+      }
     }
-    Log-Info "Node en deps\ es v$cur ≠ $NodeVersion — se re-descarga."
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+      $smaj = Get-NodeMajor "node"
+      if ($smaj -and [int]$smaj -ge 20) {
+        Log-Info "Node del sistema usable ($(& node -v 2>$null) en PATH) - no se descarga el bundled (usa -Force para forzarlo)."
+        return
+      }
+    }
+    Log-Info "No hay runtime usable (ni bundled ni en PATH) - se descarga el bundled."
   }
 
   # Detectar arquitectura → artefacto win de nodejs.org.
