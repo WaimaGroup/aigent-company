@@ -440,6 +440,32 @@ function Invoke-CleanUnselectedDepts {
   }
 }
 
+# Activa el .gitignore de deployment desde la plantilla .gitignore_ (inerte en el
+# framework). En el repo del cliente copia .aigent/.gitignore_ → .aigent/.gitignore
+# para ignorar la copia vendorizada. NO se activa en el repo fuente (.aigent/ versionado).
+function Activate-DeploymentGitignore {
+  $tmpl = Join-Path $RepoRoot ".gitignore_"
+  $dest = Join-Path $RepoRoot ".gitignore"
+  if (-not (Test-Path $tmpl)) { return }
+  Write-Host ""
+  Write-Host "  🙈 .gitignore de .aigent (deployment)" -ForegroundColor White
+  Divider
+
+  $tracked = $false
+  try {
+    git -C $ProjectRoot ls-files --error-unmatch ".aigent/README.md" 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { $tracked = $true }
+  } catch { $tracked = $false }
+  if ($tracked) {
+    Log-Info "Repo fuente del framework (.aigent/ versionado) - no se activa el .gitignore de deployment."
+    return
+  }
+
+  if ($DryRun) { Log-Dry "activar .aigent/.gitignore desde .gitignore_"; return }
+  Copy-Item -Path $tmpl -Destination $dest -Force
+  Log-Ok ".aigent/.gitignore activado - este repo ignora la copia vendorizada de .aigent/"
+}
+
 function Install-ContextSecrets {
   Write-Host ""
   Write-Host "  🔒 Scaffold de secretos → .context/" -ForegroundColor White
@@ -1165,6 +1191,7 @@ if (-not $Sync) {
   if ($Ide -eq "claude"   -or $Ide -eq "all") { Install-Boss "claude" }
   if ($Ide -eq "opencode" -or $Ide -eq "all") { Install-Boss "opencode" }
   Install-ContextSecrets
+  Activate-DeploymentGitignore
 }
 
 # ── Resumen ───────────────────────────────────────────────────────────────────

@@ -552,6 +552,31 @@ PYEOF
   esac
 }
 
+# ── Activar el .gitignore de deployment (desde la plantilla .gitignore_) ──────
+# La plantilla vive en .aigent/.gitignore_ (inerte en el framework). En el repo
+# del cliente se activa copiándola a .aigent/.gitignore, para que ese repo ignore
+# la copia vendorizada de .aigent/. NO se activa en el repo fuente del framework
+# (heurística: ahí .aigent/ está trackeado en git).
+activate_deployment_gitignore() {
+  local tmpl="$REPO_ROOT/.gitignore_"
+  local dest="$REPO_ROOT/.gitignore"
+  [ -f "$tmpl" ] || return 0
+  echo ""; echo -e "  ${BOLD}🙈 .gitignore de .aigent (deployment)${NC}"; divider
+
+  # Repo fuente del framework (.aigent/ trackeado) → no activar, se trackea normal.
+  if git -C "$PROJECT_ROOT" ls-files --error-unmatch ".aigent/README.md" >/dev/null 2>&1; then
+    log_info "Repo fuente del framework (.aigent/ versionado) — no se activa el .gitignore de deployment."
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log_dry "activar .aigent/.gitignore desde .gitignore_ (el cliente ignora .aigent/)"
+    return 0
+  fi
+  cp "$tmpl" "$dest"
+  log_ok ".aigent/.gitignore activado — este repo ignora la copia vendorizada de .aigent/"
+}
+
 # ── Scaffold .context/.gitignore + .context/.secrets.json ────────────────────
 # Garantiza que .context/ tenga un .gitignore que excluya los secretos y un
 # .secrets.json vacío. El engine también lo crea al llamar a `prepare-secrets`,
@@ -1199,6 +1224,7 @@ if ! $SYNC_ONLY; then
   if [ "$IDE" == "claude"   ] || [ "$IDE" == "all" ]; then install_boss "claude";   fi
   if [ "$IDE" == "opencode" ] || [ "$IDE" == "all" ]; then install_boss "opencode"; fi
   install_context_secrets
+  activate_deployment_gitignore
 fi
 
 # ── Resumen ───────────────────────────────────────────────────────────────────

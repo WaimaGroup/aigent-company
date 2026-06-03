@@ -1,0 +1,13 @@
+# ── Plantilla de .gitignore para DEPLOYMENTS (INERTE en el framework) ───────────
+# Este fichero NO es un .gitignore activo: el sufijo "_" hace que git lo ignore
+# como regla, así .aigent/ se trackea con normalidad en el repo del framework.
+#
+# El INSTALADOR lo activa en el repo del cliente: copia este fichero a
+# .aigent/.gitignore para que ese repo ignore la copia vendorizada de .aigent/
+# (el cliente no quiere el motor en su control de versiones). Solo se activa en
+# deployments — nunca en el repo fuente del framework (donde .aigent/ va en git).
+#
+# Edita aquí los patrones que quieras propagar al .gitignore del deployment.
+*
+.*
+!.gitignore
