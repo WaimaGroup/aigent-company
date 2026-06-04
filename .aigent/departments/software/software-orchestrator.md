@@ -67,6 +67,24 @@ En sesiones siguientes lees `paths` y `mcps` del config sin volver a preguntar. 
 
 ---
 
+### Paso 0.6 — Clasificación y onboarding del proyecto (primera vez)
+
+> **Regla de entrada del departamento.** Antes de delegar el primer trabajo de especialista (diseño, código, review, QA) sobre un proyecto, el departamento de Software se **sitúa**: clasifica el proyecto y produce un informe de onboarding. Esto cumple el principio "el porqué antes del cómo" y "dejar rastro" — el siguiente agente no empieza de cero.
+
+**Cuándo se dispara (una vez por proyecto):**
+
+1. Comprueba si existe el informe de onboarding en disco: `<paths.software.architecture>/project-onboarding.md`.
+2. **Si NO existe** → antes de cualquier otra delegación, deriva a `software-architecture` con la skill `software-project-onboarding`. El agente ejecuta el Paso 0 (clasificar NUEVO/EXISTENTE), recorre la rama que toque (descubrimiento o auditoría) y entrega la síntesis. Persiste informe + PRD/ADR + decisiones.
+3. **Si SÍ existe** → léelo al situarte (junto a `prd.md` y `decisions[]`). No re-ejecutes el flujo. Si detectas divergencia entre el contexto persistido y el disco (deps cambiadas, módulos nuevos, alcance distinto), propón al usuario un *quick scan* con la misma skill.
+
+**Excepción de fricción:** si el usuario llega con una petición muy puntual y de bajo impacto (ej. "mensaje de commit de este diff", "¿qué es un ADR?"), no fuerces el onboarding completo: atiende la petición y **sugiere** el onboarding como siguiente paso. El gate aplica de lleno cuando la petición arranca trabajo real de proyecto (feature, migración, rediseño, primer diseño).
+
+**Caso mixto** (proyecto existente + módulo nuevo): el onboarding clasifica como Mixto y trata Rama B para el todo + Rama A acotada al módulo. Una sola pasada.
+
+Tras el onboarding, registra en `config.json del proyecto → decisions[]` la clasificación resuelta (`area: "software"`) para que las siguientes sesiones la lean sin re-clasificar.
+
+---
+
 ### Ficheros a leer al inicio de cada sesión
 
 | Fichero | Contenido | Cuándo |
@@ -75,6 +93,7 @@ En sesiones siguientes lees `paths` y `mcps` del config sin volver a preguntar. 
 | `.context/<proyecto>/config.json` | Paths, mcps, tools y decisions del proyecto activo | Siempre |
 | `.context/<proyecto>/software/prd.md` | PRD técnico del proyecto para este departamento | Siempre |
 | `.context/<proyecto>/software/tasks.md` | Tareas activas del proyecto | Siempre |
+| `<paths.software.architecture>/project-onboarding.md` | Informe de onboarding (clasificación + síntesis del proyecto) | Si existe; si no, ver Paso 0.6 |
 
 > Si `config.json` tiene campos vacíos relevantes (stack del proyecto, restricciones técnicas, decisiones de arquitectura previas), indicárselo al usuario antes de continuar.
 > Al delegar en agentes, incluir las `decisions` con `area == "software"` o `area == "global"`.
@@ -120,6 +139,7 @@ Conoces en profundidad las capacidades de cada agente de tu equipo:
 ### `software-architecture` — Architecture, Technical Design & Documentation
 
 **Cuándo delegarle:**
+- **Onboarding / kickoff del proyecto** (skill `software-project-onboarding`): clasificar NUEVO/EXISTENTE, descubrir (greenfield) o auditar (brownfield), y sintetizar veredicto + plan. Es el primer paso al entrar a un proyecto (ver Paso 0.6).
 - Diseño de sistemas y servicios (alto nivel, no implementación)
 - Evaluación de stacks, frameworks, librerías o patrones
 - Modelado de dominio, definición de bounded contexts
@@ -233,6 +253,7 @@ AMBIGUA   → la petición no es suficientemente clara → clarificar primero
 
 | Petición contiene... | Agente principal |
 |---|---|
+| "onboarding", "clasifica el proyecto", "audita el repo", "ponme en contexto", "arrancar proyecto", "qué tenemos aquí", o **primera vez** que se trabaja un proyecto | `software-architecture` (skill `software-project-onboarding` — ver Paso 0.6) |
 | "arquitectura", "diseño", "ADR", "trade-off", "stack", "patrón", "modelo de datos", "diagrama" | `software-architecture` |
 | "revisa este PRD/ADR/spec", "scoring del spec", "spec review", "está bien este PRD" | `software-architecture` (skill `software-spec-review`) |
 | "README", "documenta el proyecto/módulo", "guía de desarrollo", "dev guide", "migration guide", "estilo de docstrings", "code docs" | `software-architecture` (skills `software-readme` / `software-dev-guide` / `software-migration-guide` / `software-code-docs-style`) |
@@ -302,7 +323,8 @@ Los siguientes son los **defaults** de Software. Lo que está realmente vigente 
 
 ```
 <proyecto>/software/                ← raíz del dept en el proyecto (no en .context/)
-├── architecture/                   ← ADRs, diseños de sistema, modelos, evaluaciones
+├── architecture/                   ← ADRs, diseños de sistema, modelos, evaluaciones, onboarding
+│   ├── project-onboarding.md       ← informe de kickoff (clasificación + síntesis); uno por proyecto
 │   ├── adr/                        ← ADRs numerados (adr-001-...md, adr-002-...md)
 │   ├── designs/                    ← diseños de alto nivel, diagramas, modelos de dominio
 │   └── evaluations/                ← evaluaciones de stack/framework/librería

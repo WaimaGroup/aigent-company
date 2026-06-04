@@ -21,7 +21,7 @@ Tres formas, en orden de fricción creciente para el usuario:
 
 ### `software-architecture` — Architecture, Technical Design & Documentation
 
-Decisiones técnicas razonadas, diseños de sistema y documentación técnica del proyecto. No escribe código de producción; decide qué se construye, cómo se estructura y por qué, y deja escrito lo necesario para que otros lo operen.
+Decisiones técnicas razonadas, diseños de sistema y documentación técnica del proyecto. No escribe código de producción; decide qué se construye, cómo se estructura y por qué, y deja escrito lo necesario para que otros lo operen. También ejecuta el **onboarding/kickoff** del proyecto: la primera vez que Software entra a un proyecto se sitúa con la skill `project-onboarding` (clasifica NUEVO/EXISTENTE, descubre o audita, y sintetiza) antes de cualquier diseño o código (ver Paso 0.6 del orquestador).
 
 **Caso de uso:** decisión de stack para nuevo servicio.
 
@@ -211,6 +211,27 @@ Decide qué se prueba, cómo y a qué nivel. Produce planes y casos, no código 
 ---
 
 ## Skills propias del dept
+
+### `project-onboarding` — Clasificación y kickoff del proyecto
+
+Guion canónico de arranque que ejecuta `software-architecture`. **Paso 0** clasifica el proyecto NUEVO (greenfield) vs EXISTENTE (brownfield); de ahí bifurca a **Rama A** (descubrir y definir: contexto de negocio, alcance, no-funcionales, stack→ADR, tooling) o **Rama B** (revisar y diagnosticar observando antes de concluir, citando `archivo:línea`); ambas convergen en una síntesis común (veredicto, decisiones, plan de 3-5 pasos, preguntas abiertas). Es la **única fuente de verdad del criterio**: el agente deriva su prompt de aquí, no lo hardcodea.
+
+**Caso de uso:** primera vez que Software entra a un repo existente.
+
+**Prompt:**
+> "Acabamos de heredar este repo, ponme en contexto antes de tocar nada."
+
+**Output esperado:**
+- Ruta: `<proyecto>/software/architecture/project-onboarding.md`
+- Clasificación (Paso 0): 🏗️ EXISTENTE — señales: manifiesto sí, código sí, historia git real, sin `.context` previo.
+- Ficha técnica (stack, build/test, calidad, config/secretos, git) + arquitectura en una frase.
+- Hallazgos priorizados 🔴🟡🟢 (ej. 🔴 secreto en `config/prod.yaml:12` enmascarado; 🟡 sin CI en el repo pese al badge del README) + madurez **2/5**.
+- Síntesis: diagnóstico en una frase, decisiones (ahora vs ADR), plan de 3-5 pasos, preguntas abiertas.
+- Decisiones y clasificación persistidas en `decisions[]` del config; PRD/ADR de arranque si es greenfield.
+
+> Para un proyecto **nuevo** el mismo prompt-base lleva la Rama A: en vez de auditar, pregunta A1–A8 (una incógnita a la vez) y produce PRD inicial + ADR(s) de stack + scaffolding propuesto. Variante *quick scan* para re-situar un proyecto ya conocido cuando el contexto diverge del disco.
+
+---
 
 ### `adr` — Architecture Decision Record
 
@@ -950,6 +971,8 @@ Checklist pre/durante/post-deploy adaptado a riesgo y estrategia.
 Para una feature de tamaño medio, los agentes y skills se encadenan así:
 
 ```
+0. software-architecture         → onboarding/kickoff (primera vez en el proyecto)
+   └─ skill: project-onboarding  → clasifica NUEVO/EXISTENTE + síntesis (gate de entrada, Paso 0.6)
 1. shared-prd-agent              → captura requisitos / PRD inicial
 2. software-architecture         → tech-spec o ADR si hay decisión técnica
    └─ skill: spec-review         → gate antes de implementar

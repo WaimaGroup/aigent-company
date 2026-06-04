@@ -4,6 +4,33 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 4.1.0 — 2026-06-04
+
+### Software: flujo de onboarding/kickoff de proyecto (clasificar → descubrir o auditar → sintetizar)
+
+Se codifica como skill el criterio de arranque del departamento de Software: antes de cualquier trabajo de especialista, el departamento se sitúa clasificando el proyecto y produciendo un informe de onboarding persistido. Antes este criterio no existía como capacidad reutilizable — vivía, informal, en el proceso de clarificación del agente de arquitectura.
+
+**Por qué MINOR:** nueva skill v1 publicada + nueva regla obligatoria de entrada en el orquestador de Software (Paso 0.6). No rompe contrato de skills v2 ni estructura de `_shared/`; los deployments existentes no requieren migración.
+
+**Skill nueva `software-project-onboarding` (v1 prosa):** única fuente de verdad del criterio. El agente caller deriva su prompt concreto del guion, no lo hardcodea. Cubre:
+- **Paso 0 — clasificación raíz** NUEVO (greenfield) vs EXISTENTE (brownfield) por 4 señales (manifiesto, código, historia git, contexto previo); casos ambiguo (preguntar) y mixto (Rama B para el todo + Rama A para el módulo).
+- **Rama A (greenfield):** descubrir y definir (A1–A8: contexto de negocio, alcance/anti-alcance, restricciones, no-funcionales, integraciones, stack→ADR, tooling día 1, riesgos). Salida: PRD + ADR(s) + scaffolding + supuestos.
+- **Rama B (brownfield):** revisar y diagnosticar (B1–B10) observando antes de concluir y citando `archivo:línea`. Salida: ficha técnica + arquitectura en una frase + hallazgos 🔴🟡🟢 + madurez 1-5. La ausencia (sin tests/CI/dueño) es hallazgo.
+- **Fase común:** diagnóstico en una frase, decisiones (ahora vs ADR), plan de 3-5 pasos, preguntas abiertas, persistencia.
+- **Variante *quick scan*** para re-situar un proyecto ya conocido cuando el contexto diverge del disco (entrada fechada, solo el delta).
+
+**Persistencia:** informe en `<proyecto>/software/architecture/project-onboarding.md`; PRD en `.context/<proyecto>/software/prd.md` (vía `shared-prd-agent`); ADR(s) en `architecture/adr/`; clasificación y decisiones en `decisions[]` del config del proyecto.
+
+**Orquestador de Software (`software-orchestrator.md`):** nuevo **Paso 0.6 — Clasificación y onboarding del proyecto**, gate de entrada que dispara el onboarding la primera vez que se trabaja un proyecto (detectado por ausencia de `project-onboarding.md`) antes de delegar trabajo de especialista; en sesiones siguientes lo lee sin re-ejecutar y ofrece *quick scan* ante divergencia. Excepción de fricción para peticiones puntuales de bajo impacto. Añadido a la tabla de ficheros a leer, a la tabla de decisión rápida, a la descripción del agente `software-architecture` y al árbol de outputs por defecto.
+
+**Agente `software-architecture`:** nueva sección de proceso "kickoff / onboarding", nuevo tipo de entregable "Onboarding de proyecto", y la skill añadida a su tabla de skills disponibles.
+
+**README de `.aigent`:** Software pasa de 19 a 20 skills; `software-project-onboarding` añadida a la tabla de skills y a las skills del agente `software-architecture`.
+
+**Archivos nuevos:** `.aigent/departments/software/skills/software-project-onboarding/SKILL.md`.
+**Archivos editados:** `.aigent/departments/software/software-orchestrator.md`, `.aigent/departments/software/agents/software-architecture.md`, `.aigent/departments/software/README.md`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
 ## 4.0.0 — 2026-06-02
 
 ### Runtime garantizado: launcher `IDE/bin/run` + Node bundled (BREAKING)
