@@ -8,6 +8,32 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes transversales](#agentes-transversales)
+  - [shared-prd-agent — PRD Capturing & Writing](#shared-prd-agent--prd-capturing--writing)
+  - [shared-skill-builder — Skill Builder](#shared-skill-builder--skill-builder)
+- [Skills meta (para construir el sistema)](#skills-meta-para-construir-el-sistema)
+  - [shared-skill-scaffold — Plantilla canónica para crear skill](#shared-skill-scaffold--plantilla-canónica-para-crear-skill)
+  - [agent-scaffold — Plantilla canónica para crear o auditar agentes](#agent-scaffold--plantilla-canónica-para-crear-o-auditar-agentes)
+- [Skills business compartidas](#skills-business-compartidas)
+  - [competitive-analysis — Análisis competitivo](#competitive-analysis--análisis-competitivo)
+  - [case-study — Caso de éxito de cliente](#case-study--caso-de-éxito-de-cliente)
+  - [kpi-dashboard — Dashboard de KPIs](#kpi-dashboard--dashboard-de-kpis)
+  - [stakeholder-map — Mapa de stakeholders](#stakeholder-map--mapa-de-stakeholders)
+  - [risk-matrix — Matriz de riesgos](#risk-matrix--matriz-de-riesgos)
+  - [okr-set — OKRs estructurados](#okr-set--okrs-estructurados)
+  - [journey-map — Customer Journey](#journey-map--customer-journey)
+  - [deploy-checklist — Checklist pre/durante/post-deploy](#deploy-checklist--checklist-predurantepost-deploy)
+- [Skills utility compartidas](#skills-utility-compartidas)
+  - [shared-office-writer — entregar en Word (.docx) y Excel (.xlsx)](#shared-office-writer--entregar-en-word-docx-y-excel-xlsx)
+  - [shared-base64 — base64 ↔ fichero (uso interno)](#shared-base64--base64--fichero-uso-interno)
+  - [shared-http-download — descargar ficheros por URL (uso interno)](#shared-http-download--descargar-ficheros-por-url-uso-interno)
+- [Cuándo invocar transversales vs depts](#cuándo-invocar-transversales-vs-depts)
+
+---
+
 ## Cómo se invoca
 
 Los agentes y skills de `_shared/` están disponibles para cualquier departamento. Se invocan:

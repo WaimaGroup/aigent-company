@@ -7,6 +7,26 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [hr-recruitment — Recruitment](#hr-recruitment--recruitment)
+  - [hr-onboarding — Onboarding](#hr-onboarding--onboarding)
+  - [hr-evaluation — Performance & Evaluation](#hr-evaluation--performance--evaluation)
+  - [hr-policies — Internal Policies](#hr-policies--internal-policies)
+- [Skills](#skills)
+  - [job-description — JD completo](#job-description--jd-completo)
+  - [performance-review — Review estructurado](#performance-review--review-estructurado)
+  - [policy-document — Política individual](#policy-document--política-individual)
+  - [onboarding-plan — Plan 30/60/90](#onboarding-plan--plan-306090)
+  - [one-on-one-framework — Framework canónico de 1:1s](#one-on-one-framework--framework-canónico-de-11s)
+  - [compensation-band — Banda salarial por rol × seniority × geografía](#compensation-band--banda-salarial-por-rol--seniority--geografía)
+  - [exit-interview — Exit interview con síntesis para people analytics](#exit-interview--exit-interview-con-síntesis-para-people-analytics)
+- [Flujo end-to-end típico](#flujo-end-to-end-típico)
+
+---
+
 ## Cómo se invoca
 
 1. **Vía orquestador** (recomendado): `hr-orchestrator` enruta a recruitment / onboarding / evaluation / policies.
