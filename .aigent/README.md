@@ -35,7 +35,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 |---|---|---|---|---|
 | Marketing | ✅ implementado | completo | 3 / 3 | 8 (v1 prosa) |
 | Sales | ✅ implementado | completo | 4 / 4 | 12 (v1 prosa) |
-| Software | ✅ implementado | completo | 4 / 4 | 19 (v1 prosa) |
+| Software | ✅ implementado | completo | 4 / 4 | 20 (v1 prosa) |
 | HR | ✅ implementado | completo | 4 / 4 | 7 (v1 prosa) |
 | Product | ✅ implementado | completo | 3 / 3 | 6 (v1 prosa) |
 | Finance | ✅ implementado | completo | 3 / 3 | 7 (v1 prosa) |
@@ -147,13 +147,14 @@ Orquestador: `software-orchestrator.md`. Stack-agnóstico: agentes y skills se a
 
 | Agente | Cuándo delegarle | Skills |
 |---|---|---|
-| `software-architecture` | Diseño de sistemas, ADRs, stacks, runbooks, API/tech specs, spec-review, documentación técnica | `software-adr`, `software-runbook`, `software-api-spec`, `software-tech-spec`, `software-spec-review`, `software-readme`, `software-code-docs-style`, `software-dev-guide`, `software-migration-guide`, `shared-risk-matrix`, `shared-deploy-checklist` |
+| `software-architecture` | Onboarding/kickoff de proyecto, diseño de sistemas, ADRs, stacks, runbooks, API/tech specs, spec-review, documentación técnica | `software-project-onboarding`, `software-adr`, `software-runbook`, `software-api-spec`, `software-tech-spec`, `software-spec-review`, `software-readme`, `software-code-docs-style`, `software-dev-guide`, `software-migration-guide`, `shared-risk-matrix`, `shared-deploy-checklist` |
 | `software-coding` | Implementación (feature/bugfix/refactor/dependency-bump), commits, PRs, changelog | `software-feature-implementation`, `software-bugfix-workflow`, `software-refactor-plan`, `software-dependency-bump`, `software-commit-message`, `software-pr-description`, `software-changelog-entry`, `shared-deploy-checklist` |
 | `software-code-review` | Review de PRs/diffs con severidades, 8 ejes y OWASP básico | `software-code-review-checklist` |
 | `software-qa` | Estrategia de testing, planes por nivel, casos, bug reports | `software-test-plan`, `software-bug-report` |
 
 | Skill | Entregable |
 |---|---|
+| `software-project-onboarding` | Kickoff de proyecto: clasificación NUEVO/EXISTENTE (Paso 0), descubrimiento o auditoría (hallazgos 🔴🟡🟢 + madurez 1-5), síntesis (veredicto, decisiones, plan) e informe persistido |
 | `software-adr` | Architecture Decision Record con contexto, drivers, opciones, decisión, consecuencias, riesgos |
 | `software-code-review-checklist` | Report de review con veredicto, top 3, hallazgos por severidad y análisis por 8 ejes |
 | `software-test-plan` | Plan por niveles con casos priorizados (P0-P3), criterios de salida, riesgos |

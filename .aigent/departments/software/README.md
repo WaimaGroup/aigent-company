@@ -5,6 +5,40 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [software-architecture — Architecture, Technical Design & Documentation](#software-architecture--architecture-technical-design--documentation)
+  - [software-coding — Implementation](#software-coding--implementation)
+  - [software-code-review — Code Review](#software-code-review--code-review)
+  - [software-qa — QA & Testing](#software-qa--qa--testing)
+- [Skills propias del dept](#skills-propias-del-dept)
+  - [project-onboarding — Clasificación y kickoff del proyecto](#project-onboarding--clasificación-y-kickoff-del-proyecto)
+  - [adr — Architecture Decision Record](#adr--architecture-decision-record)
+  - [code-review-checklist — Plantilla canónica de code review](#code-review-checklist--plantilla-canónica-de-code-review)
+  - [test-plan — Plan de test por niveles](#test-plan--plan-de-test-por-niveles)
+  - [runbook — Runbook operacional](#runbook--runbook-operacional)
+  - [api-spec — Especificación de API](#api-spec--especificación-de-api)
+  - [tech-spec — Spec técnica entre PRD/ADR e implementación](#tech-spec--spec-técnica-entre-prdadr-e-implementación)
+  - [bug-report — Bug report estructurado](#bug-report--bug-report-estructurado)
+  - [spec-review — Review y scoring de specs](#spec-review--review-y-scoring-de-specs)
+  - [commit-message — Mensaje de commit Conventional Commits](#commit-message--mensaje-de-commit-conventional-commits)
+  - [pr-description — Descripción de Pull Request](#pr-description--descripción-de-pull-request)
+  - [changelog-entry — Entrada Keep a Changelog](#changelog-entry--entrada-keep-a-changelog)
+  - [feature-implementation — Workflow para implementar una feature](#feature-implementation--workflow-para-implementar-una-feature)
+  - [bugfix-workflow — Workflow para arreglar un bug](#bugfix-workflow--workflow-para-arreglar-un-bug)
+  - [refactor-plan — Plan de refactor antes de tocar código](#refactor-plan--plan-de-refactor-antes-de-tocar-código)
+  - [dependency-bump — Workflow para subir dependencia](#dependency-bump--workflow-para-subir-dependencia)
+  - [readme — README.md del proyecto](#readme--readmemd-del-proyecto)
+  - [code-docs-style — Guía canónica de docs inline](#code-docs-style--guía-canónica-de-docs-inline)
+  - [dev-guide — Guía de desarrollo del proyecto](#dev-guide--guía-de-desarrollo-del-proyecto)
+  - [migration-guide — Guía pública de migración entre versiones](#migration-guide--guía-pública-de-migración-entre-versiones)
+- [Skill compartida usada en este dept](#skill-compartida-usada-en-este-dept)
+  - [shared-deploy-checklist (en _shared/skills/)](#shared-deploy-checklist-en-_sharedskills)
+
+---
+
 ## Cómo se invoca
 
 Tres formas, en orden de fricción creciente para el usuario:
@@ -21,7 +55,7 @@ Tres formas, en orden de fricción creciente para el usuario:
 
 ### `software-architecture` — Architecture, Technical Design & Documentation
 
-Decisiones técnicas razonadas, diseños de sistema y documentación técnica del proyecto. No escribe código de producción; decide qué se construye, cómo se estructura y por qué, y deja escrito lo necesario para que otros lo operen.
+Decisiones técnicas razonadas, diseños de sistema y documentación técnica del proyecto. No escribe código de producción; decide qué se construye, cómo se estructura y por qué, y deja escrito lo necesario para que otros lo operen. También ejecuta el **onboarding/kickoff** del proyecto: la primera vez que Software entra a un proyecto se sitúa con la skill `project-onboarding` (clasifica NUEVO/EXISTENTE, descubre o audita, y sintetiza) antes de cualquier diseño o código (ver Paso 0.6 del orquestador).
 
 **Caso de uso:** decisión de stack para nuevo servicio.
 
@@ -211,6 +245,27 @@ Decide qué se prueba, cómo y a qué nivel. Produce planes y casos, no código 
 ---
 
 ## Skills propias del dept
+
+### `project-onboarding` — Clasificación y kickoff del proyecto
+
+Guion canónico de arranque que ejecuta `software-architecture`. **Paso 0** clasifica el proyecto NUEVO (greenfield) vs EXISTENTE (brownfield); de ahí bifurca a **Rama A** (descubrir y definir: contexto de negocio, alcance, no-funcionales, stack→ADR, tooling) o **Rama B** (revisar y diagnosticar observando antes de concluir, citando `archivo:línea`); ambas convergen en una síntesis común (veredicto, decisiones, plan de 3-5 pasos, preguntas abiertas). Es la **única fuente de verdad del criterio**: el agente deriva su prompt de aquí, no lo hardcodea.
+
+**Caso de uso:** primera vez que Software entra a un repo existente.
+
+**Prompt:**
+> "Acabamos de heredar este repo, ponme en contexto antes de tocar nada."
+
+**Output esperado:**
+- Ruta: `<proyecto>/software/architecture/project-onboarding.md`
+- Clasificación (Paso 0): 🏗️ EXISTENTE — señales: manifiesto sí, código sí, historia git real, sin `.context` previo.
+- Ficha técnica (stack, build/test, calidad, config/secretos, git) + arquitectura en una frase.
+- Hallazgos priorizados 🔴🟡🟢 (ej. 🔴 secreto en `config/prod.yaml:12` enmascarado; 🟡 sin CI en el repo pese al badge del README) + madurez **2/5**.
+- Síntesis: diagnóstico en una frase, decisiones (ahora vs ADR), plan de 3-5 pasos, preguntas abiertas.
+- Decisiones y clasificación persistidas en `decisions[]` del config; PRD/ADR de arranque si es greenfield.
+
+> Para un proyecto **nuevo** el mismo prompt-base lleva la Rama A: en vez de auditar, pregunta A1–A8 (una incógnita a la vez) y produce PRD inicial + ADR(s) de stack + scaffolding propuesto. Variante *quick scan* para re-situar un proyecto ya conocido cuando el contexto diverge del disco.
+
+---
 
 ### `adr` — Architecture Decision Record
 
@@ -932,44 +987,4 @@ Checklist pre/durante/post-deploy adaptado a riesgo y estrategia.
 **Caso de uso:** preparar checklist de release.
 
 **Prompt:**
-> "Genera el deploy-checklist para el release v2.4.0 de `orders-service`. Estrategia canary 5% → 25% → 100%. Hay una migration de schema (añadir columna nullable, reversible)."
-
-**Output esperado:**
-- Ruta: `<proyecto>/software/architecture/deploy-checklist-v2.4.0.md`
-- Cabecera: estrategia canary, riesgo 🟡 medio, owner del deploy + backup, aprobador, spec de referencia (release plan).
-- Pre-deploy: 24 checkboxes en 7 sub-secciones (código, docs, env, schema, flags, comms, personas).
-- Durante: 6 pasos numerados con timestamps reales + smoke tests por cada fase canary.
-- Post-deploy: ventana de observación 24h, métricas con umbrales (error rate < 0.5%, p99 < 800ms), confirmaciones funcionales.
-- Rollback: punto sin retorno = retirada del flag de canary; antes trivial vía revertir release; después requiere hotfix + revert de migration (es reversible por diseño).
-- Cierre: anuncio en `#deploys`, postmortem solo si incidente.
-
----
-
-## Flujo end-to-end típico
-
-Para una feature de tamaño medio, los agentes y skills se encadenan así:
-
-```
-1. shared-prd-agent              → captura requisitos / PRD inicial
-2. software-architecture         → tech-spec o ADR si hay decisión técnica
-   └─ skill: spec-review         → gate antes de implementar
-3. software-coding               → implementación
-   ├─ skill: feature-implementation → workflow con pre-flight + reporte
-   ├─ skill: commit-message      → mensaje del commit
-   └─ skill: pr-description      → descripción del PR
-4. software-code-review          → review estructurado
-   └─ skill: code-review-checklist
-5. software-qa                   → plan de test si quedaron gaps
-   └─ skill: test-plan
-6. software-coding               → cierre del release
-   └─ skill: changelog-entry
-7. software-architecture         → preparación operativa
-   └─ skill: deploy-checklist (shared)
-```
-
-Para un bug se simplifica:
-
-```
-software-coding → bugfix-workflow → commit-message → pr-description
-                                  → (changelog-entry si va en release)
-```
+> "Genera el deploy-checklist para el release v2
