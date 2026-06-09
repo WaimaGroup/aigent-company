@@ -128,3 +128,28 @@ Si el dato cabe holgadamente en memoria (un objeto JSON < 100KB), pasarlo por ar
 - El tamaño obliga (payloads de Elementor, exports CSV grandes, blobs binarios).
 - Hay que invocar un proceso externo (CLI tool) que solo lee de disco.
 - Hay que serializar/escapar de forma específica antes de pasarlo a otro tool (MCP que requiere un string ya quoted).
+
+---
+
+## Logging de trabajo (`.context/<proyecto>/logger/`)
+
+Además de los entregables, el sistema mantiene una **traza de depuración** de lo que hace: qué tarea se atendió, qué agente intervino, qué skills se ejecutaron, qué entregables salieron, qué se imputó o subió, y qué errores ocurrieron. Esa traza la produce la utility-skill **`shared-logger`** y vive en:
+
+```
+.context/
+└── <proyecto>/
+    └── logger/
+        ├── session-<unixts>.jsonl   ← log JSONL, un evento JSON por línea (append-only)
+        └── session-<unixts>.json    ← consolidado (export) listo para subir
+```
+
+### Reglas
+
+- **El log NO es un entregable.** Es traza de sistema, por eso vive bajo `.context/<proyecto>/` — **excepción consciente** a la regla maestra de que nada generado va dentro de `.context/`. Es el mismo criterio que `.context/.temp/`: ambos son del sistema, no del cliente.
+- **Una sesión = un trabajo/conversación.** Abrir con `init` al empezar (frontera limpia) y anexar un evento con `log` en cada paso relevante: delegación, ejecución de skill, escritura de entregable, imputación de tarea, subida de resultado, error.
+- **Adjuntar el log al imputar o subir.** Cuando un flujo **imputa una tarea** a un sistema externo (Redmine, Asana, Jira…) o **sube un resultado** (Drive, Box, CMS…), se registra el evento y se adjunta el log consolidado (`shared-logger export`) junto al resultado — **salvo que el usuario diga lo contrario**.
+- **Se commitea por defecto** (auditable). `.context/.gitignore` solo excluye `.secrets.json`. Si un proyecto prefiere no versionar sus logs, añade `*/logger/` a `.context/.gitignore`.
+- **Nunca secretos ni PII en el log.** Al commitearse por defecto, se trata como código fuente: ni tokens, ni contraseñas, ni datos personales sensibles en `message`/`data`.
+- **No sustituye a `tasks.md`.** El logger es traza de ejecución; la gestión de tareas del proyecto sigue en `tasks.md`.
+
+Detalle del contrato CLI en `_shared/skills/shared-logger/SKILL.md`.

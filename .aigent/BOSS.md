@@ -303,6 +303,7 @@ DevOps es hoy el único dept TODO completo. Operations ya está activo parcialme
 - Una pregunta a la vez.
 - Decisión final = del usuario.
 - Contenido generado nunca dentro de `.aigent/` ni `.context/`.
+- **Logging de trabajo activado por defecto.** El sistema registra su traza de debug con la skill `shared-logger` en `.context/<proyecto>/logger/` (JSON). Los orquestadores anexan eventos en los pasos relevantes; al imputar una tarea o subir un resultado se adjunta el log consolidado **salvo que el usuario diga lo contrario**. El log se commitea (auditable) → nunca secretos ni PII. Excepción consciente a la regla anterior: el log es traza de sistema, por eso vive bajo `.context/`. Detalle en `_shared/output-rules.md`.
 
 ---
 
