@@ -7,6 +7,26 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [finance-budgeting — Budgeting & Planning](#finance-budgeting--budgeting--planning)
+  - [finance-reporting — Reporting (incluye AR/AP/Invoicing)](#finance-reporting--reporting-incluye-arapinvoicing)
+  - [finance-treasury — Treasury](#finance-treasury--treasury)
+- [Skills](#skills)
+  - [budget-plan — Presupuesto con drivers, P&L mensualizado, headcount, capex, escenarios](#budget-plan--presupuesto-con-drivers-pl-mensualizado-headcount-capex-escenarios)
+  - [financial-report — Report financiero con P&L + Balance + Cash Flow + KPIs + variance commentary](#financial-report--report-financiero-con-pl--balance--cash-flow--kpis--variance-commentary)
+  - [invoice-template — Factura a cliente](#invoice-template--factura-a-cliente)
+  - [cash-forecast — 13-week rolling cash forecast](#cash-forecast--13-week-rolling-cash-forecast)
+  - [expense-policy — Política de gastos cross-funcional](#expense-policy--política-de-gastos-cross-funcional)
+  - [board-deck-financial — Sección financiera del board deck](#board-deck-financial--sección-financiera-del-board-deck)
+  - [expense-report — Submisión de gastos individual](#expense-report--submisión-de-gastos-individual)
+- [Skills compartidas usadas en este dept](#skills-compartidas-usadas-en-este-dept)
+- [Flujo end-to-end típico](#flujo-end-to-end-típico)
+
+---
+
 ## Cómo se invoca
 
 1. **Vía orquestador** (recomendado): `finance-orchestrator` enruta a budgeting / reporting / treasury.

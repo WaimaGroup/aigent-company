@@ -5,6 +5,31 @@
 
 ---
 
+## Índice
+
+- [Cómo pedir las cosas](#cómo-pedir-las-cosas)
+- [El equipo: tres especialistas](#el-equipo-tres-especialistas)
+- [Creativo — textos y redes sociales](#creativo--textos-y-redes-sociales)
+  - [Un artículo para el blog](#un-artículo-para-el-blog)
+  - [Un email para una campaña](#un-email-para-una-campaña)
+  - [Varios anuncios para probar](#varios-anuncios-para-probar)
+  - [Llevar un contenido a las redes](#llevar-un-contenido-a-las-redes)
+  - [Un calendario de redes sociales](#un-calendario-de-redes-sociales)
+  - [Revisar un post de LinkedIn antes de publicarlo](#revisar-un-post-de-linkedin-antes-de-publicarlo)
+  - [La guía de "voz de marca"](#la-guía-de-voz-de-marca)
+- [Planificación — estrategia y aparecer en Google](#planificación--estrategia-y-aparecer-en-google)
+  - [Un plan de marketing del trimestre](#un-plan-de-marketing-del-trimestre)
+  - [El plan de una campaña concreta](#el-plan-de-una-campaña-concreta)
+  - [Saber qué busca la gente en Google](#saber-qué-busca-la-gente-en-google)
+  - [Mejorar una página para que suba en Google](#mejorar-una-página-para-que-suba-en-google)
+- [Web — páginas, landings y WordPress](#web--páginas-landings-y-wordpress)
+  - [Una página de aterrizaje que convierte](#una-página-de-aterrizaje-que-convierte)
+  - [Una página de servicio en WordPress (Elementor)](#una-página-de-servicio-en-wordpress-elementor)
+  - [Revisar una página antes de publicarla](#revisar-una-página-antes-de-publicarla)
+- [Un proyecto completo de principio a fin (ejemplo: lanzar un producto)](#un-proyecto-completo-de-principio-a-fin-ejemplo-lanzar-un-producto)
+
+---
+
 ## Cómo pedir las cosas
 
 No necesitas saber quién hace qué. Tienes tres formas, de la más cómoda a la más concreta:

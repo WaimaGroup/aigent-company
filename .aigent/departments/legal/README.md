@@ -9,6 +9,26 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [legal-contracts — Contracts](#legal-contracts--contracts)
+  - [legal-policies — External Policies](#legal-policies--external-policies)
+  - [legal-privacy — Privacy](#legal-privacy--privacy)
+  - [legal-risk — Risk & Compliance](#legal-risk--risk--compliance)
+- [Skills](#skills)
+  - [contract-template — Borrador estructurado de contrato comercial](#contract-template--borrador-estructurado-de-contrato-comercial)
+  - [nda-template — NDA standalone](#nda-template--nda-standalone)
+  - [privacy-policy — Política de privacidad pública GDPR/CCPA/LGPD-compliant](#privacy-policy--política-de-privacidad-pública-gdprccpalgpd-compliant)
+  - [dpa-template — DPA Art. 28 GDPR](#dpa-template--dpa-art-28-gdpr)
+  - [terms-of-service — T&C / ToS con resumen plain language](#terms-of-service--tc--tos-con-resumen-plain-language)
+  - [compliance-checklist — Checklist contra framework con gap analysis](#compliance-checklist--checklist-contra-framework-con-gap-analysis)
+- [Skills compartidas usadas en este dept](#skills-compartidas-usadas-en-este-dept)
+- [Flujo end-to-end típico](#flujo-end-to-end-típico)
+
+---
+
 ## Cómo se invoca
 
 1. **Vía orquestador** (recomendado): `legal-orchestrator` enruta a contracts / policies / privacy / risk.

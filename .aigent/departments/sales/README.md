@@ -5,6 +5,31 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [sales-sdr — Sales Development Representative](#sales-sdr--sales-development-representative)
+  - [sales-ae — Account Executive](#sales-ae--account-executive)
+  - [sales-enablement — Sales Enablement](#sales-enablement--sales-enablement)
+  - [sales-crm — Sales CRM](#sales-crm--sales-crm)
+- [Skills](#skills)
+  - [prospecting-list — Tabla estructurada de prospectos](#prospecting-list--tabla-estructurada-de-prospectos)
+  - [outreach-sequence — Cadencia multi-step de email/LinkedIn](#outreach-sequence--cadencia-multi-step-de-emaillinkedin)
+  - [account-intelligence — Sales Intelligence sobre cuenta](#account-intelligence--sales-intelligence-sobre-cuenta)
+  - [sales-proposal — Propuesta comercial completa](#sales-proposal--propuesta-comercial-completa)
+  - [pitch-deck — Outline + script slide a slide](#pitch-deck--outline--script-slide-a-slide)
+  - [objection-handler — Guía de manejo de objeciones](#objection-handler--guía-de-manejo-de-objeciones)
+  - [sales-playbook — Playbook del proceso comercial](#sales-playbook--playbook-del-proceso-comercial)
+  - [discovery-call — Script + framework BANT/MEDDIC](#discovery-call--script--framework-bantmeddic)
+  - [pipeline-review — Revisión operativa deal-by-deal](#pipeline-review--revisión-operativa-deal-by-deal)
+  - [renewal-playbook — Playbook de renovación](#renewal-playbook--playbook-de-renovación)
+  - [forecasting-report — Forecast formal del periodo](#forecasting-report--forecast-formal-del-periodo)
+- [Skills compartidas usadas en este dept](#skills-compartidas-usadas-en-este-dept)
+- [Flujo end-to-end típico](#flujo-end-to-end-típico)
+
+---
+
 ## Cómo se invoca
 
 1. **Vía orquestador** (recomendado): `sales-orchestrator` enruta según fase del funnel.

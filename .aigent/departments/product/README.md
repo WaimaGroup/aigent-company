@@ -5,6 +5,25 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [product-discovery — Discovery](#product-discovery--discovery)
+  - [product-strategy-roadmap — Strategy + Roadmap](#product-strategy-roadmap--strategy--roadmap)
+  - [product-metrics — Metrics](#product-metrics--metrics)
+- [Skills](#skills)
+  - [user-interview-script — Script de entrevista](#user-interview-script--script-de-entrevista)
+  - [product-roadmap — Roadmap por horizonte](#product-roadmap--roadmap-por-horizonte)
+  - [north-star-metric — NSM con candidates evaluados](#north-star-metric--nsm-con-candidates-evaluados)
+  - [feature-prd — PRD de feature](#feature-prd--prd-de-feature)
+  - [experiment-design — Plan A/B test](#experiment-design--plan-ab-test)
+  - [release-plan — Plan de release end-to-end](#release-plan--plan-de-release-end-to-end)
+- [Skills compartidas usadas en este dept](#skills-compartidas-usadas-en-este-dept)
+- [Flujo end-to-end típico](#flujo-end-to-end-típico)
+
+---
+
 ## Cómo se invoca
 
 1. **Vía orquestador** (recomendado): `product-orchestrator` enruta a discovery / strategy+roadmap / metrics.

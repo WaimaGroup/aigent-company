@@ -9,6 +9,26 @@
 
 ---
 
+## Índice
+
+- [Cómo se invoca](#cómo-se-invoca)
+- [Agentes](#agentes)
+  - [design-ui — UI Design](#design-ui--ui-design)
+  - [design-ux-research — UX Research](#design-ux-research--ux-research)
+  - [design-design-system — Design System](#design-design-system--design-system)
+  - [design-accessibility — Accessibility](#design-accessibility--accessibility)
+- [Skills](#skills)
+  - [ui-component-spec — Spec UI para handoff](#ui-component-spec--spec-ui-para-handoff)
+  - [design-token-set — Set de design tokens multi-plataforma](#design-token-set--set-de-design-tokens-multi-plataforma)
+  - [accessibility-audit — Audit WCAG 2.2 con tabla SC](#accessibility-audit--audit-wcag-22-con-tabla-sc)
+  - [usability-test-plan — Plan completo de usability test](#usability-test-plan--plan-completo-de-usability-test)
+  - [design-handoff-checklist — Checklist pre-handoff a engineering](#design-handoff-checklist--checklist-pre-handoff-a-engineering)
+  - [ds-component-doc — Documentación canónica de componente del DS](#ds-component-doc--documentación-canónica-de-componente-del-ds)
+- [Skills compartidas usadas en este dept](#skills-compartidas-usadas-en-este-dept)
+- [Flujo end-to-end típico](#flujo-end-to-end-típico)
+
+---
+
 ## Cómo se invoca
 
 1. **Vía orquestador** (recomendado): `design-orchestrator` enruta a UI / UX research / DS / accesibilidad.
