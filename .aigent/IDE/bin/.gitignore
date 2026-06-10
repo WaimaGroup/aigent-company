@@ -1,7 +1,9 @@
 # El binario Node lo descarga el instalador en tiempo de install — nunca se commitea.
 deps/node
 deps/node.exe
-# Sí se commitean: los launchers y el pin de versión.
+# npm bundled (lo extrae el instalador del propio tarball de Node) — nunca se commitea.
+deps/node_modules/
+# Si se commitean: los launchers y el pin de version.
 !run
 !run.cmd
 !deps/.node-version

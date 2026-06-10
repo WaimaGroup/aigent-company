@@ -4,31 +4,71 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
-## 4.1.0 — 2026-06-04
+## 4.2.0 — 2026-06-09
 
-### Software: flujo de onboarding/kickoff de proyecto (clasificar → descubrir o auditar → sintetizar)
+### Skills HÍBRIDAS (librería npm) + taxonomía Prosa/Local/Híbrido + helper de bootstrap + npm bundled
 
-Se codifica como skill el criterio de arranque del departamento de Software: antes de cualquier trabajo de especialista, el departamento se sitúa clasificando el proyecto y produciendo un informe de onboarding persistido. Antes este criterio no existía como capacidad reutilizable — vivía, informal, en el proceso de clarificación del agente de arquitectura.
+Nueva clase de skills que rompen el techo de las utility-skills cero-dependencias usando una **librería npm**, con un mecanismo de bootstrap **único y compartido**, y formalización de la taxonomía de skills por tipo de ejecución.
 
-**Por qué MINOR:** nueva skill v1 publicada + nueva regla obligatoria de entrada en el orquestador de Software (Paso 0.6). No rompe contrato de skills v2 ni estructura de `_shared/`; los deployments existentes no requieren migración.
+**Por qué MINOR:** nuevas capacidades (3 skills híbridas + helper + npm bundled en el instalador) y nueva **regla obligatoria** de convención (§16: cómo se construye una skill híbrida). No rompe contratos existentes; la Local equivalente sigue siendo el default.
 
-**Skill nueva `software-project-onboarding` (v1 prosa):** única fuente de verdad del criterio. El agente caller deriva su prompt concreto del guion, no lo hardcodea. Cubre:
-- **Paso 0 — clasificación raíz** NUEVO (greenfield) vs EXISTENTE (brownfield) por 4 señales (manifiesto, código, historia git, contexto previo); casos ambiguo (preguntar) y mixto (Rama B para el todo + Rama A para el módulo).
-- **Rama A (greenfield):** descubrir y definir (A1–A8: contexto de negocio, alcance/anti-alcance, restricciones, no-funcionales, integraciones, stack→ADR, tooling día 1, riesgos). Salida: PRD + ADR(s) + scaffolding + supuestos.
-- **Rama B (brownfield):** revisar y diagnosticar (B1–B10) observando antes de concluir y citando `archivo:línea`. Salida: ficha técnica + arquitectura en una frase + hallazgos 🔴🟡🟢 + madurez 1-5. La ausencia (sin tests/CI/dueño) es hallazgo.
-- **Fase común:** diagnóstico en una frase, decisiones (ahora vs ADR), plan de 3-5 pasos, preguntas abiertas, persistencia.
-- **Variante *quick scan*** para re-situar un proyecto ya conocido cuando el contexto diverge del disco (entrada fechada, solo el delta).
+**Taxonomía de skills (conventions.md §16, nueva):** eje ortogonal a meta/business/utility y a v1/v2.
+- **Prosa** — el LLM compone, libertad creativa (ej. `marketing-copy`).
+- **Local** — código determinista cero-deps; datos y decisiones estrictas; **incluye llamadas a APIs definidas** (las skills `engine-v2` HTTP son Local). Ej. `shared-office-writer`, `shared-pdf-reader`, `shared-base64`.
+- **Híbrido** — Local o Prosa **+ librería npm externa**. HTTP no es un tipo: es Local por defecto y asciende a Híbrido solo si necesita una librería npm (firmar requests, etc.; `crypto` nativo no cuenta).
 
-**Persistencia:** informe en `<proyecto>/software/architecture/project-onboarding.md`; PRD en `.context/<proyecto>/software/prd.md` (vía `shared-prd-agent`); ADR(s) en `architecture/adr/`; clasificación y decisiones en `decisions[]` del config del proyecto.
+**Helper compartido `.aigent/IDE/bin/lib-bootstrap.cjs` (nuevo, fuente única):** toda skill híbrida obtiene su dependencia por aquí, nunca con un bloque propio.
+- Caché de librerías en **`.context/libs/node_modules/`** (compartida por todas las híbridas, basada en `process.cwd()`); el helper crea la caché y añade `libs/` a `.context/.gitignore` (las librerías no se commitean; excepción consciente a output-rules, como `.context/.temp/` y el logger).
+- Resolución de npm: **bundled** (junto al Node del launcher) con prioridad, si no el del **sistema** (`installed_via`). Sin ninguno → `DEP_UNAVAILABLE`.
+- Versión de la librería **fijada (pin)** por el caller → reproducibilidad.
+- Códigos de error uniformes: `DEP_MISSING`, `DEP_UNAVAILABLE`, `DEP_INSTALL_FAILED` (+ `BOOTSTRAP_NOT_FOUND` en el caller).
+- El script de la skill **no** vive en `libs/`: vive en su carpeta y hace `require()` de la librería por ruta absoluta a la caché.
 
-**Orquestador de Software (`software-orchestrator.md`):** nuevo **Paso 0.6 — Clasificación y onboarding del proyecto**, gate de entrada que dispara el onboarding la primera vez que se trabaja un proyecto (detectado por ausencia de `project-onboarding.md`) antes de delegar trabajo de especialista; en sesiones siguientes lo lee sin re-ejecutar y ofrece *quick scan* ante divergencia. Excepción de fricción para peticiones puntuales de bajo impacto. Añadido a la tabla de ficheros a leer, a la tabla de decisión rápida, a la descripción del agente `software-architecture` y al árbol de outputs por defecto.
+**Skills híbridas nuevas (v1 utility con script, vía el helper):**
+- `shared-docx-rich` (`docx.cjs`, librería `docx@9.7.1`) — Word con imágenes embebidas, header/footer con numeración de página, saltos de página, colores/tamaños de fuente, tablas con estilo. Contraparte rica de `shared-office-writer` (docx).
+- `shared-pdf-toolkit` (`pdf.cjs`, `pdf-lib@1.17.1`) — merge / split / stamp de PDF. Contraparte **escritora** de `shared-pdf-reader` (que solo lee).
+- `shared-xlsx-rich` (`xlsx.cjs`, `exceljs@4.4.0`) — Excel con fills de color, celdas combinadas, bordes, paneles congelados, formatos numéricos e imágenes. Contraparte rica de `shared-office-writer` (xlsx).
+- Las tres coexisten con su Local equivalente: se usan solo cuando hace falta romper el techo; si `DEP_UNAVAILABLE`, caer a la Local.
+- Validadas end-to-end (round-trip): generación con la librería + relectura con herramienta independiente (python-docx, openpyxl) y con el propio `shared-pdf-reader`.
 
-**Agente `software-architecture`:** nueva sección de proceso "kickoff / onboarding", nuevo tipo de entregable "Onboarding de proyecto", y la skill añadida a su tabla de skills disponibles.
+**Instalador — npm bundled (`install.sh` + `install.ps1`):** tras extraer el binario `node` del tarball de nodejs.org, ahora se **conserva también npm** (antes se descartaba) en `.aigent/IDE/bin/deps/node_modules/npm`. Así las skills híbridas instalan sus librerías con el runtime bundled, sin depender del npm del sistema. `IDE/bin/.gitignore` ignora `deps/node_modules/`.
 
-**README de `.aigent`:** Software pasa de 19 a 20 skills; `software-project-onboarding` añadida a la tabla de skills y a las skills del agente `software-architecture`.
+**Scaffold:** `shared-skill-scaffold/SKILL.md` actualizado — distingue TIPO (Prosa/Local/Híbrido) de MODO (v1/v2) y obliga a usar `lib-bootstrap.cjs` para las híbridas (§16.2).
 
-**Archivos nuevos:** `.aigent/departments/software/skills/software-project-onboarding/SKILL.md`.
-**Archivos editados:** `.aigent/departments/software/software-orchestrator.md`, `.aigent/departments/software/agents/software-architecture.md`, `.aigent/departments/software/README.md`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+**Roadmap (fuera de `.aigent/`):** `roadmap/engine-manifest-json.md` — plan para externalizar el manifest de skills v2 del frontmatter a un `api.json` aparte (estilo OpenAPI). No implementado.
+
+**Archivos nuevos:** `.aigent/IDE/bin/lib-bootstrap.cjs`; `.aigent/departments/_shared/skills/{shared-docx-rich,shared-pdf-toolkit,shared-xlsx-rich}/{SKILL.md,*.cjs}`; `roadmap/engine-manifest-json.md`.
+**Archivos editados:** `.aigent/IDE/install.sh`, `.aigent/IDE/install.ps1`, `.aigent/IDE/bin/.gitignore`, `.aigent/departments/_shared/conventions.md` (§16), `.aigent/departments/_shared/skills/shared-skill-scaffold/SKILL.md`, `.aigent/README.md` (índice + conteo `_shared` 14→18; se añadió `shared-pdf-reader`, que faltaba), `.aigent/departments/_shared/README.md` (skills híbridas + tabla "cuándo invocar"), `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+**Fix de documentación:** se **restauró `conventions.md` §14** (subset YAML), que estaba truncada a media tabla desde una entrega anterior. Reconstruida fiel al parser `engine/yaml.cjs` (tabla de soportado + no-soportado), y corregido el nombre del fichero (`yaml.js` → `yaml.cjs`).
+
+---
+## 4.1.0 — 2026-06-05
+
+### Skill `shared-logger` — registro de trabajo (debug) por proyecto + regla de logging transversal
+
+Nueva **utility-skill compartida** `shared-logger` (`_shared/skills/shared-logger/`) que mantiene una traza estructurada del trabajo del sistema como herramienta de depuración: qué tarea se atendió, qué agente intervino, qué skills se ejecutaron, qué entregables salieron, qué se imputó o subió, y qué errores ocurrieron. El log se guarda en **JSON Lines** (un evento JSON por línea, append-only) bajo `.context/<proyecto>/logger/session-<unixts>.jsonl` y se puede consolidar en un único `.json` (array) listo para subir.
+
+**Por qué MINOR:** nueva capacidad transversal del framework + nueva **regla obligatoria** de comportamiento (logging + adjuntar el log al imputar/subir) en `conventions.md`, `output-rules.md` y `orchestrator-template.md`. No rompe contratos existentes.
+
+**Skill (`shared-logger/SKILL.md` + `logger.cjs`, Node 18+, sin dependencias):**
+- Subcomandos `init` (abre sesión, evento `session_start`), `log` (anexa evento; auto-inicia sesión si no hay), `end` (`session_end`), `export` (consolida `.jsonl` → `.json`, `--end` la cierra antes), `list` (sesiones del proyecto).
+- Resolución de proyecto igual que el engine (conventions §10.1): `--project` explícito; si hay 1 en `.context/` se autodetecta; si hay >1 → `NO_PROJECT_SPECIFIED` con la lista.
+- Modelo de evento: `ts`, `session_id`, `seq`, `level`, `type` fijos + opcionales `agent`, `task`, `action`, `skill`, `deliverable`, `target`, `status`, `message`, `data` (JSON arbitrario).
+- Contrato de salida JSON a stdout (exit 0/1), como el resto de scripts del repo. Códigos de error: `BAD_ARGS`, `NO_PROJECT`, `NO_PROJECT_SPECIFIED`, `PROJECT_NOT_FOUND`, `NO_SESSION`, `SESSION_NOT_FOUND`, `BAD_JSON`, `WRITE_FAILED`, `INTERNAL`.
+- Invocación vía launcher `.aigent/IDE/bin/run` (§12.7-bis); validada init/log/end/export/list + casos de error y por el launcher.
+
+**Regla de logging (cableado completo):**
+- `output-rules.md` — nueva sección "Logging de trabajo (`.context/<proyecto>/logger/`)": el log es **ruta de sistema** (excepción consciente a "nada generado dentro de `.context/`", mismo criterio que `.context/.temp/`); una sesión = un trabajo; **adjuntar el log consolidado al imputar tareas o subir resultados salvo que el usuario diga lo contrario**; se commitea por defecto (auditable); nunca secretos ni PII; no sustituye a `tasks.md`.
+- `conventions.md` — nueva §15 "Logging de trabajo (debug) — `shared-logger`": es utility-skill (no se lista en `## Skills disponibles` de ningún agente; es comportamiento transversal), formato solo JSON, dónde vive, quién registra.
+- `orchestrator-template.md` — nuevo bloque "Logging de trabajo (debug)" con los comandos `init`/`log`/`export` y la regla de adjuntar al imputar/subir.
+- `BOSS.md` — regla de oro: logging activado por defecto en todos los departamentos.
+- `_shared/README.md` y `.aigent/README.md` — `shared-logger` añadida a las utility-skills y a las tablas de "cuándo invocar"; conteo de `_shared` actualizado a 14 skills (4 utility).
+
+**Nota:** se detectó que `_shared/conventions.md` ya estaba **truncado a mitad de la tabla de §14** (subset YAML) en una entrega anterior — la §15 nueva se añadió tras un separador limpio sin reescribir §14 (pendiente de restaurar su contenido íntegro).
+
+**Archivos nuevos:** `.aigent/departments/_shared/skills/shared-logger/SKILL.md`, `.aigent/departments/_shared/skills/shared-logger/logger.cjs`.
+**Archivos editados:** `.aigent/departments/_shared/output-rules.md`, `.aigent/departments/_shared/conventions.md`, `.aigent/departments/_shared/orchestrator-template.md`, `.aigent/BOSS.md`, `.aigent/departments/_shared/README.md`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
 
 ---
 ## 4.0.0 — 2026-06-02

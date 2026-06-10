@@ -783,7 +783,7 @@ Por defecto los entregables salen en `.md` (texto plano). Si lo quieres en Word 
 
 > "Quiero el resumen de KPIs como hoja de Excel, con la cabecera en negrita."
 
-Qué sabe hacer hoy: **docx** con títulos, párrafos, negrita/cursiva/subrayado, enlaces clicables y tablas; **xlsx** con varias hojas, texto, números, fechas, fórmulas, ancho de columna y fila de cabecera en negrita. Qué **no** hace (todavía): imágenes, logos, gráficos, colores de celda, bordes a medida. Si necesitas algo de eso, dilo y se valora caso a caso.
+Qué sabe hacer hoy: **docx** con títulos, párrafos, negrita/cursiva/subrayado, enlaces clicables y tablas; **xlsx** con varias hojas, texto, números, fechas, fórmulas, ancho de columna y fila de cabecera en negrita. Es **tipo Local**: determinista, sin red y sin instalar nada. Qué **no** hace: imágenes, logos, colores de celda, celdas combinadas, bordes a medida, paneles congelados — para eso están las **skills híbridas** `shared-docx-rich` y `shared-xlsx-rich` (ver abajo), que instalan una librería.
 
 ### `shared-base64` — base64 ↔ fichero (uso interno)
 
@@ -792,6 +792,28 @@ Fontanería: convierte entre texto "base64" y ficheros reales, en los dos sentid
 ### `shared-http-download` — descargar ficheros por URL (uso interno)
 
 Fontanería: descarga uno o varios ficheros desde una dirección web a disco (PDF, ZIP, documentos...). La usa un agente cuando recibe enlaces a documentos que hay que materializar para procesarlos (p. ej. los pliegos de una licitación). **No la invocas tú** — el agente la activa cuando toca.
+
+### `shared-logger` — registro de trabajo (debug) por proyecto (uso interno)
+
+Fontanería: guarda una traza estructurada de lo que hace el sistema (qué tarea, qué agente, qué skills, qué entregables, qué se imputó/subió, qué errores) como **JSON** en `.context/<proyecto>/logger/`, y la consolida en un único fichero subible para depurar. Los orquestadores la usan en los pasos relevantes y al imputar tareas o subir resultados (el log viaja con el resultado salvo que digas lo contrario). **No la invocas tú** — el sistema la activa cuando toca. Script `logger.cjs`.
+
+---
+
+## Skills híbridas (instalan una librería npm)
+
+> **Tipo Híbrido** (`conventions.md` §16): rompen el techo de formato de las skills Local instalando una librería npm. La librería se instala **una vez** en una caché compartida (`.context/libs/`, gitignored) vía el helper único `.aigent/IDE/bin/lib-bootstrap.cjs`, y se reutiliza. Necesitan `npm` una vez (el bundled del instalador o el del sistema). Si no hay npm, caen a su equivalente Local. Conviven con la Local: se usan solo cuando hace falta el formato avanzado.
+
+### `shared-docx-rich` — Word rico (imágenes, cabeceras, numeración)
+
+Contraparte con librería de `shared-office-writer` (docx). Para cuando el Word necesita **imagen/logo embebido, header/footer con "Página X de Y", saltos de página, colores y tamaños de fuente**. Pídelo en lenguaje normal: *"el informe en Word, con nuestro logo en la cabecera y numeración de página."* Librería `docx`.
+
+### `shared-xlsx-rich` — Excel rico (colores, merges, freeze, imágenes)
+
+Contraparte con librería de `shared-office-writer` (xlsx). Para Excel con **colores de celda, celdas combinadas, bordes, paneles congelados, formatos numéricos e imágenes**. *"el presupuesto en Excel, con la cabecera en azul y los totales resaltados."* Librería `exceljs`.
+
+### `shared-pdf-toolkit` — editar/ensamblar PDF (merge, split, stamp)
+
+Contraparte **escritora** de `shared-pdf-reader` (que solo lee). **Une** varios PDF en uno, **extrae** un rango de páginas, o **estampa** un sello/marca de agua ("APROBADO", nº de expediente). *"junta estos tres PDF en uno"* · *"sella 'CONFIDENCIAL' en todas las páginas del contrato."* Librería `pdf-lib`.
 
 ---
 
@@ -812,6 +834,10 @@ Fontanería: descarga uno o varios ficheros desde una dirección web a disco (PD
 | Journey de usuario | skill `shared-journey-map` |
 | Checklist de deploy de release | skill `shared-deploy-checklist` |
 | Crear agente nuevo en un dept | skill `shared-agent-scaffold` (la invoca `shared-skill-builder` o el orquestador del dept) |
-| Entregar un informe o una tabla como Word o Excel | skill `shared-office-writer` (formato `docx` o `xlsx`) |
+| Entregar un informe o una tabla como Word o Excel (plano, sin instalar) | skill `shared-office-writer` (formato `docx` o `xlsx`) |
+| Word con imagen/logo, cabecera y numeración de página | skill `shared-docx-rich` (híbrida, librería `docx`) |
+| Excel con colores, celdas combinadas, freeze o imágenes | skill `shared-xlsx-rich` (híbrida, librería `exceljs`) |
+| Unir / partir / sellar PDF | skill `shared-pdf-toolkit` (híbrida, librería `pdf-lib`) |
 | Guardar/recuperar un base64 como fichero (interno) | skill `shared-base64` (la activa el agente, no se pide por nombre) |
 | Descargar ficheros desde una URL (interno) | skill `shared-http-download` (la activa el agente, no se pide por nombre) |
+| Registrar/depurar el trabajo del sistema; adjuntar el log al imputar/subir (interno) | skill `shared-logger` (la activa el sistema, no se pide por nombre) |

@@ -250,6 +250,36 @@ Trátalo igual que un precheck con `ready: false`: lanza el flujo de configuraci
 
 ---
 
+## Logging de trabajo (debug)
+
+Registra la traza de tu trabajo con la utility-skill **`shared-logger`** (script `logger.cjs`, vía el launcher `.aigent/IDE/bin/run`). No la listes en ninguna tabla de skills — es comportamiento transversal, no un entregable a elegir.
+
+1. **Al empezar a atender una petición**, abre una sesión y guarda el `session_id`:
+
+   ```bash
+   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs init \
+     --project <proyecto> --agent "<este-orquestador>" \
+     --message "<petición del usuario en una línea>"
+   ```
+
+2. **En cada paso relevante**, anexa un evento (pasa el `--session <session_id>` de la sesión abierta):
+   - delegación a un especialista (`--type delegation`),
+   - ejecución de una skill v2 (`--type skill`),
+   - entregable generado (`--type deliverable --deliverable <ruta>`),
+   - imputación de tarea o subida de resultado (`--type imputation`/`--type upload --target <sistema>`),
+   - error (`--type error --level error`).
+
+3. **Al imputar una tarea a un sistema externo o subir un resultado**, registra el evento y **adjunta el log consolidado** junto al resultado, **salvo que el usuario diga lo contrario**:
+
+   ```bash
+   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs export \
+     --project <proyecto> --session <session_id> --end
+   ```
+
+**Reglas:** el log se commitea por defecto (auditable) → **nunca** metas secretos ni PII en `--message`/`--data`. El logger es traza de ejecución, no gestión de tareas (`tasks.md` sigue siendo la fuente de verdad). Detalle en `_shared/skills/shared-logger/SKILL.md` y `_shared/output-rules.md`.
+
+---
+
 ## Cuándo NO delegar y actuar directamente
 
 Puedes responder tú directamente (sin invocar un sub-agente) cuando:

@@ -626,6 +626,22 @@ function Ensure-Runtime([switch]$ForceDl) {
   }
 
   Copy-Item -Path (Join-Path $tmp "$pkg\node.exe") -Destination $target -Force
+
+  # Conservar npm del propio tarball (antes se descartaba). Las skills híbridas
+  # (shared-docx-rich, shared-pdf-toolkit) lo usan para instalar sus librerías sin
+  # depender del npm del sistema. En el zip de Windows npm vive en node_modules\npm.
+  # Se copia a deps\node_modules\npm (gitignored).
+  $npmSrc = Join-Path $tmp "$pkg\node_modules\npm"
+  if (Test-Path $npmSrc) {
+    $npmDest = Join-Path $DepsDir "node_modules\npm"
+    if (Test-Path $npmDest) { Remove-Item $npmDest -Recurse -Force -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Force -Path (Join-Path $DepsDir "node_modules") | Out-Null
+    Copy-Item -Path $npmSrc -Destination $npmDest -Recurse -Force
+    Log-Ok "npm bundled → IDE\bin\deps\node_modules\npm"
+  } else {
+    Log-Warn "npm no encontrado en el paquete; las skills hibridas usaran el npm del sistema."
+  }
+
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
   Log-Ok "Node $NodeVersion instalado → IDE\bin\deps\node.exe ($(& $target -v 2>$null))"
 }

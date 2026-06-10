@@ -648,9 +648,107 @@ Roadmap: `output.select: "$.issues[*].{id, subject, status}"` para que el engine
 
 ## 14. Subset YAML soportado en el frontmatter v2
 
-El engine v2 incluye un parser YAML propio (`engine/yaml.js`, sin dependencias). Cubre solo el subset que necesitan los manifiestos:
+El engine v2 incluye un parser YAML propio (`engine/yaml.cjs`, sin dependencias). Cubre solo el subset que necesitan los manifiestos. **La fuente de verdad es el comentario de cabecera de `yaml.cjs`**; esta tabla lo refleja.
 
-| Construcción | Soportado | Ejemplo |
-|---|---|---|
-| Mappings con indentación | ✓ | `config:\n  base_url:\n    type: string` |
-| Scalars: string, integer, floa
+### Soportado
+
+| Construcción | Ejemplo |
+|---|---|
+| Mappings con indentación (cualquier nivel, consistente) | `config:` ⏎ `  base_url:` ⏎ `    type: string` |
+| Scalar string (sin comillas) | `type: string` |
+| Scalar string entre comillas dobles (escapes `\"` y `\\`) | `description: "dice \"hola\""` |
+| Scalar string entre comillas simples (escape `''`) | `name: 'O''Brien'` |
+| Scalar integer | `limit: 25` |
+| Scalar float (incl. exponente) | `ratio: 0.5` · `n: 1.2e-3` |
+| Scalar boolean | `required: true` |
+| Scalar null (`null` o `~`) | `default: null` |
+| Array con `- item` (escalar) | `- list-issues` ⏎ `- get-issue` |
+| Array de mappings inline `- key: value` (+ sublíneas anidadas) | `- name: SLACK_TOKEN` ⏎ `  required: true` |
+| Array/valor anidado por indentación | `inputs:` ⏎ `  limit:` ⏎ `    type: integer` |
+| Folded scalar `>` (líneas siguientes unidas con espacios) | `description: >` ⏎ `  línea 1` ⏎ `  línea 2` → `"línea 1 línea 2"` |
+| Literal scalar `\|` (líneas siguientes preservadas con `\n`) | `body: \|` ⏎ `  línea 1` ⏎ `  línea 2` → `"línea 1\nlínea 2"` |
+| Flow mapping `{ k: v, ... }` | `impl: { type: http, ref: "list" }` |
+| Flow array `[a, b, ...]` | `enum: [asc, desc]` |
+| Comentarios `#` (línea completa o al final de línea tras espacio, fuera de comillas) | `limit: 25  # tope por página` |
+
+### NO soportado (intencional)
+
+Si un manifiesto los usa, falla el parseo — no se "arreglan" en el SKILL.md, se evitan:
+
+| Construcción | Alternativa |
+|---|---|
+| Anchors / aliases (`&ancla` / `*ancla`) | Repetir el valor explícitamente |
+| Tags (`!!str`, `!!int`, …) | Confiar en la inferencia de tipos del scalar |
+| Múltiples documentos (`---` como separador interno) | Un solo documento por frontmatter |
+| Claves complejas (`?`) | Solo claves escalares |
+| Strings de comillas dobles multilínea | Usar folded `>` o literal `\|` |
+
+Ampliar el subset = editar `engine/yaml.cjs` (y su comentario de cabecera) **y** esta tabla a la vez.
+
+---
+
+## 15. Logging de trabajo (debug) — `shared-logger`
+
+El sistema mantiene una **traza de depuración** de su propio trabajo mediante la utility-skill **`shared-logger`** (`_shared/skills/shared-logger/`). Es una utility-skill con script propio (`logger.cjs`, Node sin dependencias), por tanto **no se lista en la tabla `## Skills disponibles` de ningún agente** (§7.1, contrato de utility-skills) — el logging es un **comportamiento transversal**, no un entregable que un agente "elige".
+
+- **Dónde:** `.context/<proyecto>/logger/session-<unixts>.jsonl` (JSON Lines, un evento por línea, append-only) + `.json` consolidado al exportar. Es **ruta de sistema**, no entregable → vive dentro de `.context/` como **excepción consciente** a output-rules (mismo criterio que `.context/.temp/`).
+- **Formato:** solo JSON. Cada evento lleva `ts`, `session_id`, `seq`, `level`, `type` + campos opcionales (`agent`, `task`, `action`, `skill`, `deliverable`, `target`, `status`, `message`, `data`).
+- **Quién registra:** los orquestadores (y BOSS) anexan eventos en los pasos relevantes — ver el bloque "Logging de trabajo" de `orchestrator-template.md` y la regla en `output-rules.md`.
+- **Adjuntar al imputar/subir:** cuando un flujo imputa una tarea o sube un resultado, se registra el evento y se adjunta el log consolidado **salvo que el usuario diga lo contrario**.
+- **Se commitea por defecto** (auditable). Nunca secretos ni PII en el log.
+
+Contrato CLI completo en `_shared/skills/shared-logger/SKILL.md`; regla de comportamiento en `_shared/output-rules.md`.
+
+---
+
+## 16. Tipos de skill por ejecución: Prosa / Local / Híbrido
+
+Eje **ortogonal** a las categorías de §7.1 (meta/business/utility, que dicen *quién* la usa) y a `runtime: engine-v2` (§12, que dice *cómo la ejecuta el engine*). Este eje describe **dónde vive el trabajo** de la skill y, con ello, qué garantías ofrece. La prosa del `SKILL.md` es el *manual* de toda skill y no determina el tipo; el tipo lo fija dónde está el valor.
+
+| Tipo | Pregunta que lo define | Naturaleza | Ejemplos |
+|---|---|---|---|
+| **Prosa** | ¿Hay libertad creativa, el LLM compone? | Razonamiento; dos ejecuciones pueden diferir y ambas valer. Output = contenido humano. | `marketing-copy`, `shared-case-study` |
+| **Local** | ¿Hay una respuesta correcta y estricta? | Código determinista, **cero dependencias npm**. Mismo input → mismo output. Datos y decisiones estrictas. Incluye **llamadas a APIs definidas** (endpoint/método/params fijos). | `shared-base64`, `shared-office-writer`, `shared-pdf-reader`, `shared-logger`, skills `runtime: engine-v2` (HTTP) |
+| **Híbrido** | ¿Lo anterior **+ necesita una librería npm externa**? | Local o Prosa apoyado en una librería de terceros para dar mejor resultado. | `shared-docx-rich`, `shared-pdf-toolkit`, `shared-xlsx-rich` |
+
+**Regla en una línea:** *creativo →* **Prosa**; *estricto/determinista (incluida API) →* **Local**; *lo anterior + librería npm →* **Híbrido**.
+
+### 16.1 HTTP/API no es un tipo aparte
+
+Hablar con un sistema remoto es una **capacidad**, no un tipo. Una skill HTTP es **Local** por defecto: la llamada (endpoint, método, params, manejo de errores) es una decisión estricta y determinista — la variabilidad está en la *respuesta* del API, no en el *comportamiento* de la skill. **Asciende a Híbrido** solo cuando necesita una **librería npm** para trabajar datos alrededor de la llamada (firmar requests HMAC/OAuth1, JWT de terceros, formatos exóticos). El módulo `crypto` **nativo** de Node es stdlib → sigue siendo Local; Híbrido es cuando la dependencia viene de npm.
+
+> Recomendado para skills HTTP: externalizar la definición de la API (endpoints/inputs/outputs, estilo OpenAPI) a un fichero aparte en la carpeta de la skill, referenciado desde la prosa. Es el "artefacto Local" (datos estrictos) separado del manual, se copia tal cual en el instalador y mantiene la carpeta autocontenida. *(Migrar el manifest del frontmatter a un JSON aparte es un cambio del engine v2 — ver roadmap, no es gratis.)*
+
+### 16.2 Contrato de las skills Híbridas (obligatorio)
+
+Toda skill Híbrida cumple, **sin excepción**:
+
+1. **La dependencia se obtiene SIEMPRE por el helper único `.aigent/IDE/bin/lib-bootstrap.cjs`.** Nunca se copia un bloque de bootstrap propio en el script. El patrón canónico:
+
+   ```js
+   const path = require('path');
+   const DEP = { name: '<paquete>', version: '<pin-exacto>' };   // versión SIEMPRE fijada
+   function ensureDep(autoInstall) {
+     const boot = path.join(process.cwd(), '.aigent', 'IDE', 'bin', 'lib-bootstrap.cjs');
+     let lib; try { lib = require(boot); }
+     catch (e) { emitError('BOOTSTRAP_NOT_FOUND', '... cwd debe ser la raíz del proyecto'); }
+     return lib.ensureDep(DEP, { autoInstall, skillRef: '<ruta-del-script>' });
+   }
+   // ... const { module: LIB, installed, via } = ensureDep(!args.noInstall);
+   ```
+
+2. **Las librerías viven en `.context/libs/node_modules/`** — caché **compartida** por todas las skills híbridas, basada en `process.cwd()` (la raíz del proyecto donde vive `.context/`). El helper la crea y añade `libs/` a `.context/.gitignore` (las librerías **no se commitean**; se reutilizan en local). Es una **excepción consciente** a output-rules, igual que `.context/.temp/` y el logger (§15). Las librerías son **runtime**, nunca entregables.
+
+3. **El script de la skill NO vive en `libs/`.** Vive en su carpeta (`_shared/skills/<x>/` en el repo, `.claude/skills/<x>/` en deployment) y se ejecuta in situ; solo hace `require()` de la librería por ruta absoluta a la caché. El instalador copia la carpeta de la skill tal cual.
+
+4. **Versión fijada (pin)** en `DEP.version` → reproducibilidad. Subir el pin = editar el script y registrarlo en CHANGELOG. (Aprendido a la mala: una versión publicada puede traer un build CJS roto.)
+
+5. **npm bundled o del sistema:** el helper prefiere el npm que el instalador conserva junto al Node bundled (`.aigent/IDE/bin/deps/node_modules/npm`); si no, el del sistema. El campo `installed_via` (`bundled`/`system`) lo indica. Sin ninguno → `DEP_UNAVAILABLE`.
+
+6. **Códigos de error de dependencia uniformes** (los emite el helper, iguales para todas): `DEP_MISSING` (falta y `--no-install`), `DEP_UNAVAILABLE` (no hay npm), `DEP_INSTALL_FAILED`. El script añade `BOOTSTRAP_NOT_FOUND` si no encuentra el helper.
+
+7. **Precheck `deps`:** toda skill híbrida expone un comando `deps` (`run <skill> deps`) que asegura/instala la dependencia y reporta `installed_now`/`installed_via`. El agente caller lo invoca una vez por sesión antes del primer uso; si `DEP_UNAVAILABLE`, cae a la skill **Local** equivalente (p. ej. `shared-docx-rich` → `shared-office-writer`) o avisa.
+
+8. **Coexistencia con la Local equivalente:** si existe una skill Local que cubre el caso básico sin red ni instalación, la Híbrida **no la sustituye** — se usa solo cuando se necesita romper el techo (imágenes, colores, merges, edición de PDF…). No pagar el coste de una librería si la Local basta.
+
+Cualquier skill híbrida nueva se construye con `shared-skill-scaffold` (modo correspondiente), que genera este contrato. Divergir del helper = bug a corregir en la primera auditoría.

@@ -43,7 +43,7 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | Design | ✅ implementado | completo | 4 / 4 | 6 (v1 prosa) |
 | Operations | 🚧 parcial | completo (Redmine) | 0 / 4 (stubs) | 1 (`operations-redmine`, v2 ejecutable) |
 | DevOps | 🚧 TODO | stub honesto | 0 / 4 (stubs) | 0 |
-| _shared_ | ✅ activo | — | 2 (`shared-prd-agent`, `shared-skill-builder`) | 13 (2 meta + 8 business + 3 utility) |
+| _shared_ | ✅ activo | — | 2 (`shared-prd-agent`, `shared-skill-builder`) | 18 (2 meta + 8 business + 5 utility + 3 híbridas) |
 
 **Stub honesto:** orquestador y agentes existen pero su body indica explícitamente que no deben delegar ni ejecutar, para que un cliente no seleccione un agente vacío. Al activar el dept se sustituyen con `_shared/orchestrator-template.md` y la skill `shared-agent-scaffold`.
 
@@ -89,6 +89,16 @@ Sistema de **departamentos de trabajo basados en agentes IA** para automatizar c
 | `shared-base64` | Bidireccional base64 ↔ fichero: **decode** (base64 de un MCP → fichero real en `.context/.temp/<dept>/`, con verificación de magic bytes PNG/JPG/GIF/WEBP/SVG/PDF/ZIP) y **encode** (fichero → `.b64`, opcional data URI). Script `b64.cjs`. |
 | `shared-http-download` | Descarga de uno o varios ficheros por GET HTTP(S) con resolución segura de nombre, aislamiento de errores por URL y tope de tamaño. Script `download.cjs`. |
 | `shared-office-writer` | Genera `.docx`/`.xlsx` **nuevos** desde un spec JSON, sin dependencias (docx: párrafos, encabezados, negrita, tablas, hipervínculos; xlsx: hojas, número/fecha/fórmulas, ancho, cabecera). Solo escribe, no edita. Script `office.cjs`. |
+| `shared-pdf-reader` | Lee **PDF** sin dependencias: extrae texto, metadatos, nº de páginas, busca términos y diagnostica fuentes. Maneja xref/ObjStm, FlateDecode/LZW, Type0/CID vía ToUnicode o cmap embebida (cubre pliegos PLACSP/iText). Solo lee. Script `pdf.cjs`. |
+| `shared-logger` | Registro de trabajo (debug) por proyecto: traza estructurada en **JSON Lines** (`.context/<proyecto>/logger/session-<ts>.jsonl`) de delegaciones, skills, entregables, imputaciones, subidas y errores; consolida en un `.json` subible. Se adjunta al imputar/subir salvo que se diga lo contrario. Script `logger.cjs`. |
+
+*Híbridas — tipo Híbrido (§16): instalan una librería npm en la caché compartida `.context/libs/` vía el helper `IDE/bin/lib-bootstrap.cjs` (npm bundled-or-system, versión fijada). Rompen el techo de las Local; coexisten con ellas:*
+
+| Skill | Para qué | Librería |
+|---|---|---|
+| `shared-docx-rich` | Word con imágenes embebidas, header/footer + numeración de página, saltos de página, colores/tamaños de fuente, tablas con estilo. Contraparte rica de `shared-office-writer` (docx). Script `docx.cjs`. | `docx` |
+| `shared-xlsx-rich` | Excel con fills de color, celdas combinadas, bordes, paneles congelados, formatos numéricos e imágenes. Contraparte rica de `shared-office-writer` (xlsx). Script `xlsx.cjs`. | `exceljs` |
+| `shared-pdf-toolkit` | Edita/ensambla PDF: **merge** (unir), **split** (extraer páginas), **stamp** (sello/marca de agua). Contraparte escritora de `shared-pdf-reader`. Script `pdf.cjs`. | `pdf-lib` |
 
 ---
 

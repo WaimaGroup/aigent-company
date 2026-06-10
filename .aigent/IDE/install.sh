@@ -788,6 +788,26 @@ ensure_runtime() {
   fi
   cp "$tmp/$bin_in" "$target"
   chmod +x "$target" 2>/dev/null || true
+
+  # Conservar npm del propio tarball de Node (antes se descartaba). Así las skills
+  # híbridas (shared-docx-rich, shared-pdf-toolkit) instalan sus librerías con el
+  # runtime bundled, sin depender de que el usuario tenga npm en el PATH. En el
+  # dist de Node, npm vive en lib/node_modules/npm (unix/mac) o node_modules/npm
+  # (win). Se copia a deps/node_modules/npm (gitignored).
+  local npm_src=""
+  if [ "$os" = "win" ]; then npm_src="$tmp/$pkg/node_modules/npm"; else npm_src="$tmp/$pkg/lib/node_modules/npm"; fi
+  if [ -d "$npm_src" ]; then
+    mkdir -p "$DEPS_DIR/node_modules"
+    rm -rf "$DEPS_DIR/node_modules/npm" 2>/dev/null || true
+    if cp -R "$npm_src" "$DEPS_DIR/node_modules/npm"; then
+      log_ok "npm bundled → ${DEPS_DIR}/node_modules/npm"
+    else
+      log_warn "No se pudo copiar npm; las skills híbridas usarán el npm del sistema."
+    fi
+  else
+    log_warn "npm no encontrado en el paquete ($npm_src); las skills híbridas usarán el npm del sistema."
+  fi
+
   rm -rf "$tmp"
   ensure_runtime_perms
   log_ok "Node ${NODE_VERSION} instalado → ${target} ($("$target" -v 2>/dev/null))"

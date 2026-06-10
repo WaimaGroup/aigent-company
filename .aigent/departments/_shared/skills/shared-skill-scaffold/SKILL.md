@@ -25,18 +25,29 @@ Cuando hay que crear una skill nueva en el repo, sea del tipo que sea. Esta skil
 - Si ya existe un MCP fiable para la herramienta → preferir el MCP.
 - Si la skill necesita ejecutar bash u otra cosa que el engine aún no soporta → 🚧 hoy no disponible (ver `_shared/conventions.md` §13).
 
-## Decidir el modo: v1 o v2
+## Decidir el TIPO (cómo ejecuta) y el MODO (formato del SKILL.md)
 
-Una sola pregunta al usuario si no está claro:
+Dos ejes, no confundir:
 
-> *"¿Esta skill va a hacer llamadas HTTP a una API (v2) o es para que un agente redacte/decida algo (v1)?"*
+**1) Tipo de ejecución** (`conventions.md` §16) — dónde vive el trabajo:
 
-| Pregunta clave | Respuesta → modo |
+| Pregunta | Tipo |
 |---|---|
-| ¿La salida es JSON estructurado de un endpoint? | v2 |
-| ¿La salida es contenido humano (texto, post, brief)? | v1 |
-| ¿Hay que renderizar una request HTTP con templating? | v2 |
-| ¿Hay que decidir tono / priorizar / razonar? | v1 |
+| ¿Hay libertad creativa, el LLM compone? | **Prosa** |
+| ¿Hay una respuesta correcta y estricta? (cálculo, transformación, **o llamada a API definida**) | **Local** |
+| ¿Lo anterior **+ necesita una librería npm externa**? | **Híbrido** |
+
+Regla: *creativo → Prosa; estricto/determinista (incluida API) → Local; + librería npm → Híbrido.* HTTP no es un tipo: es Local por defecto y asciende a Híbrido solo si necesita una librería npm (firmar requests, etc.; `crypto` nativo NO cuenta).
+
+**2) Modo del SKILL.md** — qué plantilla y runtime:
+
+| Pregunta clave | Modo |
+|---|---|
+| ¿La salida es JSON estructurado de un endpoint HTTP vía engine? | v2 (engine-v2) |
+| ¿La salida es contenido humano (texto, post, brief)? | v1 (prosa) |
+| ¿Script determinista propio (cero-deps o con librería)? | v1 + script (utility-skill) |
+
+**Si el tipo es Híbrido (usa librería npm):** es un v1 utility-skill **con script**, y el script DEBE obtener su dependencia por el helper único `.aigent/IDE/bin/lib-bootstrap.cjs` (caché `.context/libs`, versión fijada, npm bundled-or-system). Ver el contrato completo y el patrón canónico en `conventions.md` §16.2. **Nunca** copiar un bloque de bootstrap propio. Referencias vivas: `shared-docx-rich`, `shared-pdf-toolkit`, `shared-xlsx-rich`.
 
 ## Información común a recopilar (ambos modos)
 
