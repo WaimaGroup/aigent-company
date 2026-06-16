@@ -272,7 +272,7 @@ function readinessError(code, message, found, projectName) {
   if (missing_config.length > 0) {
     next.push(
       'Pide al usuario los valores de config faltantes (no son secretos) y aplica con: ' +
-      '.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs configure ' + skill + ' ' +
+      '.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs configure ' + skill + ' ' +
       missing_config.map(c => '--set ' + c.path + '=<valor>').join(' ') +
       ' --scope <global|project>'
     );
@@ -280,7 +280,7 @@ function readinessError(code, message, found, projectName) {
   if (missing_secrets.length > 0) {
     next.push(
       'Asegura placeholders en .context/.secrets.json con: ' +
-      '.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets ' + skill
+      '.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs prepare-secrets ' + skill
     );
     next.push(
       'Indica al usuario qué secretos rellenar a mano (NUNCA pedirlos por chat). ' +
@@ -290,7 +290,7 @@ function readinessError(code, message, found, projectName) {
     );
   }
   next.push(
-    'Verifica readiness con: .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor ' + skill +
+    'Verifica readiness con: .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor ' + skill +
     ' (espera "ready: true" antes de reintentar el run).'
   );
 

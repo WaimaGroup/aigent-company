@@ -7,6 +7,12 @@
 // combinadas (merges), bordes a medida, paneles congelados (freeze), formatos
 // numéricos, imágenes embebidas. Desde un spec JSON.
 //
+// ESTILO DE CASA por defecto (espejo de shared-docx-rich): con `header: true`
+// la primera fila sale sombreada con `theme.primary`, texto blanco en negrita
+// e inmovilizada (freeze); `zebra: true` alterna el relleno de filas; los
+// bordes finos y el ancho de columna automático se aplican sin pedir nada.
+// Todo sobreescribible vía `theme` (mismos nombres de campo que docx).
+//
 // La dependencia se obtiene SIEMPRE por el helper compartido lib-bootstrap.cjs
 // (caché .context/libs, npm bundled-or-system, versión fijada). Ver conventions §16.
 //
@@ -20,6 +26,20 @@ const path = require('path');
 
 const DEP = { name: 'exceljs', version: '4.4.0' };
 const SKILL_REL = '.aigent/departments/_shared/skills/shared-xlsx-rich/xlsx.cjs';
+
+// --- estilo de casa (theme por defecto; sobreescribible vía spec.theme) -----
+// Nombres de campo alineados con shared-docx-rich para coherencia entre skills.
+const THEME = {
+  primary: '1F4E79',     // azul oscuro — relleno de la fila de cabecera
+  secondary: '2E74B5',   // azul medio  — reservado (hipervínculos futuros)
+  text: '262626',        // texto base
+  gray: '595959',        // texto secundario
+  lightGray: 'D9D9D9',   // bordes finos
+  zebra: 'EDF3F9',       // relleno de filas alternas
+  headerText: 'FFFFFF',  // texto de la cabecera
+  font: 'Calibri',
+  baseSize: 11           // pt
+};
 
 // ---------------------------------------------------------------------------
 function emitOk(data) { process.stdout.write(JSON.stringify(Object.assign({ ok: true }, data)) + '\n'); }
@@ -35,6 +55,10 @@ function help() {
     '  run xlsx.cjs build --spec <spec.json> --output <file.xlsx>',
     '  run xlsx.cjs build --stdin --output <file.xlsx>',
     '  run xlsx.cjs deps  [--no-install]',
+    '',
+    'Spec: ver SKILL.md. Aplica estilo de casa por defecto (cabecera sombreada',
+    'e inmovilizada con header:true, zebra opcional, bordes finos y anchos de',
+    'columna automáticos). Sobreescribible vía spec.theme.',
     '',
     'Output: JSON a stdout. Exit 0 si ok, 1 si error.'
   ].join('\n') + '\n');
@@ -85,6 +109,7 @@ function argb(hex) {
 // Construcción del workbook desde el spec (usando exceljs)
 // ---------------------------------------------------------------------------
 function buildWorkbook(E, spec) {
+  const theme = Object.assign({}, THEME, spec.theme || {});
   const wb = new E.Workbook();
   wb.creator = spec.creator || 'Aigent';
   if (spec.title) wb.title = spec.title;
@@ -92,22 +117,63 @@ function buildWorkbook(E, spec) {
   const sheets = spec.sheets || (spec.rows ? [spec] : []);
   if (!sheets.length) emitError('BAD_SPEC', 'El spec necesita `sheets` (o `rows` para una sola hoja).');
 
+  const thinBorder = { style: 'thin', color: { argb: argb(theme.lightGray) } };
+  const baseFont = { name: theme.font, size: Number(theme.baseSize) };
+
   sheets.forEach(function (sh, si) {
-    const opts = {};
-    if (sh.freeze) opts.views = [{ state: 'frozen', xSplit: Number(sh.freeze.cols) || 0, ySplit: Number(sh.freeze.rows) || 0 }];
-    const ws = wb.addWorksheet(sanitizeName(sh.name, si), opts);
+    const hasHeader = !!(sh.header && (sh.rows || []).length);
+    const zebra = !!sh.zebra;
+    const borders = sh.borders !== false;            // por defecto ON
+    const ws = wb.addWorksheet(sanitizeName(sh.name, si));
 
-    if (Array.isArray(sh.columns)) ws.columns = sh.columns.map(function (c) { return { width: Number(c.width) || 12 }; });
+    // freeze: explícito (sh.freeze) o automático de cabecera (header:true)
+    let xSplit = 0, ySplit = 0;
+    if (sh.freeze) { xSplit = Number(sh.freeze.cols) || 0; ySplit = Number(sh.freeze.rows) || 0; }
+    else if (hasHeader) { ySplit = 1; }
+    if (xSplit || ySplit) ws.views = [{ state: 'frozen', xSplit: xSplit, ySplit: ySplit }];
 
-    (sh.rows || []).forEach(function (row, ri) {
+    // anchos explícitos (si vienen); si no, se autoajustan al final
+    if (Array.isArray(sh.columns)) sh.columns.forEach(function (c, ci) {
+      if (c && c.width != null) ws.getColumn(ci + 1).width = Number(c.width);
+    });
+
+    const rows = sh.rows || [];
+    let nCols = 0;
+    rows.forEach(function (row, ri) {
       const cells = Array.isArray(row) ? row : [row];
+      if (cells.length > nCols) nCols = cells.length;
       const r = ws.getRow(ri + 1);
+      const isHead = hasHeader && ri === 0;
+      const zebraRow = zebra && !isHead && ((ri - (hasHeader ? 1 : 0)) % 2 === 1);
       cells.forEach(function (cell, ci) {
         const c = r.getCell(ci + 1);
-        applyCell(c, cell, !!(sh.header && ri === 0));
+        applyCell(c, cell, {
+          theme: theme, baseFont: baseFont, isHead: isHead,
+          zebraFill: zebraRow ? theme.zebra : null,
+          border: borders ? thinBorder : null
+        });
       });
       r.commit && r.commit();
     });
+
+    // autofiltro sobre la fila de cabecera
+    if (hasHeader && nCols > 0) {
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: nCols } };
+    }
+
+    // anchos de columna automáticos (solo donde no se fijó explícito)
+    const explicit = {};
+    if (Array.isArray(sh.columns)) sh.columns.forEach(function (c, ci) { if (c && c.width != null) explicit[ci] = true; });
+    for (let ci = 0; ci < nCols; ci++) {
+      if (explicit[ci]) continue;
+      let max = 0;
+      rows.forEach(function (row) {
+        const cells = Array.isArray(row) ? row : [row];
+        const len = cellTextLength(cells[ci]);
+        if (len > max) max = len;
+      });
+      ws.getColumn(ci + 1).width = Math.min(60, Math.max(9, max + 2));
+    }
 
     (sh.merges || []).forEach(function (m) { try { ws.mergeCells(m); } catch (e) { emitError('BAD_SPEC', 'Merge inválido: ' + m); } });
 
@@ -131,31 +197,54 @@ function sanitizeName(name, idx) {
   return n || ('Hoja' + (idx + 1));
 }
 
-function applyCell(c, cell, headerDefault) {
-  let v = cell;
+function cellTextLength(cell) {
+  if (cell == null) return 0;
+  if (typeof cell === 'object' && !Array.isArray(cell)) {
+    const v = cell.value != null ? cell.value : (cell.formula != null ? '=' + cell.formula : '');
+    return String(v).length;
+  }
+  return String(cell).length;
+}
+
+function applyCell(c, cell, ctx) {
+  const theme = ctx.theme;
   let style = {};
   if (cell && typeof cell === 'object' && !Array.isArray(cell)) {
     if (cell.formula != null) c.value = { formula: String(cell.formula).replace(/^=/, ''), result: cell.value };
-    else if (cell.type === 'date' || (cell.value != null && cell.type === 'date')) c.value = new Date(cell.value);
+    else if (cell.type === 'date') c.value = cell.value != null ? new Date(cell.value) : null;
     else c.value = cell.value != null ? cell.value : null;
     style = cell;
     if (cell.type === 'date' && !cell.numFmt) c.numFmt = 'yyyy-mm-dd';
   } else {
-    c.value = v;
+    c.value = cell;
   }
-  const font = {};
-  if (style.bold || headerDefault) font.bold = true;
+
+  // fuente: base de casa + overrides; cabecera => blanca negrita
+  const font = { name: theme.font, size: Number(theme.baseSize) };
+  if (ctx.isHead) { font.bold = true; font.color = { argb: argb(theme.headerText) }; }
+  if (style.bold) font.bold = true;
   if (style.italic) font.italic = true;
   if (style.color) font.color = { argb: argb(style.color) };
   if (style.size) font.size = Number(style.size);
-  if (Object.keys(font).length) c.font = font;
-  if (style.fill) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(style.fill) } };
+  c.font = font;
+
+  // relleno: cabecera (primary) > fill explícito de celda > zebra de fila
+  let fill = null;
+  if (ctx.isHead) fill = theme.primary;
+  else if (style.fill) fill = style.fill;
+  else if (ctx.zebraFill) fill = ctx.zebraFill;
+  if (fill) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(fill) } };
+
   if (style.numFmt) c.numFmt = String(style.numFmt);
-  if (style.align) c.alignment = { horizontal: style.align };
-  if (style.border) {
-    const b = { style: 'thin' };
-    c.border = { top: b, left: b, bottom: b, right: b };
-  }
+
+  // alineación: vertical centrada por defecto; horizontal explícita o auto
+  const alignment = { vertical: 'middle' };
+  if (style.align) alignment.horizontal = style.align;
+  alignment.wrapText = style.wrap != null ? !!style.wrap : false;
+  c.alignment = alignment;
+
+  // bordes: finos de casa por defecto; `border: true` mantiene compatibilidad
+  if (ctx.border) c.border = { top: ctx.border, left: ctx.border, bottom: ctx.border, right: ctx.border };
 }
 
 // ---------------------------------------------------------------------------

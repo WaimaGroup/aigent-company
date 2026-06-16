@@ -181,7 +181,7 @@ Crear, auditar y configurar skills v1 prosa o v2 ejecutables. Cinco modos: `crea
   ## Antes de ejecutar (precheck para el agente caller)
   Antes de invocar `run`, ejecuta:
   ```bash
-  .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor slack
+  .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor slack
   ```
   Si `data.skills[0].ready === false` → flujo de configuración (delegar en
   `shared-skill-builder configure`).

@@ -47,7 +47,7 @@ Presentar al usuario, aceptar cambios, persistir en `config.json del proyecto �
 
 **0.5.B — MCPs disponibles:** Operations no recomienda MCPs específicos (la integración con Redmine va por skill v2). MCPs transversales del usuario, persistirlos en `config global → mcps`.
 
-**0.5.C — Readiness de la skill:** comprobar `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor operations-redmine`. Si `ready: false`, delegar en `shared-skill-builder` modo `configure`. Secrets nunca por chat.
+**0.5.C — Readiness de la skill:** comprobar `.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor operations-redmine`. Si `ready: false`, delegar en `shared-skill-builder` modo `configure`. Secrets nunca por chat.
 
 ### Ficheros a leer al inicio de cada sesión
 
@@ -105,7 +105,7 @@ Integración HTTP con Redmine, 10 acciones. **Invocación directa por el orquest
 **Patrón de invocación:**
 
 ```bash
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run operations-redmine <action> --inputs '{"...": "..."}'
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run operations-redmine <action> --inputs '{"...": "..."}'
 ```
 
 Antes de la primera `run` en una sesión, precheck con `doctor`. Para `CONFIG_ERROR` / `SECRETS_ERROR`, leer `error.details.next`.

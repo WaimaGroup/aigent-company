@@ -254,10 +254,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ```bash
 # Ver acciones disponibles, sus inputs y sus outputs
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe __SKILL__
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs describe __SKILL__
 
 # Ejecutar una acción
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run __SKILL__ <action> --inputs '{"...": "..."}'
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run __SKILL__ <action> --inputs '{"...": "..."}'
 ```
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.
@@ -687,8 +687,19 @@ node_status() {
     echo -e "  ${BOLD}Sistema (PATH):${NC}      ${RED}✗${NC} no encontrado (o solo alias sin binario ejecutable)"
   fi
 
-  if $bundled_ok;   then echo -e "  ${BOLD}El launcher usaría:${NC}  bundled deps/node"
-  elif $sys_ok;     then echo -e "  ${BOLD}El launcher usaría:${NC}  node del sistema (PATH)"
+  # npm / npx — también SYSTEM-FIRST: sistema (PATH) → bundled (deps/node_modules/npm).
+  local npm_cli="$DEPS_DIR/node_modules/npm/bin/npm-cli.js"
+  local npx_cli="$DEPS_DIR/node_modules/npm/bin/npx-cli.js"
+  if command -v npm >/dev/null 2>&1;   then echo -e "  ${BOLD}npm:${NC}                 ${GREEN}✓${NC} sistema (PATH)"
+  elif [ -f "$npm_cli" ];              then echo -e "  ${BOLD}npm:${NC}                 ${GREEN}✓${NC} bundled (deps/node_modules/npm)"
+  else echo -e "  ${BOLD}npm:${NC}                 ${RED}✗${NC} ni sistema ni bundled"; fi
+  if command -v npx >/dev/null 2>&1;   then echo -e "  ${BOLD}npx:${NC}                 ${GREEN}✓${NC} sistema (PATH)"
+  elif [ -f "$npx_cli" ];              then echo -e "  ${BOLD}npx:${NC}                 ${GREEN}✓${NC} bundled (deps/node_modules/npm)"
+  else echo -e "  ${BOLD}npx:${NC}                 ${RED}✗${NC} ni sistema ni bundled"; fi
+
+  # SYSTEM-FIRST: el launcher prefiere el del sistema y cae al bundled.
+  if $sys_ok;         then echo -e "  ${BOLD}El launcher usaría:${NC}  node del sistema (PATH)"
+  elif $bundled_ok;   then echo -e "  ${BOLD}El launcher usaría:${NC}  bundled deps/node"
   else echo -e "  ${BOLD}El launcher usaría:${NC}  ${RED}nada — instala con --node-install${NC}"; fi
   return 0
 }
@@ -813,6 +824,24 @@ ensure_runtime() {
   log_ok "Node ${NODE_VERSION} instalado → ${target} ($("$target" -v 2>/dev/null))"
 }
 
+# Smoke-test del launcher: comprueba que `run node|npm|npx` resuelven de verdad
+# (system-first → bundled). No aborta la instalación: solo informa. Útil para
+# detectar pronto un bundle sin npm/npx o un PATH roto.
+runtime_smoke_test() {
+  local run="$RUNTIME_DIR/run"
+  [ -x "$run" ] || run="bash $RUNTIME_DIR/run"
+  echo ""; echo -e "  ${BOLD}🚦 Smoke-test del launcher${NC}"; divider
+  local rt out
+  for rt in node npm npx; do
+    if out="$($run "$rt" -v 2>/dev/null)"; then
+      echo -e "  ${BOLD}run ${rt} -v:${NC}  ${GREEN}✓${NC} ${out}"
+    else
+      echo -e "  ${BOLD}run ${rt} -v:${NC}  ${YELLOW}⚠${NC} no resuelve (${rt} no está ni en PATH ni bundled)"
+    fi
+  done
+  return 0
+}
+
 # Submenú interactivo "Runtime (Node)". PERSISTENTE: tras cada acción vuelve a
 # mostrarse, así puedes leer el estado y salir tú con la opción 4 (o q). Dos
 # blindajes imprescindibles bajo `set -e`:
@@ -856,10 +885,21 @@ install_mcp() {
     opencode)
       local src="$SCRIPT_DIR/opencode.json"
       if [ -f "$src" ]; then
-        if [ "$MODE" = "global" ]; then
-          copy_file "$src" "$HOME/.config/opencode" "opencode.json"
+        local oc_dest_dir
+        if [ "$MODE" = "global" ]; then oc_dest_dir="$HOME/.config/opencode"; else oc_dest_dir="$PROJECT_ROOT"; fi
+        local oc_dest="$oc_dest_dir/opencode.json"
+        local merge_script="$SCRIPT_DIR/bin/merge-settings.cjs"
+        local runner="$SCRIPT_DIR/bin/run"
+        # Fusión NO destructiva (no pisar mcp/model/permisos del usuario; añadir
+        # los patrones de permiso que falten, '*' al final). Crea si no existe.
+        if $DRY_RUN; then
+          if [ -f "$oc_dest" ]; then log_dry "fusionar opencode.json en $oc_dest (conservando mcp/model y permisos del usuario)"
+          else log_dry "crear opencode.json en $oc_dest_dir/"; fi
+        elif [ -f "$merge_script" ] && [ -x "$runner" ] && "$runner" "$merge_script" "$src" "$oc_dest" >/dev/null 2>&1; then
+          log_ok "opencode.json instalado/actualizado en $oc_dest (fusión no destructiva; backup .bak si hubo cambios)"
         else
-          copy_file "$src" "$PROJECT_ROOT" "opencode.json"
+          if [ -f "$oc_dest" ]; then log_warn "No se pudo fusionar opencode.json (¿sin Node?). $oc_dest sin tocar."
+          else copy_file "$src" "$oc_dest_dir" "opencode.json"; fi
         fi
       else
         log_warn "opencode.json no encontrado en IDE/"
@@ -890,20 +930,41 @@ install_permissions() {
         dest_dir="$PROJECT_ROOT/.claude"
       fi
       local dest="$dest_dir/settings.local.json"
-      if [ -f "$dest" ]; then
-        if $DRY_RUN; then
-          log_dry "settings.local.json ya existe en $dest_dir/ — no se sobreescribe"
-        else
-          log_info "settings.local.json ya existe en $dest_dir/ — no se sobreescribe (edítalo a mano)"
-        fi
+      local merge_script="$SCRIPT_DIR/bin/merge-settings.cjs"
+      local runner="$SCRIPT_DIR/bin/run"
+      # Fusión NO destructiva: añade las entradas de permiso que falten (p. ej.
+      # Bash(.aigent/IDE/bin/run:*) en instalaciones previas a 4.0.0) conservando
+      # lo que el usuario ya tuviera. Crea el fichero si no existe. Idempotente.
+      if $DRY_RUN; then
+        if [ -f "$dest" ]; then log_dry "fusionar permisos nuevos de la plantilla en $dest (conservando lo existente, backup .bak)"
+        else log_dry "crear settings.local.json en $dest_dir/"; fi
+      elif [ -f "$merge_script" ] && [ -x "$runner" ] && "$runner" "$merge_script" "$src" "$dest" >/dev/null 2>&1; then
+        mkdir -p "$dest_dir" 2>/dev/null || true
+        log_ok "Permisos instalados/actualizados en $dest (fusión no destructiva; backup .bak si hubo cambios)"
       else
-        copy_file "$src" "$dest_dir" "settings.local.json"
+        # Sin Node usable no se puede fusionar: no pisar lo existente.
+        if [ -f "$dest" ]; then log_warn "No se pudo fusionar permisos (¿sin Node?). $dest sin tocar — compáralo a mano con IDE/settings.local.json."
+        else copy_file "$src" "$dest_dir" "settings.local.json"; fi
       fi
       ;;
     opencode)
-      # En opencode los permisos viven en el mismo opencode.json — ya instalado
-      # por install_mcp. Aquí solo recordamos al usuario qué se aplicó.
-      log_info "Permisos opencode embebidos en opencode.json (sección \"permission\")"
+      # En opencode los permisos viven en el mismo opencode.json. Se fusionan de
+      # forma NO destructiva (mismo merge que MCP; idempotente si --mcp ya lo hizo).
+      local src="$SCRIPT_DIR/opencode.json"
+      if [ ! -f "$src" ]; then log_warn "opencode.json no encontrado en IDE/ — saltando permisos opencode"; return; fi
+      local oc_dest_dir
+      if [ "$MODE" = "global" ]; then oc_dest_dir="$HOME/.config/opencode"; else oc_dest_dir="$PROJECT_ROOT"; fi
+      local oc_dest="$oc_dest_dir/opencode.json"
+      local merge_script="$SCRIPT_DIR/bin/merge-settings.cjs"
+      local runner="$SCRIPT_DIR/bin/run"
+      if $DRY_RUN; then
+        log_dry "fusionar permisos en $oc_dest (sección permission.bash, '*' al final; conservando mcp/model)"
+      elif [ -f "$merge_script" ] && [ -x "$runner" ] && "$runner" "$merge_script" "$src" "$oc_dest" >/dev/null 2>&1; then
+        log_ok "Permisos opencode instalados/actualizados en $oc_dest (fusión no destructiva)"
+      else
+        if [ -f "$oc_dest" ]; then log_warn "No se pudo fusionar permisos opencode (¿sin Node?). $oc_dest sin tocar."
+        else copy_file "$src" "$oc_dest_dir" "opencode.json"; fi
+      fi
       ;;
   esac
 }
@@ -1179,6 +1240,7 @@ if [ "$NODE_ACTION" = "status" ]; then
   node_status || true; pause_before_exit; exit 0
 elif [ "$NODE_ACTION" = "install" ]; then
   if $FORCE; then ensure_runtime force || true; else ensure_runtime || true; fi
+  runtime_smoke_test || true
   pause_before_exit; exit 0
 fi
 
@@ -1249,6 +1311,7 @@ fi
 # que las skills y el engine v2 se ejecuten vía IDE/bin/run sin Node del sistema.
 # `|| true`: un fallo de runtime no debe abortar el resto de la instalación.
 ensure_runtime || true
+runtime_smoke_test || true
 
 # 2. MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en --sync
 if ! $SYNC_ONLY; then

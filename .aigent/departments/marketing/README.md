@@ -22,6 +22,7 @@
   - [El plan de una campaña concreta](#el-plan-de-una-campaña-concreta)
   - [Saber qué busca la gente en Google](#saber-qué-busca-la-gente-en-google)
   - [Mejorar una página para que suba en Google](#mejorar-una-página-para-que-suba-en-google)
+  - [Aparecer cuando la gente pregunta a una IA (ChatGPT, Perplexity…)](#aparecer-cuando-la-gente-pregunta-a-una-ia-chatgpt-perplexity)
 - [Web — páginas, landings y WordPress](#web--páginas-landings-y-wordpress)
   - [Una página de aterrizaje que convierte](#una-página-de-aterrizaje-que-convierte)
   - [Una página de servicio en WordPress (Elementor)](#una-página-de-servicio-en-wordpress-elementor)
@@ -47,7 +48,7 @@ No necesitas saber quién hace qué. Tienes tres formas, de la más cómoda a la
 | Especialista | De qué se ocupa |
 |---|---|
 | **Creativo** | Todo lo que se escribe: artículos de blog, emails, anuncios, notas de prensa, y todas las redes sociales. También cuida que la marca "suene" siempre igual. |
-| **Planificación** | La estrategia: planes de marketing, campañas, análisis de la competencia, objetivos, y todo lo de aparecer en Google (SEO). |
+| **Planificación** | La estrategia: planes de marketing, campañas, análisis de la competencia, objetivos, aparecer en Google (SEO) y que te citen los asistentes de IA como ChatGPT o Perplexity (GEO). |
 | **Web** | Páginas web y de aterrizaje (landing pages), WordPress, y dejar las páginas a punto antes de publicar. |
 
 A continuación, ejemplos reales de cada uno.
@@ -166,6 +167,13 @@ Julio: lanzar 4 artículos + campaña... → seguimiento de contactos
 > "El artículo '5 señales de cliente en riesgo' está en la segunda página de Google. Revísalo y dame una versión mejorada."
 
 **Recibes:** el artículo revisado con los cambios concretos para subir en Google (título, encabezados, palabras a reforzar) y la versión ya optimizada lista para reemplazar la actual.
+
+### Aparecer cuando la gente pregunta a una IA (ChatGPT, Perplexity…)
+
+**Le pides:**
+> "Quiero que ChatGPT y Perplexity nos mencionen cuando alguien pregunte por el mejor software de gestión de proyectos para agencias. Revisa nuestro artículo y dime cómo mejorarlo para que la IA nos cite."
+
+**Recibes:** un análisis de "GEO" (optimización para motores de IA): las preguntas que la gente le hace a los asistentes sobre tu tema, quién aparece hoy en esas respuestas, y los cambios concretos para que la IA te cite a ti (respuesta clara y directa arriba, datos con su fuente, autoría visible, etiquetado técnico). Es el primo del SEO, pero para las respuestas de inteligencia artificial en vez de la lista de Google.
 
 > También puede prepararte un **análisis de la competencia**, un **mapa de las personas que deciden** en una cuenta, una **lista de objetivos del equipo (OKR)** o un **cuadro de indicadores (KPIs)**.
 

@@ -68,13 +68,13 @@ Recibes la petición y la clasificas en uno de estos cinco modos. Una sola pregu
 3. Crear la carpeta y escribir `SKILL.md` siguiendo la **plantilla v2** de `shared-skill-scaffold`.
 4. **Validar con el engine** (bucle):
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <name>
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs validate <name>
    ```
    - Si `ok: false` → leer `error.details.errors`, corregir el SKILL.md, re-validar. Repetir hasta `ok: true`.
    - Si `ok: true` con `data.warnings` no vacío → mostrarlos al usuario y proponer corrección si son sustanciales (descripciones faltantes, inputs declarados pero no usados…).
 5. **Dry-run** de cada acción con inputs realistas:
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs dry-run <name> <action> --inputs '{...}'
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs dry-run <name> <action> --inputs '{...}'
    ```
    Comprobar visualmente que `method`, `url`, `headers` y `body` se renderizan correctamente. Los secrets aparecen como `***SECRET:NAME***` (masking real) o `***SECRET:NAME:UNSET***` (placeholder, normal hasta configurar).
 6. **Onboarding automático.** Tras validar y hacer dry-run, encadenar el modo **configure** (ver siguiente sección). Recoge los valores de `config` que falten preguntando al usuario, los escribe en `.context/config.json`, prepara los placeholders de secrets en `.context/.secrets.json` y reporta qué le falta al usuario por rellenar a mano. **No cierres la creación con la skill sin configurar.**
@@ -90,7 +90,7 @@ Se invoca en tres escenarios, todos con el mismo proceso:
 
 1. **Diagnóstico:**
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor <skill>
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor <skill>
    ```
    Lee `data.skills[0]`. Si `ready: true` y `missing_count: 0` → "ya está lista, nada que hacer", reportar y salir.
 2. **Config faltante** (cada entrada con `required: true` y `set: false`):
@@ -98,7 +98,7 @@ Se invoca en tres escenarios, todos con el mismo proceso:
    - Pregunta el **scope** una sola vez al inicio: *"¿Configurar a nivel global (todos los proyectos) o sólo en el proyecto activo?"*. Default: global.
    - Aplica con un único `configure` (puedes encadenar varios `--set`):
      ```bash
-     .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs configure <skill> \
+     .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs configure <skill> \
        --set <path1>=<value1> \
        --set <path2>=<value2> \
        --scope <global|project>
@@ -106,7 +106,7 @@ Se invoca en tres escenarios, todos con el mismo proceso:
    - El engine valida tipos automáticamente. Si rechaza, lee `error.details`, vuelve a preguntar al usuario sólo el campo problemático.
 3. **Secrets faltantes:**
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets <skill>
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
    ```
    Esto garantiza que `.context/.secrets.json` existe (lo crea si falta), que `.context/.gitignore` lo excluye, y que el fichero contiene placeholders para los secrets pendientes. Devuelve `data.pending` con la lista de secrets aún por rellenar.
    - Para cada uno: muestra al usuario el `name`, la `description` (que normalmente incluye dónde generar el token) y el path del fichero a editar.

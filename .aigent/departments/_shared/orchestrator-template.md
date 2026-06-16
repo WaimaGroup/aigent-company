@@ -189,14 +189,14 @@ Cuando coordinas múltiples agentes, **siempre**:
 > Este departamento no tiene skills v2 (ejecutables por engine); todas son v1 prosa. Por eso este orquestador no incluye el bloque de readiness de skills v2. Si en el futuro se añade una skill v2, copiar ese bloque desde `_shared/orchestrator-template.md`.
 > ```
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action>`. **Siempre con el launcher `.aigent/IDE/bin/run`, nunca con `node` a secas** — el runtime no está garantizado en el `PATH` del IDE (ver `_shared/conventions.md` §12.7-bis). Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
+Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run <skill> <action>`. **Siempre con el launcher `.aigent/IDE/bin/run`, nunca con `node` a secas** — el runtime no está garantizado en el `PATH` del IDE (ver `_shared/conventions.md` §12.7-bis). Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
 
 ### Camino principal — precheck proactivo (preferido)
 
 Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
 
 ```bash
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor <skill>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor <skill>
 ```
 
 - Si el output es `data.skills[0].ready: true` → adelante, ejecuta `run` con normalidad.
@@ -257,7 +257,7 @@ Registra la traza de tu trabajo con la utility-skill **`shared-logger`** (script
 1. **Al empezar a atender una petición**, abre una sesión y guarda el `session_id`:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs init \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs init \
      --project <proyecto> --agent "<este-orquestador>" \
      --message "<petición del usuario en una línea>"
    ```
@@ -272,7 +272,7 @@ Registra la traza de tu trabajo con la utility-skill **`shared-logger`** (script
 3. **Al imputar una tarea a un sistema externo o subir un resultado**, registra el evento y **adjunta el log consolidado** junto al resultado, **salvo que el usuario diga lo contrario**:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs export \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs export \
      --project <proyecto> --session <session_id> --end
    ```
 
@@ -294,6 +294,7 @@ Puedes responder tú directamente (sin invocar un sub-agente) cuando:
 - Nunca ejecutes una tarea de alto impacto sin confirmar el plan con el usuario primero.
 - Si detectas que una petición puede afectar a otros departamentos, indicarlo y sugerir coordinación interdepartamental.
 - Si la petición es ambigua, haz **una sola pregunta** a la vez, la más crítica.
+- **Comandos de shell atómicos (convención §17).** Un comando simple por llamada; **sin** `cd "<abs>" && …` (trabaja desde la raíz del proyecto con rutas relativas); evita pipes/redirecciones si una tool nativa basta; invoca skills/scripts **siempre** por `.aigent/IDE/bin/run`, nunca `node` a secas. Motivo: el permiso del IDE casa por prefijo y no auto-aprueba compuestos → un encadenado obliga a aprobar el literal una y otra vez. Transmite esta misma regla en las instrucciones que delegues a los especialistas.
 
 ---
 

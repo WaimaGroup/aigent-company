@@ -75,7 +75,7 @@ $EDITOR .context/config.json
 
 # 2. Secretos: ejecutar prepare-secrets (crea .context/.secrets.json + .context/.gitignore
 #    automáticamente con placeholders para los secrets que la skill declare)
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets <skill>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
 $EDITOR .context/.secrets.json   # rellenar los placeholders <replace_me_*>
 
 # 3. Generar stubs en el IDE
@@ -93,13 +93,13 @@ export REDMINE_API_KEY="..."
 
 ```bash
 # Listar skills cargables (de todos los departamentos con runtime: engine-v2)
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs list
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs list
 
 # Ver el contrato de una skill (acciones, inputs, outputs) — sin leer la fuente
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe operations-redmine
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs describe operations-redmine
 
 # Ejecutar una acción
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run operations-redmine list-issues \
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run operations-redmine list-issues \
   --inputs '{"project_id":"internal-tools","limit":10}'
 ```
 
