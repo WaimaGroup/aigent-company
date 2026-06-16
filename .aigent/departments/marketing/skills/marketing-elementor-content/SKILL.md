@@ -584,7 +584,7 @@ Ruta exacta de la carpeta del entregable, instrucciones de publicación (MCP o m
 **No basta con `JSON.parse`.** La skill incluye un validador específico de Elementor (`scripts/validate-elementor-data.cjs`, Node 18+, sin dependencias) que comprueba la estructura completa antes de declarar el JSON listo. Es **obligatorio** ejecutarlo sobre cada `_elementor_data.json` generado:
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.cjs \
+.aigent/IDE/bin/run node .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.cjs \
   <proyecto>/marketing/posts/<slug>/_elementor_data.json
 ```
 
@@ -897,7 +897,7 @@ Aplica la convención universal `_shared/output-rules.md → "Archivos temporale
 
 ## Checklist de calidad
 
-- [ ] `.aigent/IDE/bin/run .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.cjs <path>` devuelve `ok: true` (exit 0). Cualquier error reportado se ha corregido en el JSON antes de seguir.
+- [ ] `.aigent/IDE/bin/run node .aigent/departments/marketing/skills/marketing-elementor-content/scripts/validate-elementor-data.cjs <path>` devuelve `ok: true` (exit 0). Cualquier error reportado se ha corregido en el JSON antes de seguir.
 - [ ] `style.elementor` en el config del proyecto existe (o se descubrió y persistió en este proceso).
 - [ ] No hay hex hardcodeados donde el site tiene tokens globales.
 - [ ] Todos los `plugin_required_fields` de `style.elementor` están en cada widget/sección.

@@ -43,7 +43,7 @@ Conflicto entre un dept implementado y los archivos de `_shared/` → ganan los 
 | Crear o auditar una **skill** | Agente `shared-skill-builder` (usa la skill `skill-scaffold`). Modos: `create-v1`, `create-v2`, `configure`, `audit`, `add-action`. |
 | Crear o modificar un **orquestador** | Copiar `_shared/orchestrator-template.md`, rellenar marcas `<...>`, listar agentes reales del dept y reflejar la estructura de outputs en la sección final. |
 | Cambiar **convenciones** del repo | Editar `_shared/conventions.md` (NO replicar la decisión en system prompts de agentes). |
-| Validar una skill v2 | `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <skill>` → corregir hasta `ok: true`. Después `dry-run <action>` con inputs realistas. |
+| Validar una skill v2 | `.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs validate <skill>` → corregir hasta `ok: true`. Después `dry-run <action>` con inputs realistas. |
 | Activar un departamento TODO | Sustituir orquestador stub usando `orchestrator-template.md` + sustituir agentes stub usando `agent-scaffold` modo `create-specialist`. **Cuestionar si los 4 agentes stub son realmente necesarios o si parte de su trabajo es mejor una skill.** |
 
 ## Reglas de oro (este repo, no las de BOSS)
@@ -98,14 +98,14 @@ CLAUDE.md (este archivo)                 ← system prompt para mantener el fram
 ## Engine v2 — comandos útiles
 
 ```bash
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs list                          # skills v2 cargables
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe <skill>              # manifest JSON (acciones, inputs, outputs)
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <skill>              # parsea y valida sin ejecutar
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor [<skill>]              # config + secrets pendientes
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project]
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets <skill>       # placeholders en .context/.secrets.json (NUNCA valores)
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs dry-run <skill> <action> --inputs '{...}'
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action> --inputs '{...}'
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs list                          # skills v2 cargables
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs describe <skill>              # manifest JSON (acciones, inputs, outputs)
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs validate <skill>              # parsea y valida sin ejecutar
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor [<skill>]              # config + secrets pendientes
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project]
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs prepare-secrets <skill>       # placeholders en .context/.secrets.json (NUNCA valores)
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs dry-run <skill> <action> --inputs '{...}'
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run <skill> <action> --inputs '{...}'
 ```
 
 Errores estructurales del engine: `BAD_ARGS`, `PARSE_ERROR`, `INVALID_INPUTS`, `CONFIG_ERROR`, `SECRETS_ERROR`, `INVALID_BODY_JSON`, `HTTP_<status>`, `TIMEOUT`, `NETWORK_ERROR`, `UNSUPPORTED_IMPL`, `VALIDATION_FAILED`.
@@ -120,17 +120,18 @@ Dos reglas de oro al usar (o construir) skills v2:
 
 **Red de seguridad reactiva.** Si por descuido se llamó a `run` sin precheck y devuelve `CONFIG_ERROR` / `SECRETS_ERROR`, el engine entrega `error.details` enriquecido con `missing_config`, `missing_secrets`, `secrets_file`, `next` (lista de comandos exactos a ejecutar) y `rule` (recordatorio de la regla 2). El agente lee `details.next` y ejecuta los comandos en orden. La fuente del flujo está en `_shared/orchestrator-template.md` → "Manejo de skills v2 — readiness".
 
-## Runtime: launcher `IDE/bin/run` (desde 4.0.0) — nunca `node` a secas
+## Runtime: launcher/multiplexor `IDE/bin/run` (desde 4.0.0; multiplexor desde 4.5.0) — nunca `node`/`npm`/`npx` a secas
 
-Los IDEs (Claude Code, OpenCode) se distribuyen como binarios nativos con runtime embebido **no expuesto en `PATH`**, así que `node` no está garantizado. Por eso **toda** invocación de scripts (engine v2 y skills v1 con `.cjs`/`.mjs`) va por el launcher:
+Los IDEs (Claude Code, OpenCode) se distribuyen como binarios nativos con runtime embebido **no expuesto en `PATH`**, así que `node`/`npm`/`npx` no están garantizados. Por eso **toda** invocación de runtime (engine v2, skills v1 con `.cjs`/`.mjs`, e instalación de libs npm) va por el launcher, que es el **único resolutor**:
 
 ```
-.aigent/IDE/bin/run <script> [args...]
+.aigent/IDE/bin/run [node|npm|npx] <args...>
 ```
 
-El launcher resuelve dinámicamente: Node bundled en `.aigent/IDE/bin/deps/node[.exe]` (lo descarga el instalador, versión LTS fijada, gitignored) → fallback a `node` del sistema → suelo Node ≥ 20 → error claro. Reglas al construir:
+El 1er arg `node|npm|npx` selecciona runtime; si no es ninguno (p. ej. un `.cjs`), se asume **node** (retrocompat con `run <script> [args...]`, no hay que reescribir nada). Resolución **SYSTEM-FIRST** e idéntica para los tres: del sistema en `PATH` si cumple (Node ≥ 20) → si no, bundled en `.aigent/IDE/bin/deps/` (`node[.exe]` + `deps/node_modules/npm/bin/{npm,npx}-cli.js`, conservados del tarball) → si nada, **error tipado** `RUNTIME_UNAVAILABLE` (JSON a stdout + `[ERROR …]` a stderr, igual en `run` y `run.cmd`). Reglas al construir:
 
-- **Nunca escribir `node …` en un SKILL.md, agente, orquestador o doc.** Siempre `.aigent/IDE/bin/run …`. Contrato en `_shared/conventions.md` §12.7-bis.
+- **Nunca escribir `node`/`npm`/`npx` … a secas en un SKILL.md, agente, orquestador o doc.** Siempre `.aigent/IDE/bin/run …`. Contrato en `_shared/conventions.md` §12.7-bis.
+- `lib-bootstrap.cjs` (instalación de libs en proceso) espeja el algoritmo system-first del launcher pero resuelve npm directamente (sin shell-out a `run`) para no romper en Windows con rutas con espacios.
 - El binario Node **no se commitea** (`IDE/bin/.gitignore`). La versión fijada vive en **`IDE/bin/deps/.node-version`** (única fuente de verdad, la leen ambos instaladores). Para subirla: editar ese fichero y registrar en CHANGELOG — no se toca código de los instaladores.
 - Inspección/instalación aislada: `install.sh --node-status` / `--node-install [--force]` (y `-NodeStatus` / `-NodeInstall [-Force]` en ps1), o el menú interactivo → **Runtime (Node)**.
 

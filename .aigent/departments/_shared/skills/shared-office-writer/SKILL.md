@@ -137,7 +137,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 2. **Invocar `office.cjs`** desde la raíz del repo:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-office-writer/office.cjs docx \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-office-writer/office.cjs docx \
      --spec .context/.temp/<dept>/<purpose>-<TS>.json \
      --output <ruta-de-outputs-del-depto>/<nombre>.docx
    ```
@@ -152,7 +152,7 @@ El script es **parte del contrato**. La prosa describe lo que hace; si diverge, 
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-office-writer/office.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-office-writer/office.cjs <command> [opciones]
 
 command:
   docx                     construye un .docx desde un spec JSON.

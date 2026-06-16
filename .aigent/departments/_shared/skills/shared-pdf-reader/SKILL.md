@@ -80,13 +80,13 @@ El comando `fonts` permite diagnosticar de antemano si un PDF es recuperable (ve
 Todo se invoca con el launcher del repo (nunca `node` a secas — convención §12.7-bis):
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs <command> [opciones]
 ```
 
 ### `text` — extraer texto
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs text \
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs text \
   --input <ruta.pdf> [--pages <spec>] [--max-pages N] [--by-page] [--out <f.txt>] [--raw]
 ```
 
@@ -104,7 +104,7 @@ Todo se invoca con el launcher del repo (nunca `node` a secas — convención §
 ### `meta` — metadatos + nº de páginas
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs meta --input <ruta.pdf>
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs meta --input <ruta.pdf>
 ```
 
 ```json
@@ -117,7 +117,7 @@ Si el PDF está cifrado, `info` es `null` y se añade `note` (los strings del In
 ### `count` — solo nº de páginas
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs count --input <ruta.pdf>
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs count --input <ruta.pdf>
 ```
 
 ```json
@@ -127,7 +127,7 @@ Si el PDF está cifrado, `info` es `null` y se añade `note` (los strings del In
 ### `search` — buscar un término
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs search \
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs search \
   --input <ruta.pdf> --query <texto> [--pages <spec>] [--ignore-case] [--context N]
 ```
 
@@ -145,7 +145,7 @@ Si el PDF está cifrado, `info` es `null` y se añade `note` (los strings del In
 Útil cuando `text` devuelve `NO_TEXT` o sale vacío: dice **por qué** y si el texto es recuperable.
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs fonts --input <ruta.pdf> [--pages <spec>]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs fonts --input <ruta.pdf> [--pages <spec>]
 ```
 
 ```json
@@ -171,7 +171,7 @@ Cómo leerlo:
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-reader/pdf.cjs <command> [opciones]
 
 command:
   text     extrae texto (por página o unido).

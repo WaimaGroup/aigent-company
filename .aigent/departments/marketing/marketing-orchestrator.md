@@ -117,8 +117,9 @@ El PRD vive en `.context/<proyecto>/marketing/prd.md`. Si no existe, delegar su 
 **Cuándo delegarle:**
 - Planes de marketing, briefings de campaña, análisis de mercado/competencia, posicionamiento, lanzamientos, KPIs/OKRs, funnels.
 - SEO: keyword research, optimización on-page, auditorías SEO, interpretación de Analytics / Search Console.
+- GEO (Generative Engine Optimization): citabilidad en motores de IA (ChatGPT, Perplexity, Google AI Overviews, Gemini, Claude) — mapa de prompts, auditoría de citabilidad, schema, señales de entidad.
 
-**Señales:** "estrategia", "plan", "campaña", "briefing", "lanzamiento", "análisis", "DAFO", "KPIs", "funnel", "presupuesto de marketing", "SEO", "keywords", "palabras clave", "Google", "tráfico orgánico", "meta title", "auditoría", "Analytics", "Search Console".
+**Señales:** "estrategia", "plan", "campaña", "briefing", "lanzamiento", "análisis", "DAFO", "KPIs", "funnel", "presupuesto de marketing", "SEO", "keywords", "palabras clave", "Google", "tráfico orgánico", "meta title", "auditoría", "Analytics", "Search Console", "GEO", "ChatGPT", "Perplexity", "AI Overviews", "IA generativa", "que la IA me cite", "aparecer en respuestas de IA".
 
 ### `marketing-web` — Web & WordPress
 **Cuándo delegarle:**
@@ -153,7 +154,7 @@ AMBIGUA   → la petición no es clara → clarificar primero (una sola pregunta
 **Compuesta — lanzamiento de producto:**
   1. `marketing-planning` → briefing de campaña + plan del trimestre (skill `marketing-strategy`).
   2. `marketing-creative` → post pilar, email al base de leads y copies de redes (skills `marketing-copy`, `marketing-social`).
-  3. `marketing-planning` → keyword research + optimización on-page del post (skill `marketing-seo`).
+  3. `marketing-planning` → keyword research + optimización on-page del post (skill `marketing-seo`); si se busca aparecer en respuestas de IA, auditoría de citabilidad (skill `marketing-geo`).
   4. `marketing-web` → landing de la feature (skill `marketing-landing-page` / `marketing-elementor-content`).
   → Presentas el plan al usuario antes de ejecutar y confirmas el orden.
 
@@ -169,6 +170,7 @@ AMBIGUA   → la petición no es clara → clarificar primero (una sola pregunta
 | "Instagram", "LinkedIn", "TikTok", "redes", "calendario", "hashtags", "carrusel", "voz de marca" | `marketing-creative` |
 | "estrategia", "plan", "campaña", "briefing", "lanzamiento", "DAFO", "KPIs", "funnel" | `marketing-planning` |
 | "SEO", "keywords", "Google", "orgánico", "posicionamiento", "Analytics", "Search Console", "meta" | `marketing-planning` |
+| "GEO", "IA generativa", "ChatGPT", "Perplexity", "AI Overviews", "Gemini", "que me cite la IA", "aparecer en respuestas de IA" | `marketing-planning` |
 | "web", "WordPress", "página", "landing", "home", "Elementor", "CRO" | `marketing-web` |
 | Combinación de los anteriores | Coordinar múltiples agentes |
 
@@ -191,14 +193,14 @@ Marketing no tiene skills v2 (ejecutables por engine); todas sus skills son v1 p
 
 ## Manejo de skills v2 — readiness (precheck proactivo + red de seguridad reactiva)
 
-Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
+Las skills v2 (con `runtime: engine-v2`) se ejecutan vía `.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run <skill> <action>`. Antes de ejecutarse, una skill v2 puede no estar lista en este entorno por dos motivos: falta config en `.context/config.json` (`CONFIG_ERROR`) o falta algún secreto en env var / `.context/.secrets.json` (`SECRETS_ERROR`). Ambos son **estados conocidos**, no fallos del agente, y se gestionan con el mismo flujo.
 
 ### Camino principal — precheck proactivo (preferido)
 
 Antes de delegar una acción de una skill v2, o antes de invocar `engine.cjs run` directamente, **ejecuta primero el precheck**:
 
 ```bash
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor <skill>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor <skill>
 ```
 
 - Si el output es `data.skills[0].ready: true` → adelante, ejecuta `run` con normalidad.

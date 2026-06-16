@@ -100,7 +100,7 @@ Cada línea del `.jsonl` es un objeto JSON. Campos fijos: `ts` (ISO 8601), `sess
 2. **Abrir sesión** una vez al empezar:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs init \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs init \
      --project <proyecto> --agent <orquestador-o-agente> \
      --message "Inicio de sesión: <petición del usuario en una línea>"
    ```
@@ -110,7 +110,7 @@ Cada línea del `.jsonl` es un objeto JSON. Campos fijos: `ts` (ISO 8601), `sess
 3. **Registrar cada paso relevante:**
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs log \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs log \
      --project <proyecto> --session <session_id> \
      --type delegation --agent <orquestador> --action delegate \
      --skill marketing-copy --task MKT-007 \
@@ -118,7 +118,7 @@ Cada línea del `.jsonl` es un objeto JSON. Campos fijos: `ts` (ISO 8601), `sess
    ```
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs log \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs log \
      --project <proyecto> --session <session_id> \
      --type deliverable --action write --status ok \
      --deliverable "website/marketing/posts/post-x.md" \
@@ -128,13 +128,13 @@ Cada línea del `.jsonl` es un objeto JSON. Campos fijos: `ts` (ISO 8601), `sess
 4. **Al imputar una tarea o subir un resultado**, registra el evento y consolida:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs log \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs log \
      --project <proyecto> --session <session_id> \
      --type upload --target drive --action upload --status ok \
      --deliverable "website/marketing/posts/post-x.docx" \
      --message "Subido a la carpeta Drive del cliente"
 
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs export \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs export \
      --project <proyecto> --session <session_id> --end
    ```
 
@@ -147,7 +147,7 @@ Cada línea del `.jsonl` es un objeto JSON. Campos fijos: `ts` (ISO 8601), `sess
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs <comando> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs <comando> [opciones]
 
 comando:
   init      inicia sesión (evento session_start). Devuelve session_id.

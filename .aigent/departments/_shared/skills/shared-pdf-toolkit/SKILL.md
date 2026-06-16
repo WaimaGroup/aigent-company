@@ -69,7 +69,7 @@ El script es **parte del contrato**. Si la prosa diverge del script, gana el scr
 Una vez por sesión, antes del primer comando real:
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-toolkit/pdf.cjs deps
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-toolkit/pdf.cjs deps
 ```
 
 - `ok: true` → librería lista (`installed_now` indica si se instaló ahora).
@@ -82,7 +82,7 @@ Una vez por sesión, antes del primer comando real:
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-pdf-toolkit/pdf.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-pdf-toolkit/pdf.cjs <command> [opciones]
 
 merge   --files a.pdf,b.pdf,c.pdf  --output out.pdf
         une los ficheros en orden. Mínimo 2.

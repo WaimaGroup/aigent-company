@@ -500,48 +500,71 @@ El agente lee `details.next` y sigue los comandos en orden. Para los secretos pe
 
 ### 12.7-bis Runtime: el launcher `IDE/bin/run` (regla dura)
 
-**Ninguna skill ni el engine v2 se invoca jamás con `node` a secas.** Siempre a través del launcher:
+**Ningún runtime de Node (`node`, `npm`, `npx`) se invoca jamás a secas.** Siempre a través del launcher, que es el **multiplexor y único resolutor** de runtime:
 
 ```
-.aigent/IDE/bin/run <script.cjs|.mjs> [args...]
+.aigent/IDE/bin/run [node|npm|npx] <args...>
 ```
 
-**Por qué.** Claude Code y OpenCode se distribuyen como binarios nativos que embeben su propio runtime (Bun) — ese runtime NO se expone en el `PATH`, así que no hay garantía de que el usuario tenga `node` ejecutable. El launcher elimina esa dependencia del entorno.
+- Si el **1er argumento** es exactamente `node`, `npm` o `npx`, ese es el runtime y el resto se le reenvía tal cual.
+- Si **no** lo es (p. ej. un `script.cjs`), se asume **`node`** → retrocompatibilidad: `run <script.cjs>` sigue funcionando. Pero **la práctica obligatoria al construir o documentar es la forma explícita `run node <script>`** — no dependas del default. Que algo funcione sin `node` es una red de seguridad, no el estilo a usar.
 
-**Qué hace el launcher** (resolución dinámica en cada ejecución, sin reinstalar al cambiar de runtime):
+```
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs validate <skill>   # node (forma recomendada)
+.aigent/IDE/bin/run npm  install <lib>@<pin> --prefix .context/libs       # npm
+.aigent/IDE/bin/run npx  <paquete> <args>                                 # npx
+.aigent/IDE/bin/run mi-script.cjs --flag                                  # retrocompat (sin runtime = node); evítalo en doc/scaffolding
+```
 
-1. Usa el Node **bundled** que el instalador descarga a `.aigent/IDE/bin/deps/node` (Unix/mac) o `.aigent/IDE/bin/deps/node.exe` (Windows).
-2. Si no está, cae al `node` del sistema en `PATH`.
-3. Suelo de versión **Node ≥ 20**; si nada cumple, error claro pidiendo reinstalar.
+**Por qué.** Claude Code y OpenCode se distribuyen como binarios nativos que embeben su propio runtime (Bun) — ese runtime NO se expone en el `PATH`, así que no hay garantía de que el usuario tenga `node`/`npm`/`npx` ejecutables. El launcher elimina esa dependencia del entorno y centraliza la resolución en un solo sitio.
+
+**Qué hace el launcher** (resolución dinámica en cada ejecución, **SYSTEM-FIRST**, igual para los tres runtimes):
+
+1. Usa el del **sistema** en `PATH`, si existe y cumple requisitos (**Node ≥ 20**).
+2. Si no, cae al **bundled** que el instalador descargó en `.aigent/IDE/bin/deps/` — `node[.exe]` y, para npm/npx, `deps/node_modules/npm/bin/{npm,npx}-cli.js` (conservados del propio tarball de Node).
+3. Si nada sirve, **error tipado** (ver abajo).
+
+> **Nota:** el orden es system-first a propósito (respeta el entorno del usuario y evita arrastrar un runtime extra cuando ya hay uno válido). El caso "IDE sin Node en PATH" sigue cubierto por el bundle (paso 2).
+
+**Contrato de errores del launcher** (idéntico en `run` y `run.cmd`, para que el caller/IA lo parsee de forma fiable):
+
+```
+stdout: {"ok":false,"error":{"code":"RUNTIME_UNAVAILABLE","runtime":"npm","message":"..."}}
+stderr: [ERROR RUNTIME_UNAVAILABLE] (npm) <mensaje>
+exit:   1
+```
+
+Cuando el runtime **sí** resuelve, el launcher hace `exec`/passthrough y **no** envuelve la salida ni el exit code del programa — el error tipado es exclusivamente del propio launcher (no encontró runtime). Para errores de instalación de dependencias, el contrato vive en `lib-bootstrap.cjs` (§16, códigos `DEP_*`).
 
 **Piezas (en `IDE/bin/`):**
 
-- `run` — launcher bash (lo usan los dos IDEs, cuyo shell de herramienta es bash; en Windows vía Git-Bash).
-- `run.cmd` — cortesía para shells PowerShell/cmd nativos.
+- `run` — launcher/multiplexor bash (lo usan los dos IDEs, cuyo shell de herramienta es bash; en Windows vía Git-Bash).
+- `run.cmd` — cortesía para shells PowerShell/cmd nativos; misma lógica y mismos códigos de error.
 - `deps/.node-version` — **única fuente de verdad** de la versión fijada (la leen ambos instaladores; convención compatible con nvm/fnm). Sí va en git.
 - `deps/node[.exe]` — el binario descargado. **Nunca va en git** (`IDE/bin/.gitignore`).
+- `deps/node_modules/npm/` — npm + npx conservados del tarball por el instalador. **Nunca va en git**.
 
 **Inspección/instalación del runtime:** `install.sh --node-status` / `install.ps1 -NodeStatus` reporta qué Node hay (sistema + bundled + pin) y qué resolvería el launcher; `--node-install` / `-NodeInstall` (con `--force` / `-Force` para re-descargar) lo instala de forma aislada. También vía el menú interactivo → opción **Runtime (Node)**. La instalación completa además asegura el runtime automáticamente (idempotente por versión).
 
-**Al crear o auditar una skill v1 con script** (`.cjs`/`.mjs`): toda invocación documentada en su `SKILL.md` debe empezar por `.aigent/IDE/bin/run`, nunca por `node`. El instalador no reescribe nada en runtime — el contrato vive en el texto de la skill.
+**Al crear o auditar una skill v1 con script** (`.cjs`/`.mjs`): toda invocación documentada en su `SKILL.md` debe empezar por `.aigent/IDE/bin/run node` (forma explícita), nunca por `node`/`npm`/`npx` a secas ni confiando en el default sin `node`. El instalador no reescribe nada en runtime — el contrato vive en el texto de la skill.
 
 ### 12.8 CLI del engine
 
 ```
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs list
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs list
   → lista skills cargables (todos los departments con runtime: engine-v2)
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe <skill>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs describe <skill>
   → manifiesto en JSON (acciones, inputs, outputs), sin prosa
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <skill>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs validate <skill>
   → parsea, valida y reporta errores SIN ejecutar nada (uso: CI, skill-builder)
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor [<skill>]
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor [<skill>]
   → reporta estado de configuración: qué config + secrets faltan por rellenar
   → sin <skill> = reporta todas las skills v2
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs configure <skill> --set <path>=<valor> [--scope global|project] [--project <name>]
   → escribe valores en .context/config.json (global, default) o .context/<proyecto>/config.json (--scope project)
   → para --scope project: el agente decide qué proyecto pasar con --project <name>. Si solo hay 1 proyecto
     en .context/ se autodetecta. La mayoría de skills se configuran en global; los overrides por proyecto
@@ -549,21 +572,21 @@ El agente lee `details.next` y sigue los comandos en orden. Para los secretos pe
   → valida que <path> está declarado en manifest.config y aplica el type del manifest
   → admite múltiples --set en la misma llamada (atómico: todos o ninguno)
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs prepare-secrets <skill>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs prepare-secrets <skill>
   → garantiza que .context/.secrets.json existe (lo crea como {} si falta)
   → garantiza que .context/.gitignore existe con .secrets.json dentro
   → añade placeholders para secrets declarados que no estén set
   → devuelve la lista de secrets pendientes; el usuario los rellena a mano
   → NUNCA acepta valores de secret por CLI (los secrets no pasan por la conversación)
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs dry-run <skill> <action> [--inputs '{...}'] [--project <name>]
   → para mergear con .context/<proyecto>/config.json hace falta --project (o autodetección si hay 1)
   → si hay >1 proyecto y no se pasa --project, devuelve NO_PROJECT_SPECIFIED con la lista
   → renderiza la request HTTP sin llamarla. Devuelve { method, url, headers, body }
   → secrets cargados se enmascaran como ***SECRET:NAME***
   → secrets/config no configurados aparecen como ***SECRET:NAME:UNSET***
 
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill> <action> [--inputs '{...}']
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run <skill> <action> [--inputs '{...}']
   → ejecuta la acción y devuelve { ok, data, meta }
 ```
 
@@ -743,7 +766,7 @@ Toda skill Híbrida cumple, **sin excepción**:
 
 4. **Versión fijada (pin)** en `DEP.version` → reproducibilidad. Subir el pin = editar el script y registrarlo en CHANGELOG. (Aprendido a la mala: una versión publicada puede traer un build CJS roto.)
 
-5. **npm bundled o del sistema:** el helper prefiere el npm que el instalador conserva junto al Node bundled (`.aigent/IDE/bin/deps/node_modules/npm`); si no, el del sistema. El campo `installed_via` (`bundled`/`system`) lo indica. Sin ninguno → `DEP_UNAVAILABLE`.
+5. **npm del sistema o bundled (system-first):** el helper prefiere el npm del **sistema** (PATH); si no hay, el que el instalador conserva junto al Node bundled (`.aigent/IDE/bin/deps/node_modules/npm`). Mismo orden que el launcher `run` (§12.7-bis). El campo `installed_via` (`system`/`bundled`) lo indica. Sin ninguno → `DEP_UNAVAILABLE`. El helper resuelve npm **en proceso** (`execFileSync` directo, sin shell) espejando el algoritmo del launcher; no hace shell-out a `run` para evitar la fragilidad de lanzar un `.cmd` con rutas con espacios en Windows.
 
 6. **Códigos de error de dependencia uniformes** (los emite el helper, iguales para todas): `DEP_MISSING` (falta y `--no-install`), `DEP_UNAVAILABLE` (no hay npm), `DEP_INSTALL_FAILED`. El script añade `BOOTSTRAP_NOT_FOUND` si no encuentra el helper.
 
@@ -752,3 +775,50 @@ Toda skill Híbrida cumple, **sin excepción**:
 8. **Coexistencia con la Local equivalente:** si existe una skill Local que cubre el caso básico sin red ni instalación, la Híbrida **no la sustituye** — se usa solo cuando se necesita romper el techo (imágenes, colores, merges, edición de PDF…). No pagar el coste de una librería si la Local basta.
 
 Cualquier skill híbrida nueva se construye con `shared-skill-scaffold` (modo correspondiente), que genera este contrato. Divergir del helper = bug a corregir en la primera auditoría.
+
+---
+
+## 17. Comandos de shell: atómicos, no compuestos
+
+Regla dura para **todo agente, orquestador y BOSS** que ejecute comandos de shell (Bash/PowerShell). Su objetivo es que los comandos casen con las reglas de permiso del IDE (que matchean por **prefijo de comando**) y no generen fricción de aprobaciones.
+
+**Reglas:**
+
+1. **Un comando simple por llamada.** Nada de encadenar con `&&`, `;` o `||`. Si necesitas dos cosas, dos llamadas.
+2. **Trabaja desde la raíz del proyecto** (donde viven `.aigent/` y `.context/`) y usa **rutas relativas**. **No** antepongas `cd "<ruta-absoluta>" && …`. Si una operación necesita otra carpeta, pásala como **argumento** del comando (p. ej. `ls .context/.temp/sales`), no con un `cd` previo.
+3. **Evita pipes y redirecciones** (`| sed`, `| head`, `2>/dev/null`) cuando un solo comando o las **tools de lectura nativas** del IDE bastan. Para leer un fichero, usa la tool de lectura, no `cat … | sed -n`.
+4. **Skills y scripts siempre por el launcher** `.aigent/IDE/bin/run …` (prefijo estable y allow-eable), nunca `node …` a secas (§12.7-bis).
+
+**Por qué (para que el agente lo entienda, no solo lo obedezca):**
+
+- El permiso del IDE casa por **prefijo** (`Bash(ls:*)`, `Bash(.aigent/IDE/bin/run:*)`). Un comando atómico matchea su regla y se auto-aprueba; un **compuesto no se descompone** y, por seguridad, **no se auto-aprueba** aunque cada verbo esté permitido (un encadenado podría colar algo) → el IDE pide aprobar el **literal completo**, y cada variación vuelve a preguntar.
+- La herramienta Bash es **sin estado** (no recuerda el cwd entre llamadas). Por eso el agente tiende a anteponer `cd`; trabajar desde la raíz como cwd elimina esa necesidad.
+
+**Excepción:** un pipe corto e inevitable es tolerable si no hay equivalente atómico ni tool nativa (raro). La norma es atómico por defecto.
+
+---
+
+## 18. Composición de documentos: `spec-kit` + composición de dominio
+
+Las skills híbridas de documentos (`shared-docx-rich`, `shared-xlsx-rich`) son **renderers genéricos**: reciben un *spec JSON* y lo dibujan con el estilo de casa. **No** llevan lógica de dominio. La pregunta "¿quién construye el spec?" se resuelve en **dos capas**:
+
+**Capa 1 — `spec-kit` (común, determinista, tipo Local).** Módulo único `.aigent/IDE/bin/spec-kit.cjs` con **ladrillos** que emiten fragmentos del spec ya con el estilo de casa: `docx.doc/h1/h2/p/runs/table/kpis/image/pageBreak/section`, `xlsx.book/sheet/cell/money/pct/date/formula`. Es el **vocabulario común** de cualquier informe (lo que NO cambia entre dominios). Se obtiene por ruta estable, igual que el helper de bootstrap:
+
+```js
+const path = require('path');
+const { docx, xlsx } = require(path.join(process.cwd(), '.aigent', 'IDE', 'bin', 'spec-kit.cjs'));
+const spec = docx.doc({ title:'Informe', footer:{ pageNumbers:true } }, [
+  docx.h1('Resumen'), docx.p('…'),
+  docx.kpis([{ label:'Presupuesto', value:'120.000 €' }]),
+  docx.table(['Criterio','Peso'], [['Precio','40%']]),
+]);
+// → escribir spec a .json y pasarlo a docx.cjs build --spec …
+```
+
+Los ladrillos emiten **exactamente** el spec que aceptan `docx.cjs`/`xlsx.cjs` hoy. Si esas skills amplían su schema, se añaden ladrillos aquí — nunca lógica de un caso concreto.
+
+**Capa 2 — composición de dominio (lo que cambia: licitaciones ≠ marketing).** Solo decide *qué ladrillos y con qué datos*. Vive:
+- **en prosa** (el agente compone llamando a los ladrillos) por defecto — máxima flexibilidad; o
+- **en un builder por dominio** (`<dept>/skills/<x>/build.cjs` que `require` el spec-kit) **solo si** ese informe se repite igual muchas veces y conviene cristalizarlo (determinista, reusable).
+
+Regla: el **render** es de la skill; el **vocabulario** es del spec-kit; la **composición** es del dominio (prosa o builder). Nunca meter dominio en la skill ni en el spec-kit.

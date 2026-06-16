@@ -200,10 +200,10 @@ el manifest exacto de acciones, inputs y outputs (formato JSON, ~100 tokens).
 
 ``````bash
 # Ver acciones disponibles, sus inputs y sus outputs
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs describe $skillName
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs describe $skillName
 
 # Ejecutar una acción
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run $skillName <action> --inputs '{"...": "..."}'
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run $skillName <action> --inputs '{"...": "..."}'
 ``````
 
 **Output del engine:** JSON a stdout, errores estructurados a stderr.
@@ -558,9 +558,33 @@ function Get-NodeStatus {
     Write-Host "  Sistema (PATH):       X no encontrado" -ForegroundColor Red
   }
 
-  if ($bundledOk)  { Write-Host "  El launcher usaria:   bundled deps/node.exe" }
-  elseif ($sysOk)  { Write-Host "  El launcher usaria:   node del sistema (PATH)" }
+  # npm / npx — SYSTEM-FIRST: sistema (PATH) -> bundled (deps\node_modules\npm).
+  $npmCli = Join-Path $DepsDir "node_modules\npm\bin\npm-cli.js"
+  $npxCli = Join-Path $DepsDir "node_modules\npm\bin\npx-cli.js"
+  if (Get-Command npm -ErrorAction SilentlyContinue) { Write-Host "  npm:                  OK sistema (PATH)" -ForegroundColor Green }
+  elseif (Test-Path $npmCli) { Write-Host "  npm:                  OK bundled (deps\node_modules\npm)" -ForegroundColor Green }
+  else { Write-Host "  npm:                  X ni sistema ni bundled" -ForegroundColor Red }
+  if (Get-Command npx -ErrorAction SilentlyContinue) { Write-Host "  npx:                  OK sistema (PATH)" -ForegroundColor Green }
+  elseif (Test-Path $npxCli) { Write-Host "  npx:                  OK bundled (deps\node_modules\npm)" -ForegroundColor Green }
+  else { Write-Host "  npx:                  X ni sistema ni bundled" -ForegroundColor Red }
+
+  # SYSTEM-FIRST: el launcher prefiere el del sistema y cae al bundled.
+  if ($sysOk)        { Write-Host "  El launcher usaria:   node del sistema (PATH)" }
+  elseif ($bundledOk){ Write-Host "  El launcher usaria:   bundled deps/node.exe" }
   else { Write-Host "  El launcher usaria:   nada — instala con -NodeInstall" -ForegroundColor Red }
+}
+
+# Smoke-test del launcher: comprueba que run.cmd node|npm|npx resuelven (no aborta).
+function Invoke-RuntimeSmokeTest {
+  $run = Join-Path $RuntimeDir "run.cmd"
+  Write-Host ""
+  Write-Host "  🚦 Smoke-test del launcher" -ForegroundColor White
+  Divider
+  foreach ($rt in @("node","npm","npx")) {
+    $out = (& $run $rt -v 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $out) { Write-Host "  run $rt -v:  OK $out" -ForegroundColor Green }
+    else { Write-Host "  run $rt -v:  ! no resuelve ($rt no esta ni en PATH ni bundled)" -ForegroundColor Yellow }
+  }
 }
 
 # Descarga el binario Node de nodejs.org a IDE\bin\deps\node.exe. Idempotente por
@@ -685,8 +709,23 @@ function Install-McpConfig($ideName, $configDir) {
     }
     "opencode" {
       $src = Join-Path $ScriptDir "opencode.json"
-      if (Test-Path $src) { Copy-AgentFile $src $configDir "opencode.json" }
-      else { Log-Warn "IDE\opencode.json not found" }
+      if (-not (Test-Path $src)) { Log-Warn "IDE\opencode.json not found"; return }
+      $ocDest = Join-Path $configDir "opencode.json"
+      $mergeScript = Join-Path $ScriptDir "bin\merge-settings.cjs"
+      $nodeBin = Join-Path $DepsDir "node.exe"
+      if (-not (Test-Path $nodeBin)) { $nodeBin = (Get-Command node -ErrorAction SilentlyContinue).Source }
+      # Fusion NO destructiva: no pisar mcp/model/permisos del usuario; anadir los
+      # patrones de permiso que falten ('*' al final). Crea si no existe.
+      if ($DryRun) {
+        if (Test-Path $ocDest) { Log-Dry "fusionar opencode.json en $ocDest (conservando mcp/model y permisos)" }
+        else { Log-Dry "crear opencode.json en $configDir" }
+      } elseif ((Test-Path $mergeScript) -and $nodeBin) {
+        try { & $nodeBin $mergeScript $src $ocDest | Out-Null; Log-Ok "opencode.json instalado/actualizado en $ocDest (fusion no destructiva)" }
+        catch { if (Test-Path $ocDest) { Log-Warn "No se pudo fusionar opencode.json. $ocDest sin tocar." } else { Copy-AgentFile $src $configDir "opencode.json" } }
+      } else {
+        if (Test-Path $ocDest) { Log-Warn "Sin Node para fusionar opencode.json. $ocDest sin tocar." }
+        else { Copy-AgentFile $src $configDir "opencode.json" }
+      }
     }
   }
 }
@@ -706,14 +745,47 @@ function Install-Permissions($ideName, $configDir) {
         return
       }
       $dest = Join-Path $configDir "settings.local.json"
-      if (Test-Path $dest) {
-        Log-Info "settings.local.json ya existe en $configDir — no se sobreescribe (edítalo a mano)"
+      $mergeScript = Join-Path $ScriptDir "bin\merge-settings.cjs"
+      # Resolver Node: bundled (deps\node.exe) o del sistema.
+      $nodeBin = Join-Path $DepsDir "node.exe"
+      if (-not (Test-Path $nodeBin)) { $nodeBin = (Get-Command node -ErrorAction SilentlyContinue).Source }
+      # Fusion NO destructiva: anade las entradas de permiso que falten (p. ej.
+      # Bash(.aigent/IDE/bin/run:*) en instalaciones previas a 4.0.0) conservando
+      # lo que el usuario ya tuviera. Crea el fichero si no existe. Idempotente.
+      if ($DryRun) {
+        if (Test-Path $dest) { Log-Dry "fusionar permisos nuevos de la plantilla en $dest (conservando lo existente, backup .bak)" }
+        else { Log-Dry "crear settings.local.json en $configDir\" }
+      } elseif ((Test-Path $mergeScript) -and $nodeBin) {
+        try {
+          & $nodeBin $mergeScript $src $dest | Out-Null
+          Log-Ok "Permisos instalados/actualizados en $dest (fusion no destructiva; backup .bak si hubo cambios)"
+        } catch {
+          if (Test-Path $dest) { Log-Warn "No se pudo fusionar permisos. $dest sin tocar - comparalo con IDE\settings.local.json." }
+          else { Copy-AgentFile $src $configDir "settings.local.json" }
+        }
       } else {
-        Copy-AgentFile $src $configDir "settings.local.json"
+        if (Test-Path $dest) { Log-Warn "Sin Node para fusionar permisos. $dest sin tocar - comparalo con IDE\settings.local.json." }
+        else { Copy-AgentFile $src $configDir "settings.local.json" }
       }
     }
     "opencode" {
-      Log-Info "Permisos opencode embebidos en opencode.json (sección `"permission`")"
+      # Permisos opencode viven en opencode.json. Fusion NO destructiva (idempotente
+      # si -Mcp ya lo hizo): anade patrones que falten, '*' al final, conserva mcp/model.
+      $src = Join-Path $ScriptDir "opencode.json"
+      if (-not (Test-Path $src)) { Log-Warn "IDE\opencode.json no encontrado - saltando permisos opencode"; return }
+      $ocDest = Join-Path $configDir "opencode.json"
+      $mergeScript = Join-Path $ScriptDir "bin\merge-settings.cjs"
+      $nodeBin = Join-Path $DepsDir "node.exe"
+      if (-not (Test-Path $nodeBin)) { $nodeBin = (Get-Command node -ErrorAction SilentlyContinue).Source }
+      if ($DryRun) {
+        Log-Dry "fusionar permisos en $ocDest (permission.bash, '*' al final; conservando mcp/model)"
+      } elseif ((Test-Path $mergeScript) -and $nodeBin) {
+        try { & $nodeBin $mergeScript $src $ocDest | Out-Null; Log-Ok "Permisos opencode instalados/actualizados en $ocDest (fusion no destructiva)" }
+        catch { if (Test-Path $ocDest) { Log-Warn "No se pudo fusionar permisos opencode. $ocDest sin tocar." } else { Copy-AgentFile $src $configDir "opencode.json" } }
+      } else {
+        if (Test-Path $ocDest) { Log-Warn "Sin Node para fusionar permisos opencode. $ocDest sin tocar." }
+        else { Copy-AgentFile $src $configDir "opencode.json" }
+      }
     }
   }
 }
@@ -1140,6 +1212,7 @@ if ($NodeStatus) {
 }
 if ($NodeInstall) {
   try { if ($Force) { Ensure-Runtime -ForceDl } else { Ensure-Runtime } } catch { Log-Error $_.Exception.Message }
+  try { Invoke-RuntimeSmokeTest } catch { Log-Error $_.Exception.Message }
   Pause-BeforeExit; exit 0
 }
 
@@ -1205,6 +1278,7 @@ if ($Clean) {
 # Runtime Node bundled — siempre (idempotente por versión). Necesario para que
 # las skills y el engine v2 se ejecuten vía IDE/bin/run sin Node del sistema.
 Ensure-Runtime
+try { Invoke-RuntimeSmokeTest } catch { Log-Error $_.Exception.Message }
 
 # MCP templates, BOSS bootstrap, permisos y scaffold de secretos — saltados en -Sync
 if (-not $Sync) {

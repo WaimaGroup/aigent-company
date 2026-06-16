@@ -7,7 +7,11 @@ description: >
   Use it when a Word deliverable needs formatting that `shared-office-writer`
   cannot do: **embedded images** (logo, screenshots, charts as PNG/JPG),
   **page headers and footers with page numbering**, page breaks, font colors
-  and sizes, and styled tables — all from a JSON spec. This is a HYBRID skill:
+  and sizes, **styled tables** (shaded header row, zebra striping, column
+  widths, per-cell alignment/fill), **landscape sections** for wide tables,
+  real Word bullets, paragraph spacing, and a built-in **house style** (legible
+  typography, colored headings, themed hyperlinks) applied by default and
+  overridable via `theme` — all from a JSON spec. This is a HYBRID skill:
   it installs the `docx` package on first use into a shared, gitignored cache
   (`.context/libs/`) and reuses it; it is NOT zero-dependency and needs `npm`
   available once to bootstrap (bundled or system). **Trigger whenever an agent must
@@ -38,6 +42,8 @@ shared-docx-rich/
 ```
 
 El script es **parte del contrato**. La prosa describe lo que hace; si diverge, gana el script y se ajusta la prosa.
+
+**Principio de diseño:** el script es **genérico y bonito por defecto**. Genérico: solo primitivas neutras de documento (heading, paragraph, table, image, sections) — nada de lógica de dominio (no sabe qué es una propuesta, un informe de licitaciones o un contrato; esa composición vive en el spec que emite el caller). Bonito por defecto: todo documento sale con el estilo de casa (tipografía legible, interlineado, headings con color, tablas con cabecera sombreada y bordes finos, pie con paginación) sin que el spec pida nada; `theme` permite desviarse cuando haga falta. Ampliar la skill = añadir primitivas genéricas, nunca plantillas de un caso concreto.
 
 ---
 
@@ -75,7 +81,7 @@ A diferencia de las utility-skills con script cero-dependencias (`shared-office-
 1. **Comprobar la dependencia** una vez por sesión antes del primer `build`:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-docx-rich/docx.cjs deps
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-docx-rich/docx.cjs deps
    ```
 
    - `ok: true, installed_now: true` → se instaló ahora (primer uso). Siguientes llamadas: `false`.
@@ -93,33 +99,49 @@ A diferencia de las utility-skills con script cero-dependencias (`shared-office-
 {
   "title": "Título (core property)",
   "creator": "Aigent",
+  "theme": { "primary": "1F4E79", "secondary": "2E74B5", "baseSize": 11 },
   "header": { "image": { "path": "ruta/logo.png", "format": "png", "width": 70, "height": 35 }, "align": "right", "text": "Membrete opcional" },
   "footer": { "text": "Confidencial", "pageNumbers": true, "align": "center" },
+  "sections": [
+    { "body": [ "…bloques…" ] },
+    { "orientation": "landscape", "body": [ "…tabla ancha…" ] }
+  ],
   "body": [
     { "type": "heading", "level": 1, "text": "Título de sección" },
-    { "type": "paragraph", "text": "Párrafo simple.", "align": "justify" },
+    { "type": "paragraph", "text": "Párrafo simple.", "align": "justify", "spacing": { "before": 6, "after": 10 } },
+    { "type": "paragraph", "bullet": true, "runs": [ { "text": "ítem de lista" } ] },
     { "type": "paragraph", "runs": [
       { "text": "normal " },
       { "text": "rojo grande", "bold": true, "color": "C00000", "size": 16 },
       { "text": " y un " },
-      { "text": "enlace", "link": "https://ejemplo.com", "underline": true }
+      { "text": "enlace", "link": "https://ejemplo.com" }
     ]},
     { "type": "image", "path": "ruta/figura.png", "format": "png", "width": 360, "height": 200, "align": "center" },
-    { "type": "table", "header": true, "rows": [ ["Col A","Col B"], ["a1","b1"] ] },
+    { "type": "table", "header": true, "zebra": true, "widths": [2, 5, 1.5],
+      "rows": [ ["Col A","Col B","Col C"], ["a1", { "align": "right", "runs": [{ "text": "1.234 €" }] }, "c1"] ] },
     { "type": "pagebreak" }
   ]
 }
 ```
 
+> `sections` y `body` son alternativos: `body` = atajo de una única sección vertical. `sections[]` permite varias secciones, cada una con su `orientation` (`portrait` por defecto | `landscape` — útil para tablas anchas). `header`/`footer` aplican a todas las secciones.
+
+**Estilo de casa (`theme`, opcional):** el documento sale SIEMPRE con un estilo legible por defecto — Calibri 11 pt, interlineado 1,25, espacio tras párrafo, `Heading1` (Calibri Light, color `primary`, regla inferior), `Heading2`/`Heading3` en `secondary`/texto, hipervínculos en `secondary`, header/footer en gris pequeño con regla. Sobreescribible campo a campo: `{ primary, secondary, text, gray, lightGray, zebra, font, headingFont, baseSize (pt), lineSpacing (240=sencillo), paragraphAfter (twips) }`.
+
 **Bloques de `body`:**
 
-- `heading` — `level` 1-6 (estilos `Heading1`..`Heading6`).
-- `paragraph` — `text` (atajo, con `bold`/`italic`/`underline`/`color`/`size` a nivel de párrafo) **o** `runs` (control por fragmento). `align`: `left|right|center|justify`.
+- `heading` — `level` 1-6 (estilos `Heading1`..`Heading6`, con el estilo de casa). Acepta `text` o `runs`, y `pageBreakBefore: true`.
+- `paragraph` — `text` (atajo, con `bold`/`italic`/`underline`/`color`/`size` a nivel de párrafo) **o** `runs` (control por fragmento). `align`: `left|right|center|justify`. `spacing`: `{ before?, after? }` en **puntos**. `bullet`: `true` o nivel (0,1,…) para viñetas reales de Word. `pageBreakBefore: true` para empezar página.
 - `image` — `path` (relativo al cwd) **o** `data` (base64). `format`: `png|jpg|gif|bmp` (si falta, se infiere de la extensión). `width`/`height` en px. `align`.
-- `table` — `rows` (matriz). Celda = string, objeto run, o array de runs. `header: true` marca la primera fila como cabecera.
+- `table` — `rows` (matriz). Celda = string, objeto run, array de runs, **o** `{ runs|text, align?, fill? (hex) }` para alinear/sombrear esa celda. Opciones de tabla:
+  - `header: true` — primera fila como cabecera: sombreado `theme.primary` (o `headerFill`) con texto blanco en negrita y repetición en cada página.
+  - `zebra: true` — filas alternas sombreadas con `theme.zebra`.
+  - `firstColumnShaded: true` — primera columna sombreada con etiqueta en negrita color `primary` (estilo "ficha de datos" etiqueta/valor).
+  - `widths: [..]` — pesos relativos por columna (se convierten a anchos reales según la orientación de la sección).
+  - Siempre: bordes finos `lightGray`, márgenes internos de celda y centrado vertical.
 - `pagebreak` — salto de página. También se puede usar string suelto = párrafo.
 
-**Runs** (`paragraph.runs[]` y celdas): `{ "text", "bold"?, "italic"?, "underline"?, "color"? (hex sin #), "size"? (pt), "link"? (URL → hipervínculo externo) }`.
+**Runs** (`paragraph.runs[]` y celdas): `{ "text", "bold"?, "italic"?, "underline"?, "color"? (hex sin #), "size"? (pt), "link"? (URL → hipervínculo externo, azul subrayado por defecto) }`.
 
 **Imágenes en `header`/`footer`:** mismo objeto `image` que en el cuerpo. `footer.pageNumbers: true` añade "Página X de Y".
 
@@ -128,7 +150,7 @@ A diferencia de las utility-skills con script cero-dependencias (`shared-office-
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-docx-rich/docx.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-docx-rich/docx.cjs <command> [opciones]
 
 command:
   build                    construye un .docx desde un spec JSON.
@@ -165,7 +187,7 @@ opciones:
 | `BAD_ARGS` | Comando o argumentos faltantes/mal formados, o argumento desconocido. |
 | `SPEC_NOT_FOUND` | El path de `--spec` no existe. |
 | `BAD_SPEC_JSON` | El spec no es JSON válido. |
-| `BAD_SPEC` | JSON válido pero no cumple el formato (sin `body`, tipo de bloque/imagen no soportado). |
+| `BAD_SPEC` | JSON válido pero no cumple el formato (sin `body` ni `sections`, tipo de bloque/imagen no soportado). |
 | `IMAGE_NOT_FOUND` | Un bloque `image` con `path` apunta a un fichero inexistente. |
 | `DEP_MISSING` | La dependencia no está y `--no-install` impide instalarla. |
 | `DEP_UNAVAILABLE` | `npm` no disponible en el entorno; no se puede bootstrappear. |

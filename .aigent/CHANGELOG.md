@@ -4,6 +4,94 @@ Todas las versiones notables del sistema Aigent se documentan aquí.
 Formato: `## X.Y.Z — YYYY-MM-DD` seguido de cambios por departamento.
 
 ---
+## 4.5.0 — 2026-06-16
+
+### Runtime — el launcher `IDE/bin/run` pasa a multiplexor `node|npm|npx` (system-first)
+
+`run` / `run.cmd` dejan de resolver solo `node` y se convierten en el **único resolutor** de los tres runtimes de Node. Así las skills híbridas y cualquier futura necesidad de `npx` no dependen de que el usuario tenga esas herramientas en el `PATH`: el bundle de Node ya trae npm y npx.
+
+**Por qué MINOR:** nueva capacidad del launcher + nueva regla de convención. **Retrocompatible**: `run <script.cjs>` sigue funcionando (default → node), no hay que reescribir ninguna invocación existente.
+
+**1. `run` / `run.cmd` — multiplexor.** Sintaxis `run [node|npm|npx] <args...>`. Si el 1er arg es `node`/`npm`/`npx` selecciona runtime; si no (p. ej. un `.cjs`), se asume `node`.
+
+**2. Resolución SYSTEM-FIRST (cambio de orden).** Antes el launcher era bundled-first para node; ahora los tres runtimes resuelven **sistema (PATH, Node ≥ 20) → bundled** (`deps/node[.exe]` + `deps/node_modules/npm/bin/{npm,npx}-cli.js`, conservados del tarball por el instalador). El caso "IDE sin Node en PATH" sigue cubierto por el bundle.
+
+**3. Contrato de errores tipados del launcher.** Cuando ningún runtime resuelve: JSON a stdout `{"ok":false,"error":{"code":"RUNTIME_UNAVAILABLE","runtime":"<rt>","message":"..."}}` + línea `[ERROR RUNTIME_UNAVAILABLE] (<rt>) <msg>` a stderr + exit 1. **Idéntico en `run` y `run.cmd`** para que el caller/IA lo parsee. Cuando el runtime sí resuelve, passthrough sin envolver salida/exit del programa.
+
+**4. `lib-bootstrap.cjs` alineado a system-first.** `resolveNpm()` pasa a preferir el npm del sistema y luego el bundled (mismo orden que `run`). Mantiene `execFileSync` directo (sin shell-out a `run`) a propósito: lanzar un `.cmd` con rutas con espacios desde Node es frágil en Windows. Códigos `DEP_*` sin cambios.
+
+**5. Instaladores — `--node-status` reporta npm/npx + smoke-test del launcher.** `node_status` / `Get-NodeStatus` ahora reportan también **npm** y **npx** (sistema → bundled) y corrigen el orden mostrado a **system-first** (antes anunciaban "el launcher usaría: bundled", incoherente con el nuevo `run`). Nueva función `runtime_smoke_test` / `Invoke-RuntimeSmokeTest`: tras asegurar el runtime ejecuta `run node|npm|npx -v` y reporta ✓/⚠ sin abortar la instalación. Se invoca en la instalación completa y en `--node-install` / `-NodeInstall`.
+
+**6. Reescritura a la forma explícita `run node <script>` (norma, no excepción).** Aunque `run <script.cjs>` sigue funcionando por retrocompatibilidad, **la práctica obligatoria** al construir o documentar pasa a ser `run node <script>`. Reescritas todas las invocaciones del repo (engine v2 y scripts `.cjs` de skills): 30+ ocurrencias en plantillas de stub de ambos instaladores, cadenas de ayuda de `engine.cjs`, hint de `lib-bootstrap.cjs`, las skills v1 con script (`shared-base64`, `shared-base64-to-file`, `shared-http-download`, `shared-office-writer`, `shared-logger`, `shared-pdf-reader`, `shared-pdf-toolkit`, `shared-docx-rich`, `shared-xlsx-rich`, `sales-tender-search`, `marketing-elementor-content`), `operations-redmine`, scaffolds (`shared-skill-scaffold`, `shared-skill-builder`), orquestadores (marketing, operations, `orchestrator-template`) y la prosa (`conventions.md` §12.7-bis/§12.8, `CLAUDE.md`, READMEs). Convención dura en §12.7-bis: el default sin `node` queda como red de seguridad, no como estilo.
+
+**Archivos editados:** `.aigent/IDE/bin/run`, `.aigent/IDE/bin/run.cmd`, `.aigent/IDE/bin/lib-bootstrap.cjs`, `.aigent/IDE/install.sh`, `.aigent/IDE/install.ps1`, `.aigent/v2/engine/engine.cjs`, `.aigent/v2/README.md`, `.aigent/README.md`, `.aigent/departments/_shared/conventions.md` (§12.7-bis, §12.8, §16.5), `.aigent/departments/_shared/orchestrator-template.md`, `.aigent/departments/_shared/README.md`, `.aigent/departments/_shared/agents/shared-skill-builder.md`, `.aigent/departments/_shared/skills/{shared-skill-scaffold,shared-base64,shared-base64-to-file,shared-http-download,shared-office-writer,shared-logger,shared-pdf-reader,shared-pdf-toolkit,shared-docx-rich,shared-xlsx-rich}/`, `.aigent/departments/marketing/{marketing-orchestrator.md,skills/marketing-elementor-content/SKILL.md}`, `.aigent/departments/operations/{operations-orchestrator.md,skills/operations-redmine/SKILL.md}`, `.aigent/departments/sales/skills/sales-tender-search/SKILL.md`, `CLAUDE.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 4.4.1 — 2026-06-15
+
+### Marketing — `marketing-geo` entrega siempre el JSON-LD
+
+Refinamiento del modo `audit` de `marketing-geo`: el schema deja de ser una "recomendación de tipo" y pasa a entregarse **siempre** como bloque JSON-LD listo para pegar.
+
+**Por qué PATCH:** ajuste del comportamiento de output de una skill v1 ya existente; no cambia contrato ni añade regla transversal.
+
+- El modo `audit` genera siempre el `<script type="application/ld+json">` completo, con campos rellenos a partir del contenido real (no placeholders), para los tipos que apliquen (`Organization`/`LocalBusiness`, `FAQPage`, `Article`, `Product`/`SoftwareApplication`, `HowTo`).
+- Aviso obligatorio de **no duplicar** con el schema que ya emite el plugin SEO (Yoast/RankMath) + vía de inserción en WordPress/Elementor (generador del plugin, Elementor Pro → Custom Code o WPCode).
+- Reflejado en `## Restricciones` de la skill y en la fila de `.aigent/README.md`.
+
+**Archivos editados:** `.aigent/departments/marketing/skills/marketing-geo/SKILL.md`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 4.4.0 — 2026-06-15
+
+### Marketing — GEO (Generative Engine Optimization)
+
+Marketing gana cobertura de **GEO**: optimizar contenido para que los motores generativos (ChatGPT, Perplexity, Google AI Overviews, Gemini, Claude) lo **citen o recomienden** al responder, no solo para posicionar en la SERP.
+
+**Por qué MINOR:** nueva skill v1 de departamento + ampliación de capacidad de un agente existente. No rompe contratos ni convenciones.
+
+**1. Nueva skill `marketing-geo` (v1 prosa).** `.aigent/departments/marketing/skills/marketing-geo/SKILL.md`. Dos modos: `research` (mapa de prompts conversacionales + ángulos citables + señales de entidad) y `audit` (auditoría de citabilidad de una página + versión optimizada: respuesta extraíble, densidad factual con fuente, E-E-A-T, schema, consistencia de entidad). Default de un solo `.md`, salida en `seo/`. La consume `marketing-planning`.
+
+**2. `marketing-seo` — señales GEO ligeras en `on-page`.** El checklist on-page incorpora señales GEO básicas (respuesta auto-contenida arriba, encabezados como preguntas, datos con fuente, autoría/fecha) y deriva a `marketing-geo` para el análisis profundo. Cross-reference recíproco en "Cuándo NO usar" de ambas skills para evitar solapamiento/drift.
+
+**3. Cableado en agente y orquestador.** `marketing-planning` lista `marketing-geo` en `## Skills disponibles`, amplía su `description` y añade el bloque "Apoyo GEO". `marketing-orchestrator` añade señales de delegación GEO (ChatGPT, Perplexity, AI Overviews, "que me cite la IA"…), fila en la tabla de decisión rápida y mención en el ejemplo compuesto de lanzamiento.
+
+**Archivos nuevos:** `.aigent/departments/marketing/skills/marketing-geo/SKILL.md`.
+**Archivos editados:** `.aigent/departments/marketing/skills/marketing-seo/SKILL.md`, `.aigent/departments/marketing/agents/marketing-planning.md`, `.aigent/departments/marketing/marketing-orchestrator.md`, `.aigent/departments/marketing/README.md`, `.aigent/README.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
+## 4.3.0 — 2026-06-11
+
+### Detección de dependencias robusta en `lib-bootstrap` + regla de comandos atómicos
+
+Dos correcciones de raíz a partir del uso real en deployments.
+
+**Por qué MINOR:** endurecimiento de una capacidad existente (bootstrap híbrido) + nueva **regla obligatoria** de comportamiento (comandos atómicos, §17) cableada en BOSS, conventions y orchestrator-template. No rompe contratos.
+
+**1. `lib-bootstrap.cjs` — detección de la librería robusta (antes frágil).** El check era `fs.existsSync(modPath)`, que daba por buena cualquier carpeta presente. Ahora `ensureDep`:
+- Verifica **package.json + versión == pin + que el módulo carga** (`tryRequire`), no solo que la carpeta exista.
+- Si la caché tiene una **versión distinta al pin**, está **parcial/incompleta** o **no carga** → (re)instala el pin (antes una versión vieja cacheada se reutilizaba para siempre, ignorando el pin).
+- **Verifica el resultado tras instalar** (versión correcta + cargable) → un build roto (p. ej. el histórico `docx@9.1.0`) da `DEP_INSTALL_FAILED` limpio en vez de reventar al hacer `require`.
+- Probado: caché con versión vieja → se actualiza al pin; carpeta sin `package.json` → reinstala.
+
+**2. Regla de comandos atómicos (conventions §17, nueva).** Los permisos del IDE casan por **prefijo de comando** y, por seguridad, **no auto-aprueban comandos compuestos** aunque cada verbo esté permitido → un `cd "<abs>" && … | …` obliga a aprobar el literal completo una y otra vez (fricción infinita de permisos en deployments). La regla:
+- Un comando simple por llamada (sin `&&`/`;`/`||`).
+- Trabajar desde la **raíz del proyecto** con rutas relativas; **no** `cd "<abs>" &&` (la herramienta Bash es sin estado → de ahí la tentación del `cd`).
+- Evitar pipes/redirecciones cuando una tool nativa basta.
+- Skills/scripts **siempre** por `.aigent/IDE/bin/run` (prefijo estable allow-eable), nunca `node` a secas (§12.7-bis).
+- Cableada en **`BOSS.md`** (regla de oro, desde el arranque del deployment), **`conventions.md` §17** (fuente de verdad) y **`orchestrator-template.md`** (Restricciones → los orquestadores la heredan y la transmiten a los especialistas).
+
+**3. Instalador — fusión NO destructiva de permisos, en LOS DOS IDEs.** Antes, si el fichero ya existía, el instalador lo **saltaba** (Claude) o lo **sobrescribía** (OpenCode) → los deployments previos no recibían entradas nuevas (p. ej. `Bash(.aigent/IDE/bin/run:*)`, ausente en instalaciones pre-4.0.0, que disparaba un prompt en cada invocación del launcher) o perdían sus customizaciones. Ahora `install.sh` / `install.ps1` invocan un nuevo `IDE/bin/merge-settings.cjs` **format-aware** que fusiona de forma no destructiva, crea si falta, hace `.bak` y es idempotente; sin Node, no toca lo existente (fallback seguro):
+- **Claude** (`.claude/settings.local.json`): **unión** de `permissions.allow/ask/deny`, conservando las entradas del usuario y `defaultMode`.
+- **OpenCode** (`opencode.json`): añade los patrones de `permission.bash` que falten conservando los del usuario y su valor, mantiene el catch-all `"*"` **el último**, fija `permission.edit/webfetch` si faltan, y **no toca** `mcp`/`model`/`$schema`.
+- Probado en ambos formatos: creación, fusión preservando entradas custom (`mcp`/`model`/patrones propios), `"*"` al final, e idempotencia.
+
+**4. `spec-kit` — capa de composición de documentos (conventions §18, nuevo).** Las skills híbridas de documentos son renderers genéricos; faltaba el "quién construye el spec". Nuevo módulo único `.aigent/IDE/bin/spec-kit.cjs` con **ladrillos** deterministas (tipo Local) que emiten fragmentos del spec con el estilo de casa: `docx.{doc,h1..h3,p,runs,table,kpis,image,section,pageBreak}` y `xlsx.{book,sheet,cell,money,pct,date,formula}`. El dominio (licitaciones ≠ marketing) solo decide qué ladrillos y con qué datos — en prosa o en un builder por dominio que `require` el kit. Emite exactamente el spec que aceptan `docx.cjs`/`xlsx.cjs`; probado end-to-end (informe docx con KPIs/tabla/links + libro xlsx con money/date/pct/fórmula, verificado con python-docx/openpyxl).
+
+**Archivos nuevos:** `.aigent/IDE/bin/merge-settings.cjs`, `.aigent/IDE/bin/spec-kit.cjs`.
+**Archivos editados:** `.aigent/IDE/bin/lib-bootstrap.cjs`, `.aigent/IDE/install.sh`, `.aigent/IDE/install.ps1`, `.aigent/BOSS.md`, `.aigent/departments/_shared/conventions.md` (§17, §18), `.aigent/departments/_shared/orchestrator-template.md`, `.aigent/VERSION`, `.aigent/CHANGELOG.md`.
+
+---
 ## 4.2.0 — 2026-06-09
 
 ### Skills HÍBRIDAS (librería npm) + taxonomía Prosa/Local/Híbrido + helper de bootstrap + npm bundled

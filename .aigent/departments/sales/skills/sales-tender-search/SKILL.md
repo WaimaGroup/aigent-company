@@ -58,7 +58,7 @@ El `.atom` de la PLACSP **no es una API consultable**: es sindicación masiva de
 ### Paso 1 — Buscar (`atom-search.cjs`)
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/sales/skills/sales-tender-search/atom-search.cjs \
+.aigent/IDE/bin/run node .aigent/departments/sales/skills/sales-tender-search/atom-search.cjs \
   --inputs '{
     "feedUrl": "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
     "filters": { "cpv": ["722*", "48000000"] }
@@ -72,7 +72,7 @@ Devuelve JSON por stdout con `results[]` (ver contrato abajo). El progreso de de
 Para cada licitación elegida, pasar su `documentos[]` (los `{ url, titulo, tipo }` que ya trae el resultado) a la skill compartida, con `outDir` apuntando a la carpeta de esa licitación (ver "Ruta de entregables"):
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-http-download/download.cjs \
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-http-download/download.cjs \
   --inputs '{ "outDir": "<proyecto>/sales/licitaciones/<expediente>", "documentos": <results[i].documentos> }'
 ```
 

@@ -265,7 +265,7 @@ Skill ejecutable contra la API REST de <herramienta>. Cubre <resumen>.
 Antes de llamar a `run` por primera vez en una sesión, ejecuta el precheck:
 
 ```bash
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs doctor <skill-name>
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs doctor <skill-name>
 ```
 
 - Si `data.skills[0].ready === true` → adelante, ejecuta `run`.
@@ -282,7 +282,7 @@ Antes de llamar a `run` por primera vez en una sesión, ejecuta el precheck:
 Todas se ejecutan vía:
 
 ```
-.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <skill-name> <action> --inputs '{"...": "..."}'
+.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run <skill-name> <action> --inputs '{"...": "..."}'
 ```
 
 ### <action-1>
@@ -369,14 +369,14 @@ Accept: application/json
 
 1. **Validar:**
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs validate <name>
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs validate <name>
    ```
    - Si `ok: false` → leer `error.details.errors`, corregir el SKILL.md, re-validar. Iterar hasta `ok: true`.
    - Si `ok: true` con `data.warnings` no vacío → mostrarlos al usuario y proponer corrección si son sustanciales (descripciones faltantes, inputs declarados pero no usados…).
 
 2. **Dry-run** de cada acción con inputs realistas:
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs dry-run <name> <action> --inputs '{...}'
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs dry-run <name> <action> --inputs '{...}'
    ```
    Comprobar visualmente que `method`, `url`, `headers` y `body` se renderizan correctamente. Los secrets aparecen como `***SECRET:NAME***` (real) o `***SECRET:NAME:UNSET***` (placeholder, normal hasta configurar).
 
@@ -390,7 +390,7 @@ Accept: application/json
 
 4. **Smoke test (opcional, requiere confirmación explícita):** una acción de sólo lectura (`list-*`, `get-*`) contra el endpoint real:
    ```bash
-   .aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run <name> <safe-read-action> --inputs '{...}'
+   .aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run <name> <safe-read-action> --inputs '{...}'
    ```
 
 ### Referencias canónicas v2

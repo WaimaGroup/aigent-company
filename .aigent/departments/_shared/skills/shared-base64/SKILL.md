@@ -90,7 +90,7 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
 3. **Invocar `b64.cjs decode`** desde la raíz del repo (donde vive `.context/`):
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-base64/b64.cjs decode \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-base64/b64.cjs decode \
      --input .context/.temp/<dept>/<purpose>-<TS>.b64 \
      --format <format> \
      --output <ruta-final-del-depto>/<basename>.<format>
@@ -119,7 +119,7 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
 1. **Invocar `b64.cjs encode`** desde la raíz del repo:
 
    ```bash
-   .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-base64/b64.cjs encode \
+   .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-base64/b64.cjs encode \
      --input <ruta-del-fichero-origen> \
      --output .context/.temp/<dept>/<purpose>-<TS>.b64
    ```
@@ -135,7 +135,7 @@ Si el MCP devuelve un data URI completo (`data:image/png;base64,iVBORw0K...`), e
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-base64/b64.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-base64/b64.cjs <command> [opciones]
 
 command:
   decode                   base64 (.b64) → fichero. (default si el primer arg empieza por --)

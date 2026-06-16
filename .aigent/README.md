@@ -111,7 +111,7 @@ Orquestador: `marketing-orchestrator.md`. Default de entregable: un solo `.md` (
 | Agente | Cuándo delegarle | Skills |
 |---|---|---|
 | `marketing-creative` | Copy (blog, email, anuncios, prensa), storytelling y redes sociales (copies por plataforma, calendarios, hashtags, auditoría LinkedIn), voz de marca | `marketing-copy`, `marketing-social`, `marketing-brand-voice-guide`, `shared-case-study` |
-| `marketing-planning` | Estrategia (planes, briefings, análisis competitivo, posicionamiento, KPIs/OKRs, lanzamientos) y SEO/analytics | `marketing-strategy`, `marketing-seo`, `shared-competitive-analysis`, `shared-stakeholder-map`, `shared-okr-set`, `shared-kpi-dashboard` |
+| `marketing-planning` | Estrategia (planes, briefings, análisis competitivo, posicionamiento, KPIs/OKRs, lanzamientos), SEO/analytics y GEO (citabilidad en motores de IA) | `marketing-strategy`, `marketing-seo`, `marketing-geo`, `shared-competitive-analysis`, `shared-stakeholder-map`, `shared-okr-set`, `shared-kpi-dashboard` |
 | `marketing-web` | Landing pages, WordPress/Elementor, arquitectura de información, CRO | `marketing-landing-page`, `marketing-elementor-content`, `marketing-publish-checklist` |
 
 | Skill | Entregable |
@@ -119,7 +119,8 @@ Orquestador: `marketing-orchestrator.md`. Default de entregable: un solo `.md` (
 | `marketing-copy` | Copy en 4 formatos (`blog`/`email`/`anuncio`/`prensa`): post SEO, email con 3 asuntos A/B, anuncio con variantes y límites por plataforma, o nota de prensa |
 | `marketing-social` | Redes en 3 modos: `adaptar`, `calendario` o `linkedin-audit` (alcance + copy plain-text) |
 | `marketing-strategy` | Estrategia en 2 modos: `plan` (anual/trimestral) o `brief` (campaña) |
-| `marketing-seo` | SEO en 2 modos: `research` (keyword research priorizado) u `on-page` (auditoría + versión optimizada) |
+| `marketing-seo` | SEO en 2 modos: `research` (keyword research priorizado) u `on-page` (auditoría + versión optimizada, con señales GEO ligeras) |
+| `marketing-geo` | GEO (Generative Engine Optimization) en 2 modos: `research` (mapa de prompts + ángulos citables) o `audit` (auditoría de citabilidad por motores de IA + versión optimizada + JSON-LD listo para pegar) |
 | `marketing-landing-page` | Estructura + copy de landing de conversión |
 | `marketing-elementor-content` | Contenido Elementor: JSON `_elementor_data` + HTML fallback + metadata + `assets/` (SVGs y PNG @2x). Page/post/landing/block, widgets core. Multi-archivo |
 | `marketing-publish-checklist` | Checklist SEO + UX + técnico antes de publicar en WordPress |
@@ -293,7 +294,7 @@ Orquestador stub honesto; los 4 agentes (`operations-processes`, `operations-aut
 |---|---|
 | `operations-redmine` (v2) | Skill ejecutable contra la API REST de Redmine. 10 acciones: `list-issues`, `get-issue`, `create-issue`, `update-issue`, `add-note`, `list-projects`, `log-time`, `list-activities`, `list-time-entries`, `update-time-entry` |
 
-> Se ejecuta vía `.aigent/IDE/bin/run .aigent/v2/engine/engine.cjs run operations-redmine <action>` aunque los agentes del dept no estén implementados todavía.
+> Se ejecuta vía `.aigent/IDE/bin/run node .aigent/v2/engine/engine.cjs run operations-redmine <action>` aunque los agentes del dept no estén implementados todavía.
 
 ### DevOps — 🚧 TODO
 
@@ -317,7 +318,7 @@ Convenciones detalladas y estructura de `config.json` en `_shared/conventions.md
 Las skills con script (`.cjs`/`.mjs`) y el engine v2 **nunca se invocan con `node` a secas**, sino a través del launcher:
 
 ```
-.aigent/IDE/bin/run <script> [args...]
+.aigent/IDE/bin/run node <script> [args...]
 ```
 
 Los IDEs (Claude Code, OpenCode) se distribuyen como binarios nativos con runtime embebido **no expuesto en el `PATH`**, así que no hay garantía de que el usuario tenga `node`. El launcher lo resuelve dinámicamente: Node **bundled** en `IDE/bin/deps/node[.exe]` → fallback a `node` del sistema en `PATH` → suelo de versión Node ≥ 20 → error claro.

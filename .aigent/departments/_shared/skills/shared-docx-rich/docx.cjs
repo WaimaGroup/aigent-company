@@ -5,7 +5,10 @@
 // Skill HÍBRIDA: a diferencia de `shared-office-writer` (cero-dependencias,
 // OOXML a mano, alcance "Práctico"), esta skill instala y usa la librería
 // `docx` para romper el techo de formato: IMÁGENES embebidas, header/footer
-// con numeración de página, saltos de página, colores y tamaños de fuente.
+// con numeración de página, saltos de página, colores y tamaños de fuente,
+// tablas con estilo (cabecera sombreada, zebra, anchos de columna, márgenes
+// de celda), secciones apaisadas y un ESTILO DE CASA por defecto (tipografía
+// legible, interlineado, headings con color corporativo).
 //
 // El script es la parte determinista del híbrido (spec JSON -> documento);
 // la prosa del SKILL.md guía cómo extenderlo cuando el caso excede el spec.
@@ -21,10 +24,24 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 
 // --- dependencia declarada (pin) --------------------------------------------
 const DEP = { name: 'docx', version: '9.7.1' };
+
+// --- estilo de casa (theme por defecto; sobreescribible vía spec.theme) -----
+const THEME = {
+  primary: '1F4E79',     // azul oscuro — headings H1, cabeceras de tabla
+  secondary: '2E74B5',   // azul medio  — H2, hipervínculos, reglas
+  text: '262626',        // texto base
+  gray: '595959',        // texto secundario (header/footer, notas)
+  lightGray: 'D9D9D9',   // bordes de tabla y reglas de header/footer
+  zebra: 'EDF3F9',       // relleno de filas alternas
+  font: 'Calibri',
+  headingFont: 'Calibri Light',
+  baseSize: 11,          // pt
+  lineSpacing: 300,      // 1.25 (240 = sencillo)
+  paragraphAfter: 160    // twips de espacio tras párrafo
+};
 
 // ---------------------------------------------------------------------------
 // Salida JSON
@@ -51,6 +68,10 @@ function help() {
     '  --no-install     No instala `docx` si falta (falla con DEP_MISSING).',
     '  --help, -h       Esta ayuda.',
     '',
+    'Spec: ver SKILL.md. Aplica un estilo de casa por defecto (theme) con',
+    'tipografía legible, headings con color, tablas con cabecera sombreada,',
+    'zebra y anchos de columna, y soporta secciones apaisadas (spec.sections).',
+    '',
     'Output: JSON a stdout. Exit 0 si ok, 1 si error.'
   ].join('\n') + '\n');
 }
@@ -60,8 +81,6 @@ function help() {
 // ---------------------------------------------------------------------------
 const SKILL_REL = '.aigent/departments/_shared/skills/shared-docx-rich/docx.cjs';
 
-// Toda skill híbrida obtiene su librería por el helper único lib-bootstrap.cjs
-// (caché .context/libs, npm bundled-or-system, gitignore). No se duplica aquí.
 function ensureDep(autoInstall) {
   const boot = path.join(process.cwd(), '.aigent', 'IDE', 'bin', 'lib-bootstrap.cjs');
   let lib;
@@ -103,11 +122,25 @@ function readSpec(args) {
 function buildDoc(D, spec) {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, Header, Footer,
           AlignmentType, Table, TableRow, TableCell, WidthType, PageNumber, BorderStyle,
-          ExternalHyperlink, PageBreak } = D;
+          ExternalHyperlink, PageBreak, ShadingType, VerticalAlign, PageOrientation } = D;
+
+  const theme = Object.assign({}, THEME, spec.theme || {});
+  const hex = c => String(c).replace('#', '');
 
   const HEADINGS = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3,
                      4: HeadingLevel.HEADING_4, 5: HeadingLevel.HEADING_5, 6: HeadingLevel.HEADING_6 };
   const ALIGN = { left: AlignmentType.LEFT, right: AlignmentType.RIGHT, center: AlignmentType.CENTER, justify: AlignmentType.JUSTIFIED };
+
+  // usable width (twips) según orientación A4 con márgenes de 1" (1440)
+  const USABLE = { portrait: 11906 - 2880, landscape: 16838 - 2880 };
+
+  const cellBorders = {
+    top: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.lightGray) },
+    bottom: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.lightGray) },
+    left: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.lightGray) },
+    right: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.lightGray) }
+  };
+  const cellMargins = { top: 100, bottom: 100, left: 140, right: 140 };
 
   function imgData(img) {
     if (img.path) {
@@ -128,80 +161,176 @@ function buildDoc(D, spec) {
     return new ImageRun({ type: imgType(img), data: imgData(img),
       transformation: { width: Number(img.width) || 200, height: Number(img.height) || 120 } });
   }
-  function makeRun(r) {
-    if (typeof r === 'string') return new TextRun(r);
+  function makeRun(r, defaults) {
+    if (typeof r === 'string') r = { text: r };
     const opts = { text: r.text != null ? String(r.text) : '' };
-    if (r.bold) opts.bold = true;
+    const d = defaults || {};
+    if (r.bold || d.bold) opts.bold = true;
     if (r.italic) opts.italics = true;
     if (r.underline) opts.underline = {};
-    if (r.color) opts.color = String(r.color).replace('#', '');
-    if (r.size) opts.size = Number(r.size) * 2; // half-points
-    const run = new TextRun(opts);
-    if (r.link) return new ExternalHyperlink({ children: [new TextRun(Object.assign({}, opts, { style: 'Hyperlink' }))], link: r.link });
-    return run;
+    if (r.color) opts.color = hex(r.color); else if (d.color) opts.color = hex(d.color);
+    if (r.size) opts.size = Number(r.size) * 2; else if (d.size) opts.size = Number(d.size) * 2; // half-points
+    if (r.link) {
+      if (!opts.color) opts.color = hex(theme.secondary);
+      opts.underline = opts.underline || {};
+      return new ExternalHyperlink({ children: [new TextRun(opts)], link: r.link });
+    }
+    return new TextRun(opts);
   }
-  function makeParagraph(b) {
+  function paragraphOpts(b) {
     const opts = {};
     if (b.align && ALIGN[b.align]) opts.alignment = ALIGN[b.align];
-    if (b.runs) opts.children = b.runs.map(makeRun);
+    if (b.spacing) opts.spacing = {
+      before: b.spacing.before != null ? Number(b.spacing.before) * 20 : undefined, // pt -> twips
+      after: b.spacing.after != null ? Number(b.spacing.after) * 20 : undefined
+    };
+    if (b.bullet) opts.bullet = { level: b.bullet === true ? 0 : Number(b.bullet) || 0 };
+    if (b.pageBreakBefore) opts.pageBreakBefore = true;
+    return opts;
+  }
+  function makeParagraph(b) {
+    const opts = paragraphOpts(b);
+    if (b.runs) opts.children = b.runs.map(r => makeRun(r));
     else if (b.image) opts.children = [imageRun(b.image)];
     else {
       const t = { text: b.text != null ? String(b.text) : '' };
-      if (b.bold) t.bold = true; if (b.italic) t.italics = true; if (b.underline) t.underline = {};
-      if (b.color) t.color = String(b.color).replace('#', ''); if (b.size) t.size = Number(b.size) * 2;
-      opts.children = [new TextRun(t)];
+      if (b.bold) t.bold = true; if (b.italic) t.italic = true; if (b.underline) t.underline = true;
+      if (b.color) t.color = b.color; if (b.size) t.size = b.size;
+      opts.children = [makeRun(t)];
     }
     return new Paragraph(opts);
   }
-  function cellRuns(cell) {
-    if (Array.isArray(cell)) return cell.map(makeRun);
-    if (cell && typeof cell === 'object') return [makeRun(cell)];
-    return [new TextRun(String(cell == null ? '' : cell))];
-  }
-  function makeTable(b) {
-    const rows = b.rows || [];
-    const trs = rows.map(function (row, ri) {
-      const cells = (Array.isArray(row) ? row : [row]).map(function (cell) {
-        const runs = cellRuns(cell).map(function (r) {
-          if (b.header && ri === 0 && r instanceof TextRun) { return r; }
-          return r;
-        });
-        return new TableCell({ children: [new Paragraph({ children: runs })] });
-      });
-      return new TableRow({ children: cells, tableHeader: !!(b.header && ri === 0) });
+  function makeCell(c, opts) {
+    // celda = string | run | array de runs | { runs|text, align, fill }
+    let runs, align, fill;
+    if (Array.isArray(c)) runs = c.map(r => makeRun(r, opts.runDefaults));
+    else if (c && typeof c === 'object' && (c.runs || c.align || c.fill)) {
+      runs = (c.runs ? c.runs : [{ text: c.text != null ? c.text : '' }]).map(r => makeRun(r, opts.runDefaults));
+      align = c.align; fill = c.fill;
+    }
+    else runs = [makeRun(c == null ? '' : c, opts.runDefaults)];
+    const pOpts = { children: runs };
+    if (align && ALIGN[align]) pOpts.alignment = ALIGN[align];
+    const shadeFill = fill || opts.fill;
+    return new TableCell({
+      children: [new Paragraph(pOpts)],
+      borders: cellBorders,
+      margins: cellMargins,
+      verticalAlign: VerticalAlign.CENTER,
+      shading: shadeFill ? { type: ShadingType.CLEAR, fill: hex(shadeFill) } : undefined
     });
-    return new Table({ rows: trs, width: { size: 100, type: WidthType.PERCENTAGE } });
   }
-  function makeBlock(b) {
+  function makeTable(b, orientation) {
+    const rows = b.rows || [];
+    const headerFill = b.headerFill != null ? b.headerFill : theme.primary;
+    const trs = rows.map(function (row, ri) {
+      const isHead = !!(b.header && ri === 0);
+      const cells = (Array.isArray(row) ? row : [row]).map(function (c, ci) {
+        const opts = {};
+        if (isHead) { opts.fill = headerFill; opts.runDefaults = { bold: true, color: 'FFFFFF' }; }
+        else {
+          if (b.zebra && (b.header ? ri % 2 === 0 : ri % 2 === 1)) opts.fill = theme.zebra;
+          if (b.firstColumnShaded && ci === 0) { opts.fill = theme.zebra; opts.runDefaults = { bold: true, color: theme.primary }; }
+        }
+        return makeCell(c, opts);
+      });
+      return new TableRow({ children: cells, tableHeader: isHead });
+    });
+    const tableOpts = { rows: trs, width: { size: 100, type: WidthType.PERCENTAGE } };
+    if (Array.isArray(b.widths) && b.widths.length) {
+      const usable = USABLE[orientation === 'landscape' ? 'landscape' : 'portrait'];
+      const sum = b.widths.reduce((a, w) => a + Number(w), 0) || 1;
+      tableOpts.columnWidths = b.widths.map(w => Math.round(Number(w) / sum * usable));
+    }
+    return new Table(tableOpts);
+  }
+  function makeBlock(b, orientation) {
     if (typeof b === 'string') return makeParagraph({ text: b });
     switch (b.type) {
-      case 'heading': return new Paragraph({ heading: HEADINGS[b.level || 1] || HeadingLevel.HEADING_1,
-                                             children: [new TextRun(String(b.text || ''))] });
+      case 'heading': {
+        const opts = paragraphOpts(b);
+        opts.heading = HEADINGS[b.level || 1] || HeadingLevel.HEADING_1;
+        opts.children = b.runs ? b.runs.map(r => makeRun(r)) : [new TextRun(String(b.text || ''))];
+        return new Paragraph(opts);
+      }
       case 'paragraph': return makeParagraph(b);
       case 'image': return makeParagraph({ image: b, align: b.align });
-      case 'table': return makeTable(b);
+      case 'table': return makeTable(b, orientation);
       case 'pagebreak': return new Paragraph({ children: [new PageBreak()] });
       default: emitError('BAD_SPEC', "Tipo de bloque docx desconocido: '" + b.type + "'");
     }
   }
 
-  // header / footer
-  const section = { children: (spec.body || []).map(makeBlock) };
-  if (spec.header) {
+  // header / footer (compartidos por todas las secciones; estilo de casa)
+  function makeHeader() {
+    if (!spec.header) return null;
     const kids = [];
     if (spec.header.image) kids.push(new Paragraph({ alignment: ALIGN[spec.header.align] || AlignmentType.RIGHT, children: [imageRun(spec.header.image)] }));
-    if (spec.header.text) kids.push(new Paragraph({ alignment: ALIGN[spec.header.align] || AlignmentType.LEFT, children: [new TextRun(String(spec.header.text))] }));
-    if (kids.length) section.headers = { default: new Header({ children: kids }) };
+    if (spec.header.text) kids.push(new Paragraph({
+      alignment: ALIGN[spec.header.align] || AlignmentType.RIGHT,
+      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.lightGray) } },
+      children: [new TextRun({ text: String(spec.header.text), color: hex(theme.gray), size: 16 })]
+    }));
+    return kids.length ? new Header({ children: kids }) : null;
   }
-  if (spec.footer) {
-    const kids = [];
-    if (spec.footer.text) kids.push(new Paragraph({ alignment: ALIGN[spec.footer.align] || AlignmentType.CENTER, children: [new TextRun(String(spec.footer.text))] }));
-    if (spec.footer.pageNumbers) kids.push(new Paragraph({ alignment: AlignmentType.CENTER,
-      children: [new TextRun('Página '), new TextRun({ children: [PageNumber.CURRENT] }), new TextRun(' de '), new TextRun({ children: [PageNumber.TOTAL_PAGES] })] }));
-    if (kids.length) section.footers = { default: new Footer({ children: kids }) };
+  function makeFooter() {
+    if (!spec.footer) return null;
+    const runs = [];
+    if (spec.footer.text) runs.push(new TextRun({ text: String(spec.footer.text) + (spec.footer.pageNumbers ? '    ·    ' : ''), color: hex(theme.gray), size: 16 }));
+    if (spec.footer.pageNumbers) runs.push(
+      new TextRun({ text: 'Página ', color: hex(theme.gray), size: 16 }),
+      new TextRun({ children: [PageNumber.CURRENT], color: hex(theme.gray), size: 16 }),
+      new TextRun({ text: ' de ', color: hex(theme.gray), size: 16 }),
+      new TextRun({ children: [PageNumber.TOTAL_PAGES], color: hex(theme.gray), size: 16 })
+    );
+    if (!runs.length) return null;
+    return new Footer({ children: [new Paragraph({
+      alignment: ALIGN[spec.footer.align] || AlignmentType.CENTER,
+      border: { top: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.lightGray) } },
+      children: runs
+    })] });
   }
 
-  const doc = new Document({ creator: spec.creator || 'Aigent', title: spec.title || '', sections: [section] });
+  // secciones: spec.sections [{ orientation, body }] o atajo spec.body (1 sección portrait)
+  const sectionSpecs = Array.isArray(spec.sections) && spec.sections.length
+    ? spec.sections
+    : [{ body: spec.body || [] }];
+  const hdr = makeHeader(), ftr = makeFooter();
+  const sections = sectionSpecs.map(function (s) {
+    if (!Array.isArray(s.body)) emitError('BAD_SPEC', 'Cada sección necesita un array `body`.');
+    const orientation = s.orientation === 'landscape' ? 'landscape' : 'portrait';
+    const sec = { properties: {}, children: s.body.map(b => makeBlock(b, orientation)) };
+    if (orientation === 'landscape') sec.properties.page = { size: { orientation: PageOrientation.LANDSCAPE } };
+    if (hdr) sec.headers = { default: hdr };
+    if (ftr) sec.footers = { default: ftr };
+    return sec;
+  });
+
+  const doc = new Document({
+    creator: spec.creator || 'Aigent',
+    title: spec.title || '',
+    styles: {
+      default: {
+        document: {
+          run: { font: theme.font, size: Number(theme.baseSize) * 2, color: hex(theme.text) },
+          paragraph: { spacing: { after: Number(theme.paragraphAfter), line: Number(theme.lineSpacing) } }
+        }
+      },
+      paragraphStyles: [
+        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run: { font: theme.headingFont, size: 32, bold: true, color: hex(theme.primary) },
+          paragraph: { spacing: { before: 360, after: 200 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: hex(theme.secondary) } } } },
+        { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run: { font: theme.headingFont, size: 26, bold: true, color: hex(theme.secondary) },
+          paragraph: { spacing: { before: 300, after: 140 } } },
+        { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run: { font: theme.headingFont, size: 23, bold: true, color: hex(theme.text) },
+          paragraph: { spacing: { before: 240, after: 120 } } }
+      ]
+    },
+    sections: sections
+  });
   return Packer.toBuffer(doc);
 }
 
@@ -222,14 +351,16 @@ function main() {
 
   const spec = readSpec(args);
   if (!spec || typeof spec !== 'object') emitError('BAD_SPEC', 'El spec debe ser un objeto.');
-  if (!Array.isArray(spec.body)) emitError('BAD_SPEC', 'El spec necesita un array `body`.');
+  if (!Array.isArray(spec.body) && !Array.isArray(spec.sections)) emitError('BAD_SPEC', 'El spec necesita un array `body` o un array `sections`.');
 
   const { module: D, installed } = ensureDep(!args.noInstall);
 
   buildDoc(D, spec).then(function (buf) {
     fs.mkdirSync(path.dirname(path.resolve(args.output)), { recursive: true });
     fs.writeFileSync(args.output, buf);
-    emitOk({ op: 'build', path: args.output, bytes: buf.length, blocks: spec.body.length, dep_installed_now: installed });
+    const blocks = Array.isArray(spec.body) ? spec.body.length
+      : spec.sections.reduce((a, s) => a + (Array.isArray(s.body) ? s.body.length : 0), 0);
+    emitOk({ op: 'build', path: args.output, bytes: buf.length, blocks: blocks, dep_installed_now: installed });
   }).catch(function (e) {
     emitError('INTERNAL', 'Error generando el .docx: ' + (e && e.message ? e.message : String(e)));
   });

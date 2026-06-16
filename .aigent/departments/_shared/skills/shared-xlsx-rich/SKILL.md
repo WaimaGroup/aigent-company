@@ -38,6 +38,8 @@ shared-xlsx-rich/
 
 El script es **parte del contrato**. Si la prosa diverge del script, gana el script.
 
+**Principio de diseño (espejo de `shared-docx-rich`):** el script es **genérico y bonito por defecto**. Genérico: solo primitivas neutras (hojas, filas, celdas, merges, imágenes) — nada de lógica de dominio (la composición vive en el spec que emite el caller). Bonito por defecto: con `header: true` la hoja sale ya con cabecera sombreada (`theme.primary`, texto blanco negrita) e **inmovilizada**, **autofiltro**, **bordes finos** y **anchos de columna automáticos** sin pedir nada; `theme` permite desviarse. Ampliar la skill = añadir primitivas genéricas, nunca plantillas de un caso concreto.
+
 ---
 
 ## El patrón híbrido (compartido con docx-rich y pdf-toolkit)
@@ -56,6 +58,7 @@ La dependencia se obtiene **siempre** por el helper único `.aigent/IDE/bin/lib-
 
 - El Excel necesita **colores de celda** (fills), **celdas combinadas**, **bordes** a medida, **paneles congelados** o **imágenes** embebidas.
 - Un dashboard, un presupuesto con totales resaltados, un export con cabecera de color y logo.
+- Quieres un export tabular que salga **presentable sin esfuerzo** (cabecera de color, freeze, autofiltro, zebra) — basta `header: true`.
 
 **Cuándo NO usar:**
 
@@ -71,7 +74,7 @@ La dependencia se obtiene **siempre** por el helper único `.aigent/IDE/bin/lib-
 Una vez por sesión antes del primer `build`:
 
 ```bash
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-xlsx-rich/xlsx.cjs deps
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-xlsx-rich/xlsx.cjs deps
 ```
 
 `ok: false, code: DEP_UNAVAILABLE` → no hay npm: no reintentar, caer a `shared-office-writer`.
@@ -83,15 +86,15 @@ Una vez por sesión antes del primer `build`:
 ```json
 {
   "title": "Presupuesto", "creator": "Aigent",
+  "theme": { "primary": "1F4E79", "zebra": "EDF3F9", "baseSize": 11 },
   "sheets": [
     {
       "name": "Resumen",
       "header": true,
-      "freeze": { "rows": 1, "cols": 0 },
-      "columns": [ { "width": 26 }, { "width": 16 } ],
+      "zebra": true,
       "rows": [
-        [ { "value": "Concepto", "fill": "305496", "color": "FFFFFF" }, { "value": "Importe", "fill": "305496", "color": "FFFFFF" } ],
-        [ "Alpha", { "value": 1250.5, "numFmt": "#,##0.00 €", "border": true } ],
+        [ "Concepto", "Importe" ],
+        [ "Alpha", { "value": 1250.5, "numFmt": "#,##0.00 €", "align": "right" } ],
         [ { "value": "TOTAL", "bold": true, "fill": "FFF2CC" }, { "formula": "SUM(B2:B2)", "value": 1250.5, "numFmt": "#,##0.00 €", "bold": true } ]
       ],
       "merges": [ "A4:B4" ],
@@ -101,19 +104,22 @@ Una vez por sesión antes del primer `build`:
 }
 ```
 
-- Atajo de una hoja: `rows` (+ opcional `name`/`header`/`columns`/`freeze`/`merges`/`image`) en la raíz, sin `sheets`.
-- **Celda** = primitivo (string/number/bool) **o** objeto `{ value, type?, formula?, bold, italic, color, fill, size, numFmt, align, border }`.
+> Con `header: true` la primera fila **no necesita** estilar a mano: sale sombreada con `theme.primary`, texto blanco en negrita, inmovilizada y con autofiltro. Las demás filas reciben bordes finos y, si `zebra: true`, relleno alterno. Los anchos se autoajustan al contenido (salvo `columns[].width`). En el ejemplo solo se estiló lo que se desvía del default (la fila TOTAL).
+
+- Atajo de una hoja: `rows` (+ opcional `name`/`header`/`zebra`/`columns`/`freeze`/`merges`/`image`) en la raíz, sin `sheets`.
+- **Estilo de casa (`theme`, opcional):** sobreescribible campo a campo — `{ primary, secondary, text, gray, lightGray, zebra, headerText, font, baseSize (pt) }`. Mismos nombres que `shared-docx-rich`.
+- **Celda** = primitivo (string/number/bool) **o** objeto `{ value, type?, formula?, bold, italic, color, fill, size, numFmt, align, wrap, border }`.
   - `type: "date"` con `value` parseable por `new Date(...)` → fecha (formato `yyyy-mm-dd` salvo `numFmt`).
   - `formula` sin `=` inicial; `value` es el valor cacheado opcional.
-  - `color` = color de fuente (hex sin `#`); `fill` = color de fondo (hex); `border: true` = bordes finos en los 4 lados; `align` = `left|center|right`.
-- **Hoja**: `name` (saneado a reglas Excel: ≤31 chars, sin `\ / ? * [ ] :`), `header: true` (primera fila en negrita), `columns[].width`, `freeze: { rows, cols }` (paneles congelados), `merges: [ "A1:C1", ... ]`, `image: { path|data, format, range }`.
+  - `color` = color de fuente (hex sin `#`); `fill` = color de fondo (hex, prevalece sobre zebra); `align` = `left|center|right`; `wrap: true` = ajuste de texto. `numFmt` para formato numérico/€/fecha (no se fuerza ninguno por defecto, para no alterar años/IDs). `border: true` se mantiene por compatibilidad (los bordes ya van por defecto).
+- **Hoja**: `name` (saneado a reglas Excel: ≤31 chars, sin `\ / ? * [ ] :`), `header: true` (cabecera de casa + freeze + autofiltro), `zebra: true` (filas alternas), `borders: false` (desactiva los bordes por defecto), `columns[].width` (ancho fijo; si se omite, automático), `freeze: { rows, cols }` (sobreescribe el freeze automático de cabecera), `merges: [ "A1:C1", ... ]`, `image: { path|data, format, range }`.
 
 ---
 
 ## Contrato CLI
 
 ```
-.aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-xlsx-rich/xlsx.cjs <command> [opciones]
+.aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-xlsx-rich/xlsx.cjs <command> [opciones]
 
 command:
   build                    construye un .xlsx desde un spec JSON.

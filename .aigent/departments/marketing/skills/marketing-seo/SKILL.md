@@ -24,7 +24,9 @@ description: >
 
 Si el modo no está claro, preguntarlo en la primera tanda.
 
-**Cuándo NO usar:** checklist técnico completo pre-publicación en WordPress → `marketing-publish-checklist`.
+**Cuándo NO usar:**
+- Checklist técnico completo pre-publicación en WordPress → `marketing-publish-checklist`.
+- Trabajo GEO dedicado y profundo (citabilidad en motores generativos: ChatGPT, Perplexity, AI Overviews) → `marketing-geo`. El modo `on-page` de esta skill ya incorpora señales GEO ligeras; para un análisis GEO completo, usar `marketing-geo`.
 
 ---
 
@@ -73,6 +75,7 @@ Auditar contra el checklist y entregar la versión optimizada:
 - **Imágenes:** alt text descriptivo, nombres de archivo descriptivos, peso optimizado (WebP).
 - **Enlazado:** ≥2-3 internal links con anchor descriptivo; external links solo a fuentes de autoridad.
 - **UX (señal indirecta):** responde la intención en los primeros 2 párrafos; TOC si >1500 palabras; CTA visible.
+- **GEO (señales ligeras — citabilidad por motores de IA):** respuesta directa y auto-contenida en las primeras 1-2 frases de cada sección; algún encabezado redactado como pregunta real; datos concretos con su fuente (los motores generativos citan lo específico y verificable); autoría/fecha visibles. Para un análisis GEO completo (mapa de prompts, schema, señales de entidad), derivar a `marketing-geo`.
 
 Plantilla:
 

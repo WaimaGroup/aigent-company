@@ -9,7 +9,7 @@
  * puede subir tal cual para depurar un flujo.
  *
  * Sin dependencias externas: solo Node stdlib (fs, path). Compatible con Node 18+.
- * Invocación SIEMPRE vía el launcher: `.aigent/IDE/bin/run <ruta>/logger.cjs ...`
+ * Invocación SIEMPRE vía el launcher: `.aigent/IDE/bin/run node <ruta>/logger.cjs ...`
  * (nunca `node` a secas — convenciones §12.7-bis).
  *
  * Subcomandos: init | log | end | export | list
@@ -416,7 +416,7 @@ function cmdList(flags, contextDir) {
 const HELP = `shared-logger — registro de trabajo (debug) por proyecto
 
 USO
-  .aigent/IDE/bin/run .aigent/departments/_shared/skills/shared-logger/logger.cjs <comando> [opciones]
+  .aigent/IDE/bin/run node .aigent/departments/_shared/skills/shared-logger/logger.cjs <comando> [opciones]
 
 COMANDOS
   init      Inicia una sesión nueva (escribe un evento session_start). Devuelve session_id.
